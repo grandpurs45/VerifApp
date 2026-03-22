@@ -1,0 +1,21 @@
+# Environment
+.env
+
+# Composer
+/vendor/
+
+# Logs
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Temp files
+storage/tmp/*
+!storage/tmp/.gitkeep
+
+# Uploads
+public/uploads/*
+!public/uploads/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
