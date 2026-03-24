@@ -12,10 +12,13 @@ use Throwable;
 final class VerificationRepository
 {
     private ?bool $anomaliesTableExists = null;
+    private ?bool $usersTableExists = null;
+    private ?bool $utilisateurColumnExists = null;
 
     public function createWithLines(
         int $vehicleId,
         int $posteId,
+        ?int $utilisateurId,
         string $agent,
         ?string $globalComment,
         array $lines
@@ -35,20 +38,38 @@ final class VerificationRepository
         try {
             $connection->beginTransaction();
 
-            $verificationStatement = $connection->prepare(
-                '
-                INSERT INTO verifications (vehicule_id, poste_id, agent, date_heure, statut_global, commentaire_global)
-                VALUES (:vehicule_id, :poste_id, :agent, NOW(), :statut_global, :commentaire_global)
-                '
-            );
+            if ($this->hasUtilisateurColumn()) {
+                $verificationStatement = $connection->prepare(
+                    '
+                    INSERT INTO verifications (vehicule_id, poste_id, utilisateur_id, agent, date_heure, statut_global, commentaire_global)
+                    VALUES (:vehicule_id, :poste_id, :utilisateur_id, :agent, NOW(), :statut_global, :commentaire_global)
+                    '
+                );
 
-            $verificationStatement->execute([
-                'vehicule_id' => $vehicleId,
-                'poste_id' => $posteId,
-                'agent' => $agent,
-                'statut_global' => $status,
-                'commentaire_global' => $globalComment,
-            ]);
+                $verificationStatement->execute([
+                    'vehicule_id' => $vehicleId,
+                    'poste_id' => $posteId,
+                    'utilisateur_id' => $utilisateurId,
+                    'agent' => $agent,
+                    'statut_global' => $status,
+                    'commentaire_global' => $globalComment,
+                ]);
+            } else {
+                $verificationStatement = $connection->prepare(
+                    '
+                    INSERT INTO verifications (vehicule_id, poste_id, agent, date_heure, statut_global, commentaire_global)
+                    VALUES (:vehicule_id, :poste_id, :agent, NOW(), :statut_global, :commentaire_global)
+                    '
+                );
+
+                $verificationStatement->execute([
+                    'vehicule_id' => $vehicleId,
+                    'poste_id' => $posteId,
+                    'agent' => $agent,
+                    'statut_global' => $status,
+                    'commentaire_global' => $globalComment,
+                ]);
+            }
 
             $verificationId = (int) $connection->lastInsertId();
 
@@ -105,6 +126,7 @@ final class VerificationRepository
     {
         $connection = Database::getConnection();
         $hasAnomalies = $this->hasAnomaliesTable();
+        $withUser = $this->hasUtilisateurColumn() && $this->hasUsersTable();
 
         $where = [];
         $params = [];
@@ -163,11 +185,14 @@ final class VerificationRepository
             : '0 AS anomalies_ouvertes';
         $anomalyJoin = $hasAnomalies ? 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id' : '';
 
+        $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
+        $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
+
         $sql = '
             SELECT
                 v.id,
                 v.date_heure,
-                v.agent,
+                ' . $agentSelect . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom AS vehicule_nom,
@@ -179,12 +204,13 @@ final class VerificationRepository
             INNER JOIN vehicules veh ON veh.id = v.vehicule_id
             INNER JOIN postes p ON p.id = v.poste_id
             LEFT JOIN verification_lignes vl ON vl.verification_id = v.id
+            ' . $userJoin . '
             ' . $anomalyJoin . '
             ' . $whereSql . '
             GROUP BY
                 v.id,
                 v.date_heure,
-                v.agent,
+                ' . ($withUser ? 'COALESCE(u.nom, v.agent)' : 'v.agent') . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom,
@@ -202,14 +228,19 @@ final class VerificationRepository
     public function findById(int $verificationId): ?array
     {
         $connection = Database::getConnection();
+        $withUser = $this->hasUtilisateurColumn() && $this->hasUsersTable();
+        $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
+        $userSelect = $withUser ? ', v.utilisateur_id' : ', NULL AS utilisateur_id';
+        $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
 
         $sql = '
             SELECT
                 v.id,
                 v.vehicule_id,
-                v.poste_id,
+                v.poste_id
+                ' . $userSelect . ',
                 v.date_heure,
-                v.agent,
+                ' . $agentSelect . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom AS vehicule_nom,
@@ -217,6 +248,7 @@ final class VerificationRepository
             FROM verifications v
             INNER JOIN vehicules veh ON veh.id = v.vehicule_id
             INNER JOIN postes p ON p.id = v.poste_id
+            ' . $userJoin . '
             WHERE v.id = :id
         ';
 
@@ -338,5 +370,41 @@ final class VerificationRepository
         }
 
         return $this->anomaliesTableExists;
+    }
+
+    private function hasUsersTable(): bool
+    {
+        if ($this->usersTableExists !== null) {
+            return $this->usersTableExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW TABLES LIKE 'utilisateurs'");
+            $this->usersTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->usersTableExists = false;
+        }
+
+        return $this->usersTableExists;
+    }
+
+    private function hasUtilisateurColumn(): bool
+    {
+        if ($this->utilisateurColumnExists !== null) {
+            return $this->utilisateurColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM verifications LIKE 'utilisateur_id'");
+            $this->utilisateurColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->utilisateurColumnExists = false;
+        }
+
+        return $this->utilisateurColumnExists;
     }
 }

@@ -5,10 +5,11 @@ declare(strict_types=1);
 use App\Controllers\AnomalyController;
 use App\Controllers\AuthController;
 use App\Controllers\ControleController;
+use App\Controllers\FieldAuthController;
 use App\Controllers\FieldController;
 use App\Controllers\HomeController;
-use App\Controllers\ManagerController;
 use App\Controllers\ManagerAssetController;
+use App\Controllers\ManagerController;
 use App\Controllers\PosteController;
 use App\Controllers\VehicleController;
 use App\Controllers\VerificationController;
@@ -28,6 +29,7 @@ $controllerName = isset($_GET['controller']) ? (string) $_GET['controller'] : nu
 $action = isset($_GET['action']) ? (string) $_GET['action'] : null;
 
 $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION['manager_user']);
+$isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
 $fieldToken = (string) (Env::get('FIELD_QR_TOKEN', '') ?? '');
 $hasFieldAccess = $fieldToken === '' || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
 
@@ -84,6 +86,32 @@ if ($controllerName !== null) {
 
     if ($controllerName === 'manager_auth' && $action === 'logout') {
         $controller = new AuthController();
+        $controller->logout();
+        return;
+    }
+
+    if ($controllerName === 'field_auth' && $action === 'login_form') {
+        if (!$hasFieldAccess) {
+            header('Location: /index.php?controller=field&action=denied');
+            exit;
+        }
+        $controller = new FieldAuthController();
+        $controller->loginForm();
+        return;
+    }
+
+    if ($controllerName === 'field_auth' && $action === 'login') {
+        if (!$hasFieldAccess) {
+            header('Location: /index.php?controller=field&action=denied');
+            exit;
+        }
+        $controller = new FieldAuthController();
+        $controller->login();
+        return;
+    }
+
+    if ($controllerName === 'field_auth' && $action === 'logout') {
+        $controller = new FieldAuthController();
         $controller->logout();
         return;
     }

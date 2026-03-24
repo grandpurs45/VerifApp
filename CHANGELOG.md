@@ -9,6 +9,27 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.2.0] - 2026-03-24
+
+### Added
+- Authentification verificateur (optionnelle) avec session terrain.
+- Nouvelle vue de connexion terrain (`field_login`) et logout verificateur.
+- Migration `011_add_utilisateur_to_verifications.sql` pour tracer l'utilisateur de verification.
+- Seed `003_verificateur_user.sql`.
+- Affichage automatique de la version applicative via `VERSION` / `APP_VERSION`.
+- Script de release `scripts/release.ps1` pour automatiser `VERSION + CHANGELOG`.
+
+### Changed
+- Parcours terrain mobile-first refondu (`home`, `postes`, `controles`, `verification_saved`).
+- Checklist tactile: boutons OK/NOK/NA plus lisibles, progression live, CTA sticky.
+- Saisie commentaire conditionnelle en NOK (UI).
+- Auth terrain assouplie: acces QR sans login obligatoire (login verificateur reste disponible).
+- Seeds utilisateurs rendus idempotents (`ON DUPLICATE KEY UPDATE`) pour reset credentials.
+
+### Fixed
+- Correction UX: etat visuel de selection OK/NOK/NA.
+- Stabilisation de la migration hierarchique des controles avec donnees historiques.
+
 ## [0.1.0] - 2026-03-24
 
 ### Added

@@ -10,10 +10,13 @@ Ce projet suit **Semantic Versioning**: `MAJOR.MINOR.PATCH`.
 ## Cycle de release
 1. Travailler sur `main` (ou feature branch si necessaire).
 2. Mettre a jour `CHANGELOG.md` dans `Unreleased`.
-3. Au moment de livrer:
+3. Au moment de livrer (automatique recommande):
+   - lancer `.\scripts\release.ps1 -Version X.Y.Z`
+   - ce script met a jour `VERSION` et deplace `Unreleased` vers `X.Y.Z`
+4. Finaliser Git:
    - creer une section version datee dans `CHANGELOG.md` (ex: `## [0.3.0] - 2026-03-24`)
    - creer un tag git `vX.Y.Z`
-4. Vider `Unreleased` pour le cycle suivant.
+5. `Unreleased` reste vide pour le cycle suivant.
 
 ## Convention de commits (recommandee)
 - `feat:` nouvelle fonctionnalite

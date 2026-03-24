@@ -15,7 +15,7 @@ final class FieldController
 
         if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
             $_SESSION['field_access'] = true;
-            $this->redirect('/index.php?controller=home&action=index');
+            $this->redirect('/index.php?controller=field_auth&action=login_form');
         }
 
         $this->redirect('/index.php?controller=field&action=denied');

@@ -12,3 +12,7 @@ Projet en cours de developpement.
 ## Documentation projet
 - Changelog: `CHANGELOG.md`
 - Politique de versionning: `VERSIONING.md`
+
+## Release rapide
+Commande PowerShell:
+`.\scripts\release.ps1 -Version 0.1.1`

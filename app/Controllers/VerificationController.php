@@ -17,9 +17,19 @@ final class VerificationController
             $this->redirect('/index.php');
         }
 
+        $fieldUser = $_SESSION['field_user'] ?? null;
+
         $vehicleId = isset($_POST['vehicle_id']) ? (int) $_POST['vehicle_id'] : 0;
         $posteId = isset($_POST['poste_id']) ? (int) $_POST['poste_id'] : 0;
-        $agent = trim((string) ($_POST['agent'] ?? ''));
+        $agent = '';
+        $utilisateurId = null;
+
+        if (is_array($fieldUser) && isset($fieldUser['id'], $fieldUser['nom'])) {
+            $agent = trim((string) $fieldUser['nom']);
+            $utilisateurId = (int) $fieldUser['id'];
+        } else {
+            $agent = trim((string) ($_POST['agent'] ?? ''));
+        }
         $globalComment = trim((string) ($_POST['commentaire_global'] ?? ''));
 
         $vehicleRepository = new VehicleRepository();
@@ -70,6 +80,7 @@ final class VerificationController
         $verificationId = $verificationRepository->createWithLines(
             $vehicleId,
             $posteId,
+            $utilisateurId,
             $agent,
             $globalComment === '' ? null : $globalComment,
             $lines

@@ -13,10 +13,13 @@ $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';
 $errorMessage = null;
 
 if ($errorCode === 'agent_required') {
-    $errorMessage = 'Le nom du verificateur est obligatoire.';
+    $errorMessage = 'Nom du verificateur obligatoire.';
 } elseif ($errorCode === 'incomplete') {
-    $errorMessage = 'Chaque controle doit etre renseigne (OK/NOK/NA).';
+    $errorMessage = 'Tous les controles doivent etre renseignes.';
 }
+
+$fieldUser = $_SESSION['field_user'] ?? null;
+$totalControles = count($controles);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -25,117 +28,143 @@ if ($errorCode === 'agent_required') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controles - VerifApp</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: "Barlow", sans-serif; }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-900">
-    <main class="max-w-3xl mx-auto p-4 md:p-8 pb-20">
-        <header class="mb-6">
+<body class="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+    <main class="mx-auto w-full max-w-md px-4 pb-32 pt-5">
+        <header class="mb-5 rounded-3xl border border-slate-700/80 bg-slate-800/85 p-4 shadow-lg">
             <?php if ($vehicle !== null): ?>
-                <a href="/index.php?controller=postes&action=list&vehicle_id=<?= (int) $vehicle['id'] ?>" class="text-sm text-slate-500 hover:text-slate-700">
-                    <- Retour aux postes
+                <a href="/index.php?controller=postes&action=list&vehicle_id=<?= (int) $vehicle['id'] ?>" class="inline-flex rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">
+                    <- Retour postes
                 </a>
             <?php else: ?>
-                <a href="/index.php?controller=home&action=index" class="text-sm text-slate-500 hover:text-slate-700">
-                    <- Retour a la liste des vehicules
+                <a href="/index.php?controller=home&action=index" class="inline-flex rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">
+                    <- Retour vehicules
                 </a>
             <?php endif; ?>
 
-            <h1 class="text-3xl font-bold mt-2">Checklist du poste</h1>
+            <p class="mt-4 text-xs uppercase tracking-[0.18em] text-amber-300">Etape 3</p>
+            <h1 class="mt-1 text-2xl font-extrabold text-white">Checklist du poste</h1>
 
             <?php if ($vehicle !== null && $poste !== null): ?>
-                <p class="text-slate-600 mt-2">
-                    Vehicule : <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
-                </p>
-                <p class="text-slate-600">
-                    Poste : <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
+                <p class="mt-2 text-sm text-slate-300">
+                    <span class="font-semibold text-white"><?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="mx-1 text-slate-500">/</span>
+                    <span class="font-semibold text-white"><?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?></span>
                 </p>
             <?php endif; ?>
+
+            <div class="mt-4">
+                <div class="mb-1 flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span>Progression</span>
+                    <span id="progressText">0 / <?= $totalControles ?></span>
+                </div>
+                <div class="h-2 overflow-hidden rounded-full bg-slate-700">
+                    <div id="progressBar" class="h-full w-0 rounded-full bg-amber-300 transition-all"></div>
+                </div>
+            </div>
         </header>
 
         <?php if ($vehicle === null): ?>
-            <section class="bg-white rounded-2xl shadow p-6">
-                <p class="text-slate-500">Vehicule introuvable.</p>
+            <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-5 shadow-lg">
+                <p class="text-base font-semibold text-white">Vehicule introuvable.</p>
             </section>
         <?php elseif ($poste === null): ?>
-            <section class="bg-white rounded-2xl shadow p-6">
-                <p class="text-slate-500">Poste introuvable pour ce vehicule.</p>
+            <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-5 shadow-lg">
+                <p class="text-base font-semibold text-white">Poste introuvable pour ce vehicule.</p>
             </section>
         <?php elseif ($controles === []): ?>
-            <section class="bg-white rounded-2xl shadow p-6">
-                <p class="text-slate-500">Aucun controle actif pour ce poste.</p>
+            <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-5 shadow-lg">
+                <p class="text-base font-semibold text-white">Aucun controle actif pour ce poste.</p>
             </section>
         <?php else: ?>
             <?php if ($errorMessage !== null): ?>
-                <section class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+                <section class="mb-4 rounded-2xl border border-red-300 bg-red-100 p-4 text-red-800 shadow">
                     <?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?>
                 </section>
             <?php endif; ?>
 
-            <form method="post" action="/index.php?controller=verifications&action=store" class="space-y-6">
+            <form method="post" action="/index.php?controller=verifications&action=store" class="space-y-4" id="checklistForm">
                 <input type="hidden" name="vehicle_id" value="<?= (int) $vehicle['id'] ?>">
                 <input type="hidden" name="poste_id" value="<?= (int) $poste['id'] ?>">
 
-                <section class="bg-white rounded-2xl shadow p-4 md:p-6 space-y-4">
-                    <div>
-                        <label for="agent" class="text-sm font-medium text-slate-700">Verificateur</label>
-                        <input
-                            id="agent"
-                            name="agent"
-                            type="text"
-                            required
-                            class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-base"
-                            placeholder="Nom et prenom"
-                        >
-                    </div>
+                <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg space-y-4">
+                    <?php if (is_array($fieldUser) && isset($fieldUser['nom'])): ?>
+                        <p class="text-sm font-medium text-slate-200">
+                            Verificateur : <span class="font-extrabold text-white"><?= htmlspecialchars((string) $fieldUser['nom'], ENT_QUOTES, 'UTF-8') ?></span>
+                        </p>
+                    <?php else: ?>
+                        <div>
+                            <label for="agent" class="text-sm font-semibold text-slate-200">Nom du verificateur</label>
+                            <input
+                                id="agent"
+                                name="agent"
+                                type="text"
+                                required
+                                class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white"
+                                placeholder="Nom et prenom"
+                            >
+                        </div>
+                    <?php endif; ?>
 
                     <div>
-                        <label for="commentaire_global" class="text-sm font-medium text-slate-700">Commentaire global (optionnel)</label>
+                        <label for="commentaire_global" class="text-sm font-semibold text-slate-200">Commentaire global (optionnel)</label>
                         <textarea
                             id="commentaire_global"
                             name="commentaire_global"
-                            rows="3"
-                            class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-base"
-                            placeholder="Informations utiles sur la verification"
+                            rows="2"
+                            class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white"
+                            placeholder="Info generale utile"
                         ></textarea>
                     </div>
                 </section>
 
                 <?php foreach ($controlesParZone as $zone => $controlesZone): ?>
-                    <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-                        <h2 class="text-xl font-semibold mb-4">
-                            <?= htmlspecialchars($zone, ENT_QUOTES, 'UTF-8') ?>
-                        </h2>
+                    <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg">
+                        <h2 class="mb-3 text-lg font-extrabold text-amber-200"><?= htmlspecialchars($zone, ENT_QUOTES, 'UTF-8') ?></h2>
 
                         <ul class="space-y-4">
                             <?php foreach ($controlesZone as $controle): ?>
                                 <?php $controleId = (int) $controle['id']; ?>
-                                <li class="border border-slate-200 rounded-xl p-4">
-                                    <p class="font-medium mb-3">
-                                        <?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?>
-                                    </p>
+                                <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card>
+                                    <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?></p>
 
-                                    <div class="grid grid-cols-3 gap-2 text-sm font-semibold">
-                                        <label class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="sr-only" required>
-                                            OK
+                                    <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                            <span class="block rounded-xl border border-emerald-400 bg-emerald-200/20 px-2 py-4 text-center text-emerald-100 transition peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                OK
+                                            </span>
                                         </label>
-                                        <label class="rounded-lg border border-red-300 bg-red-50 p-3 text-center cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="sr-only" required>
-                                            NOK
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                            <span class="block rounded-xl border border-red-400 bg-red-200/20 px-2 py-4 text-center text-red-100 transition peer-checked:bg-red-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                NOK
+                                            </span>
                                         </label>
-                                        <label class="rounded-lg border border-slate-300 bg-slate-50 p-3 text-center cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="na" class="sr-only" required>
-                                            NA
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="na" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                            <span class="block rounded-xl border border-slate-400 bg-slate-300/20 px-2 py-4 text-center text-slate-100 transition peer-checked:bg-slate-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                NA
+                                            </span>
                                         </label>
                                     </div>
 
-                                    <div class="mt-3">
-                                        <label for="commentaire_<?= $controleId ?>" class="text-sm text-slate-600">Commentaire</label>
+                                    <div class="mt-3 hidden" data-comment-wrap="<?= $controleId ?>">
+                                        <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-red-200">
+                                            Commentaire NOK (obligatoire)
+                                        </label>
                                         <textarea
                                             id="commentaire_<?= $controleId ?>"
                                             name="commentaires[<?= $controleId ?>]"
                                             rows="2"
-                                            class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                                            placeholder="Precision utile (obligatoire en cas de NOK)"
+                                            class="mt-1 w-full rounded-xl border border-red-400 bg-slate-900 px-3 py-2 text-sm text-white"
+                                            placeholder="Explique l'anomalie constatee"
                                         ></textarea>
                                     </div>
                                 </li>
@@ -144,16 +173,69 @@ if ($errorCode === 'agent_required') {
                     </section>
                 <?php endforeach; ?>
 
-                <div class="sticky bottom-0 py-3">
-                    <button
-                        type="submit"
-                        class="w-full rounded-xl bg-slate-900 text-white px-5 py-4 text-base font-semibold shadow-lg"
-                    >
-                        Enregistrer la verification
-                    </button>
+                <div class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-700 bg-slate-900/95 p-3 backdrop-blur">
+                    <div class="mx-auto w-full max-w-md">
+                        <button type="submit" class="w-full rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">
+                            Enregistrer la verification
+                        </button>
+                        <p class="mt-2 text-center text-xs font-semibold text-slate-300">
+                            Controles completes : <span id="progressBottom">0 / <?= $totalControles ?></span>
+                        </p>
+                    </div>
                 </div>
             </form>
         <?php endif; ?>
     </main>
+
+    <script>
+        (function () {
+            const total = <?= $totalControles ?>;
+            const radios = Array.from(document.querySelectorAll('.control-radio'));
+            const progressText = document.getElementById('progressText');
+            const progressBottom = document.getElementById('progressBottom');
+            const progressBar = document.getElementById('progressBar');
+
+            function updateProgress() {
+                const names = new Set(radios.map((radio) => radio.name));
+                let answered = 0;
+                names.forEach((name) => {
+                    if (document.querySelector('input[name="' + name.replace(/"/g, '\\"') + '"]:checked')) {
+                        answered += 1;
+                    }
+                });
+
+                const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+                if (progressText) progressText.textContent = answered + ' / ' + total;
+                if (progressBottom) progressBottom.textContent = answered + ' / ' + total;
+                if (progressBar) progressBar.style.width = pct + '%';
+            }
+
+            function updateCommentVisibility(controlId, value) {
+                const wrap = document.querySelector('[data-comment-wrap="' + controlId + '"]');
+                if (!wrap) return;
+                const textarea = wrap.querySelector('textarea');
+
+                if (value === 'nok') {
+                    wrap.classList.remove('hidden');
+                    if (textarea) textarea.required = true;
+                } else {
+                    wrap.classList.add('hidden');
+                    if (textarea) {
+                        textarea.required = false;
+                        textarea.value = '';
+                    }
+                }
+            }
+
+            radios.forEach((radio) => {
+                radio.addEventListener('change', () => {
+                    updateProgress();
+                    updateCommentVisibility(radio.dataset.controlId, radio.value);
+                });
+            });
+
+            updateProgress();
+        })();
+    </script>
 </body>
 </html>
