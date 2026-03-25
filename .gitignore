@@ -22,4 +22,5 @@ Thumbs.db
 
 # Build artifacts
 dist/
+.env.docker
 
