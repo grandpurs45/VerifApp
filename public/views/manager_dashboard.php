@@ -31,6 +31,12 @@ $appVersion = \App\Core\AppVersion::current();
             </div>
         </header>
 
+        <?php if (isset($_GET['password_changed']) && $_GET['password_changed'] === '1'): ?>
+            <section class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+                Mot de passe modifie avec succes.
+            </section>
+        <?php endif; ?>
+
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <article class="bg-white rounded-2xl shadow p-4">
                 <p class="text-xs text-slate-500 uppercase tracking-wide">Verifs aujourd'hui</p>
@@ -69,7 +75,7 @@ $appVersion = \App\Core\AppVersion::current();
             </article>
         </section>
 
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <a href="/index.php?controller=verifications&action=history" class="bg-white rounded-2xl shadow p-4 block hover:bg-slate-50">
                 <p class="font-semibold">Historique verifications</p>
                 <p class="text-sm text-slate-600 mt-1">Consulter et filtrer les sessions.</p>
@@ -78,9 +84,13 @@ $appVersion = \App\Core\AppVersion::current();
                 <p class="font-semibold">Suivi anomalies</p>
                 <p class="text-sm text-slate-600 mt-1">Traiter les anomalies ouvertes.</p>
             </a>
-            <a href="/index.php?controller=manager_assets&action=index" class="bg-white rounded-2xl shadow p-4 block hover:bg-slate-50">
-                <p class="font-semibold">Parc & materiel</p>
-                <p class="text-sm text-slate-600 mt-1">Gerer vehicules, postes et controles.</p>
+            <a href="/index.php?controller=manager_assets&action=types" class="bg-white rounded-2xl shadow p-4 block hover:bg-slate-50">
+                <p class="font-semibold">Types d engins</p>
+                <p class="text-sm text-slate-600 mt-1">Configurer les postes standards par type.</p>
+            </a>
+            <a href="/index.php?controller=manager_assets&action=vehicles" class="bg-white rounded-2xl shadow p-4 block hover:bg-slate-50">
+                <p class="font-semibold">Vehicules</p>
+                <p class="text-sm text-slate-600 mt-1">Gerer les engins reels et leurs zones.</p>
             </a>
         </section>
     </main>

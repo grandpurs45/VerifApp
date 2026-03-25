@@ -41,6 +41,10 @@ $managerRoutes = [
     'anomalies/index',
     'anomalies/update',
     'manager_assets/index',
+    'manager_assets/types',
+    'manager_assets/vehicles',
+    'manager_assets/type_save',
+    'manager_assets/type_delete',
     'manager_assets/vehicle_save',
     'manager_assets/vehicle_delete',
     'manager_assets/zone_save',
@@ -81,6 +85,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_auth' && $action === 'login') {
         $controller = new AuthController();
         $controller->login();
+        return;
+    }
+
+    if ($controllerName === 'manager_auth' && $action === 'change_password_form') {
+        $controller = new AuthController();
+        $controller->changePasswordForm();
+        return;
+    }
+
+    if ($controllerName === 'manager_auth' && $action === 'change_password') {
+        $controller = new AuthController();
+        $controller->changePassword();
         return;
     }
 
@@ -125,6 +141,30 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_assets' && $action === 'index') {
         $controller = new ManagerAssetController();
         $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'types') {
+        $controller = new ManagerAssetController();
+        $controller->types();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicles') {
+        $controller = new ManagerAssetController();
+        $controller->vehicles();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'type_save') {
+        $controller = new ManagerAssetController();
+        $controller->typeSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'type_delete') {
+        $controller = new ManagerAssetController();
+        $controller->typeDelete();
         return;
     }
 

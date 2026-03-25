@@ -26,6 +26,12 @@ Commande PowerShell:
 Commande serveur:
 `php scripts/migrate.php`
 
+## Compte admin par defaut
+- Sur installation vierge, un compte gestionnaire est cree automatiquement:
+  - identifiant: `admin` (ou `admin@verifapp.local`)
+  - mot de passe: `admin`
+- Le changement de mot de passe est obligatoire a la premiere connexion.
+
 ## Docker local/serveur
 1. Copier `.env.docker.example` vers `.env.docker`
 2. Lancer:

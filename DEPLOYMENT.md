@@ -47,6 +47,12 @@ Uniquement en environnement de test/demo.
   - `status: ok`
   - `db: ok`
 
+## 6bis) Premiere connexion gestionnaire
+- Compte par defaut cree par migration:
+  - identifiant: `admin` (ou `admin@verifapp.local`)
+  - mot de passe: `admin`
+- A la premiere connexion, l'application impose le changement de mot de passe.
+
 ## 7) Rollback rapide
 - Replacer l'archive de la version precedente.
 - Restaurer snapshot DB si une migration incompatible a ete appliquee.

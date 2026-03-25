@@ -43,6 +43,10 @@ final class FieldAuthController
             $this->redirect('/index.php?controller=field_auth&action=login_form&error=invalid_credentials');
         }
 
+        if ((int) ($user['must_change_password'] ?? 0) === 1) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=password_change_required');
+        }
+
         $_SESSION['field_user'] = [
             'id' => (int) $user['id'],
             'nom' => (string) $user['nom'],

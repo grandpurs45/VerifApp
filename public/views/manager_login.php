@@ -5,9 +5,11 @@ declare(strict_types=1);
 $errorMessage = null;
 
 if ($error === 'missing_fields') {
-    $errorMessage = 'Email et mot de passe obligatoires.';
+    $errorMessage = 'Identifiant et mot de passe obligatoires.';
 } elseif ($error === 'invalid_credentials') {
     $errorMessage = 'Identifiants invalides ou acces non autorise.';
+} elseif ($error === 'password_change_required') {
+    $errorMessage = 'Compte admin initial detecte: changement de mot de passe requis.';
 }
 ?>
 <!DOCTYPE html>
@@ -39,11 +41,17 @@ if ($error === 'missing_fields') {
             </section>
         <?php endif; ?>
 
+        <?php if (isset($_GET['password_changed']) && $_GET['password_changed'] === '1'): ?>
+            <section class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+                Mot de passe modifie avec succes.
+            </section>
+        <?php endif; ?>
+
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
             <form method="post" action="/index.php?controller=manager_auth&action=login" class="space-y-4">
                 <div>
-                    <label for="email" class="text-sm font-medium text-slate-700">Email</label>
-                    <input id="email" name="email" type="email" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    <label for="identifier" class="text-sm font-medium text-slate-700">Identifiant (email ou nom)</label>
+                    <input id="identifier" name="identifier" type="text" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 
                 <div>

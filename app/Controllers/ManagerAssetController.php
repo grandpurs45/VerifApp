@@ -15,6 +15,27 @@ final class ManagerAssetController
 {
     public function index(): void
     {
+        $this->redirect('/index.php?controller=manager_assets&action=types');
+    }
+
+    public function types(): void
+    {
+        $posteRepository = new PosteRepository();
+        $typeVehiculeRepository = new TypeVehiculeRepository();
+
+        $postes = $posteRepository->findAllDetailed();
+        $typesVehicules = $typeVehiculeRepository->findAll();
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $flash = [
+            'success' => isset($_GET['success']) ? (string) $_GET['success'] : '',
+            'error' => isset($_GET['error']) ? (string) $_GET['error'] : '',
+        ];
+
+        require dirname(__DIR__, 2) . '/public/views/manager_types.php';
+    }
+
+    public function vehicles(): void
+    {
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
         $controleRepository = new ControleRepository();
@@ -34,13 +55,63 @@ final class ManagerAssetController
             'error' => isset($_GET['error']) ? (string) $_GET['error'] : '',
         ];
 
-        require dirname(__DIR__, 2) . '/public/views/manager_assets.php';
+        require dirname(__DIR__, 2) . '/public/views/manager_vehicles.php';
+    }
+
+    public function typeSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_assets&action=types');
+        }
+
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $name = trim((string) ($_POST['nom'] ?? ''));
+
+        if ($name === '') {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=invalid_type');
+        }
+
+        $typeRepository = new TypeVehiculeRepository();
+
+        try {
+            if ($id > 0) {
+                $typeRepository->update($id, $name);
+                $this->redirect('/index.php?controller=manager_assets&action=types&success=type_updated');
+            }
+
+            $typeRepository->create($name);
+            $this->redirect('/index.php?controller=manager_assets&action=types&success=type_created');
+        } catch (Throwable $throwable) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=type_save_failed');
+        }
+    }
+
+    public function typeDelete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_assets&action=types');
+        }
+
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+
+        if ($id <= 0) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=invalid_type');
+        }
+
+        $typeRepository = new TypeVehiculeRepository();
+
+        try {
+            $typeRepository->delete($id);
+            $this->redirect('/index.php?controller=manager_assets&action=types&success=type_deleted');
+        } catch (Throwable $throwable) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=type_delete_failed');
+        }
     }
 
     public function vehicleSave(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -49,7 +120,7 @@ final class ManagerAssetController
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
 
         if ($name === '' || $typeVehiculeId <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_vehicle');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
         }
 
         $vehicleRepository = new VehicleRepository();
@@ -57,93 +128,93 @@ final class ManagerAssetController
         try {
             if ($id > 0) {
                 $vehicleRepository->update($id, $name, $typeVehiculeId, $active);
-                $this->redirect('/index.php?controller=manager_assets&action=index&success=vehicle_updated');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_updated');
             }
 
             $vehicleRepository->create($name, $typeVehiculeId, $active);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=vehicle_created');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_created');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=vehicle_save_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
         }
     }
 
     public function vehicleDelete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_vehicle');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
         }
 
         $vehicleRepository = new VehicleRepository();
 
         try {
             $vehicleRepository->delete($id);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=vehicle_deleted');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_deleted');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=vehicle_delete_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_delete_failed');
         }
     }
 
     public function zoneSave(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $vehicleId = isset($_POST['vehicule_id']) ? (int) $_POST['vehicule_id'] : 0;
         $name = trim((string) ($_POST['nom'] ?? ''));
 
         if ($vehicleId <= 0 || $name === '') {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_zone');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_zone');
         }
 
         $zoneRepository = new ZoneRepository();
         if (!$zoneRepository->isAvailable()) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=zones_table_missing');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zones_table_missing');
         }
 
         try {
             $zoneRepository->create($vehicleId, $name);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=zone_created');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_created');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=zone_save_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_save_failed');
         }
     }
 
     public function zoneDelete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_zone');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_zone');
         }
 
         $zoneRepository = new ZoneRepository();
         if (!$zoneRepository->isAvailable()) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=zones_table_missing');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zones_table_missing');
         }
 
         try {
             $zoneRepository->delete($id);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=zone_deleted');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_deleted');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=zone_delete_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_delete_failed');
         }
     }
 
     public function posteSave(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=types');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -152,7 +223,7 @@ final class ManagerAssetController
         $typeVehiculeId = isset($_POST['type_vehicule_id']) ? (int) $_POST['type_vehicule_id'] : 0;
 
         if ($name === '' || $code === '' || $typeVehiculeId <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_poste');
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=invalid_poste');
         }
 
         $posteRepository = new PosteRepository();
@@ -160,42 +231,42 @@ final class ManagerAssetController
         try {
             if ($id > 0) {
                 $posteRepository->update($id, $name, $code, $typeVehiculeId);
-                $this->redirect('/index.php?controller=manager_assets&action=index&success=poste_updated');
+                $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_updated');
             }
 
             $posteRepository->create($name, $code, $typeVehiculeId);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=poste_created');
+            $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_created');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=poste_save_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_save_failed');
         }
     }
 
     public function posteDelete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=types');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_poste');
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=invalid_poste');
         }
 
         $posteRepository = new PosteRepository();
 
         try {
             $posteRepository->delete($id);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=poste_deleted');
+            $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_deleted');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=poste_delete_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_delete_failed');
         }
     }
 
     public function controleSave(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -208,7 +279,7 @@ final class ManagerAssetController
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
 
         if ($label === '' || $posteId <= 0 || $order < 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
         }
 
         $controleRepository = new ControleRepository();
@@ -216,19 +287,19 @@ final class ManagerAssetController
 
         if ($controleRepository->hasHierarchicalSchema()) {
             if ($vehicleId <= 0 || $zoneId <= 0) {
-                $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle_link');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
 
             if (!$this->isPosteCompatibleWithVehicle($posteId, $vehicleId)) {
-                $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle_link');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
 
             if (!$zoneRepository->belongsToVehicle($zoneId, $vehicleId)) {
-                $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle_link');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
         } else {
             if ($zoneName === '') {
-                $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
             }
         }
 
@@ -244,7 +315,7 @@ final class ManagerAssetController
                     $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
                     $controleRepository->hasHierarchicalSchema() ? $zoneId : null
                 );
-                $this->redirect('/index.php?controller=manager_assets&action=index&success=controle_updated');
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_updated');
             }
 
             $controleRepository->create(
@@ -256,31 +327,31 @@ final class ManagerAssetController
                 $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
                 $controleRepository->hasHierarchicalSchema() ? $zoneId : null
             );
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=controle_created');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_created');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=controle_save_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_save_failed');
         }
     }
 
     public function controleDelete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_assets&action=index');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=invalid_controle');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
         }
 
         $controleRepository = new ControleRepository();
 
         try {
             $controleRepository->delete($id);
-            $this->redirect('/index.php?controller=manager_assets&action=index&success=controle_deleted');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_deleted');
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=index&error=controle_delete_failed');
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_delete_failed');
         }
     }
 
