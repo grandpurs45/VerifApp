@@ -62,11 +62,10 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
         </nav>
 
-        <?php if ($successMessage !== null): ?>
-            <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm"><?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8') ?></section>
-        <?php endif; ?>
-        <?php if ($errorMessage !== null): ?>
-            <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></section>
+        <?php if ($successMessage !== null || $errorMessage !== null): ?>
+            <section id="manager-toast" class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border p-4 text-sm shadow-lg <?= $errorMessage !== null ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">
+                <?= htmlspecialchars((string) ($errorMessage ?? $successMessage), ENT_QUOTES, 'UTF-8') ?>
+            </section>
         <?php endif; ?>
 
         <?php if (!$zonesAvailable): ?>
@@ -107,7 +106,7 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     <option value="1">Actif</option>
                     <option value="0">Inactif</option>
                 </select>
-                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
             <div id="vehicles-list" class="space-y-2">
@@ -126,8 +125,8 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                             <option value="1" <?= (int) $vehicle['actif'] === 1 ? 'selected' : '' ?>>Actif</option>
                             <option value="0" <?= (int) $vehicle['actif'] === 0 ? 'selected' : '' ?>>Inactif</option>
                         </select>
-                        <button type="submit" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
-                        <button formaction="/index.php?controller=manager_assets&action=vehicle_delete" type="submit" onclick="return confirm('Supprimer ce vehicule ?')" class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
+                        <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
+                        <button formaction="/index.php?controller=manager_assets&action=vehicle_delete" type="submit" data-confirm="Supprimer ce vehicule ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
                     </form>
                 <?php endforeach; ?>
             </div>
@@ -155,7 +154,7 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     <?php endforeach; ?>
                 </select>
                 <input type="text" name="nom" placeholder="Nom zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-5">
-                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
             <div id="zones-list" class="space-y-2">
@@ -164,15 +163,33 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                         <input type="hidden" name="id" value="<?= (int) $zone['id'] ?>">
                         <input type="text" readonly value="<?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
                         <input type="text" readonly value="<?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
-                        <button type="submit" onclick="return confirm('Supprimer cette zone ?')" class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
+                        <button type="submit" data-confirm="Supprimer cette zone ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
                     </form>
                 <?php endforeach; ?>
             </div>
         </section>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-            <h2 class="text-xl font-semibold mb-4">Materiel (controles)</h2>
-            <p class="text-sm text-slate-600 mb-3">Edition rapide: toutes les actions restent sur la meme ligne.</p>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h2 class="text-xl font-semibold">Materiel (controles)</h2>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <input id="controls-search" type="search" placeholder="Rechercher un materiel..." class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-72">
+                    <select id="controls-vehicle-filter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-56">
+                        <option value="">Tous les vehicules</option>
+                        <?php foreach ($vehicles as $vehicle): ?>
+                            <option value="<?= (int) $vehicle['id'] ?>"><?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select id="controls-poste-filter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-56">
+                        <option value="">Tous les postes</option>
+                        <?php foreach ($postes as $poste): ?>
+                            <option value="<?= (int) $poste['id'] ?>"><?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <p class="text-sm text-slate-600 mb-4">Edition rapide en ligne avec filtres instantanes.</p>
+
             <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 mb-4">
                 <input type="hidden" name="id" value="0">
                 <input type="text" name="libelle" placeholder="Libelle controle" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -209,12 +226,22 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     <option value="1">Actif</option>
                     <option value="0">Inactif</option>
                 </select>
-                <button type="submit" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold">Ajouter</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold">Ajouter</button>
             </form>
 
-            <div class="space-y-3">
+            <div class="hidden md:grid md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div>Libelle</div>
+                <div>Vehicule</div>
+                <div>Poste</div>
+                <div>Zone</div>
+                <div>Ordre</div>
+                <div>Statut</div>
+                <div>Actions</div>
+            </div>
+
+            <div id="controls-list" class="space-y-3">
                 <?php foreach ($controles as $controle): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" data-control-form="1" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" data-control-form="1" data-control-label="<?= htmlspecialchars(strtolower((string) $controle['libelle']), ENT_QUOTES, 'UTF-8') ?>" data-control-vehicle-id="<?= (int) ($controle['vehicule_id'] ?? 0) ?>" data-control-poste-id="<?= (int) $controle['poste_id'] ?>" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 rounded-xl md:rounded-none border border-slate-100 md:border-0 p-2 md:p-0">
                         <input type="hidden" name="id" value="<?= (int) $controle['id'] ?>">
                         <input type="text" name="libelle" value="<?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
                         <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
@@ -251,8 +278,8 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                             <option value="0" <?= (int) $controle['actif'] === 0 ? 'selected' : '' ?>>Inactif</option>
                         </select>
                         <div class="flex gap-2">
-                            <button type="submit" class="flex-1 rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Modifier</button>
-                            <button formaction="/index.php?controller=manager_assets&action=controle_delete" type="submit" onclick="return confirm('Supprimer ce controle ?')" class="flex-1 rounded-xl bg-red-600 text-white px-3 py-2 text-sm">Supprimer</button>
+                            <button type="submit" data-loading-label="Maj..." class="flex-1 rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Modifier</button>
+                            <button formaction="/index.php?controller=manager_assets&action=controle_delete" type="submit" data-confirm="Supprimer ce controle ?" data-loading-label="Suppression..." class="flex-1 rounded-xl bg-red-600 text-white px-3 py-2 text-sm">Supprimer</button>
                         </div>
                     </form>
                 <?php endforeach; ?>
@@ -268,6 +295,11 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             const zonesSearch = document.getElementById('zones-search');
             const zonesVehicleFilter = document.getElementById('zones-vehicle-filter');
             const zoneRows = Array.from(document.querySelectorAll('#zones-list form[data-zone-name]'));
+
+            const controlsSearch = document.getElementById('controls-search');
+            const controlsVehicleFilter = document.getElementById('controls-vehicle-filter');
+            const controlsPosteFilter = document.getElementById('controls-poste-filter');
+            const controlRows = Array.from(document.querySelectorAll('#controls-list form[data-control-form]'));
 
             const forms = Array.from(document.querySelectorAll('form[data-control-form], form[action*="action=controle_save"]'));
 
@@ -292,6 +324,22 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     const okText = name.includes(q);
                     const okVehicle = vehicleId === '' || rowVehicleId === vehicleId;
                     row.style.display = okText && okVehicle ? '' : 'none';
+                });
+            }
+
+            function filterControlsList() {
+                const q = (controlsSearch.value || '').trim().toLowerCase();
+                const vehicleId = controlsVehicleFilter.value || '';
+                const posteId = controlsPosteFilter.value || '';
+
+                controlRows.forEach(function (row) {
+                    const label = row.dataset.controlLabel || '';
+                    const rowVehicleId = row.dataset.controlVehicleId || '';
+                    const rowPosteId = row.dataset.controlPosteId || '';
+                    const okText = label.includes(q);
+                    const okVehicle = vehicleId === '' || rowVehicleId === vehicleId;
+                    const okPoste = posteId === '' || rowPosteId === posteId;
+                    row.style.display = okText && okVehicle && okPoste ? '' : 'none';
                 });
             }
 
@@ -404,6 +452,49 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             if (zonesVehicleFilter) {
                 zonesVehicleFilter.addEventListener('change', filterZones);
             }
+            if (controlsSearch) {
+                controlsSearch.addEventListener('input', filterControlsList);
+            }
+            if (controlsVehicleFilter) {
+                controlsVehicleFilter.addEventListener('change', filterControlsList);
+            }
+            if (controlsPosteFilter) {
+                controlsPosteFilter.addEventListener('change', filterControlsList);
+            }
+
+            const toast = document.getElementById('manager-toast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.transition = 'opacity 240ms ease';
+                    toast.style.opacity = '0';
+                    setTimeout(function () {
+                        toast.remove();
+                    }, 260);
+                }, 2800);
+            }
+
+            document.querySelectorAll('form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    const submitter = event.submitter;
+                    if (!submitter) {
+                        return;
+                    }
+
+                    const confirmMessage = submitter.dataset.confirm || '';
+                    if (confirmMessage !== '' && !window.confirm(confirmMessage)) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    const loadingLabel = submitter.dataset.loadingLabel || '';
+                    if (loadingLabel !== '') {
+                        submitter.dataset.originalLabel = submitter.textContent;
+                        submitter.textContent = loadingLabel;
+                    }
+                    submitter.disabled = true;
+                    submitter.classList.add('opacity-60', 'cursor-not-allowed');
+                });
+            });
         })();
     </script>
 </body>

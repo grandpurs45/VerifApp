@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.4.0] - 2026-03-25
+
+### Changed
+- Ergonomie administration refondue (gestionnaire):
+  - navigation plus claire entre `Types & postes` et `Vehicules & zones`
+  - listes avec recherche et filtres instantanes (types, postes, vehicules, zones, materiel)
+  - section materiel en mode edition tableau plus lisible (entetes, actions alignees)
+- Feedback UX en administration:
+  - toasts succes/erreur auto-dismiss
+  - etats de chargement sur boutons (`Ajout`, `Maj`, `Suppression`)
+  - prevention du double-submit
+  - confirmations de suppression homogenes
+
 ## [0.3.2] - 2026-03-25
 
 ### Changed

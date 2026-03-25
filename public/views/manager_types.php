@@ -54,11 +54,10 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
         </nav>
 
-        <?php if ($successMessage !== null): ?>
-            <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm"><?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8') ?></section>
-        <?php endif; ?>
-        <?php if ($errorMessage !== null): ?>
-            <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></section>
+        <?php if ($successMessage !== null || $errorMessage !== null): ?>
+            <section id="manager-toast" class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border p-4 text-sm shadow-lg <?= $errorMessage !== null ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">
+                <?= htmlspecialchars((string) ($errorMessage ?? $successMessage), ENT_QUOTES, 'UTF-8') ?>
+            </section>
         <?php endif; ?>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
@@ -70,7 +69,7 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             <form method="post" action="/index.php?controller=manager_assets&action=type_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-5">
                 <input type="hidden" name="id" value="0">
                 <input type="text" name="nom" placeholder="Nom type (ex: VSAV, FPT)" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-10">
-                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
             <div id="types-list" class="space-y-2">
@@ -78,8 +77,8 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     <form method="post" action="/index.php?controller=manager_assets&action=type_save" data-type-name="<?= htmlspecialchars(strtolower((string) $typeVehicule['nom']), ENT_QUOTES, 'UTF-8') ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $typeVehicule['id'] ?>">
                         <input type="text" name="nom" value="<?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-8">
-                        <button type="submit" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
-                        <button formaction="/index.php?controller=manager_assets&action=type_delete" type="submit" onclick="return confirm('Supprimer ce type ?')" class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
+                        <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
+                        <button formaction="/index.php?controller=manager_assets&action=type_delete" type="submit" data-confirm="Supprimer ce type ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
                     </form>
                 <?php endforeach; ?>
             </div>
@@ -109,7 +108,7 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                         <option value="<?= (int) $typeVehicule['id'] ?>"><?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?></option>
                     <?php endforeach; ?>
                 </select>
-                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
             <div id="postes-list" class="space-y-2">
@@ -125,8 +124,8 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="submit" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
-                        <button formaction="/index.php?controller=manager_assets&action=poste_delete" type="submit" onclick="return confirm('Supprimer ce poste ?')" class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
+                        <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
+                        <button formaction="/index.php?controller=manager_assets&action=poste_delete" type="submit" data-confirm="Supprimer ce poste ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
                     </form>
                 <?php endforeach; ?>
             </div>
@@ -169,6 +168,40 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             if (postesTypeFilter) {
                 postesTypeFilter.addEventListener('change', filterPostes);
             }
+
+            const toast = document.getElementById('manager-toast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.transition = 'opacity 240ms ease';
+                    toast.style.opacity = '0';
+                    setTimeout(function () {
+                        toast.remove();
+                    }, 260);
+                }, 2800);
+            }
+
+            document.querySelectorAll('form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    const submitter = event.submitter;
+                    if (!submitter) {
+                        return;
+                    }
+
+                    const confirmMessage = submitter.dataset.confirm || '';
+                    if (confirmMessage !== '' && !window.confirm(confirmMessage)) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    const loadingLabel = submitter.dataset.loadingLabel || '';
+                    if (loadingLabel !== '') {
+                        submitter.dataset.originalLabel = submitter.textContent;
+                        submitter.textContent = loadingLabel;
+                    }
+                    submitter.disabled = true;
+                    submitter.classList.add('opacity-60', 'cursor-not-allowed');
+                });
+            });
         })();
     </script>
 </body>
