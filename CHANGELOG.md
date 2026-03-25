@@ -9,6 +9,13 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.3.1] - 2026-03-25
+
+### Fixed
+- Correction du filtrage dynamique en configuration materiel gestionnaire:
+  - reconstruction visible des listes `postes` et `zones` selon le vehicule selectionne
+  - comportement fiable sur navigateurs ou `hidden/disabled` sur `<option>` etait peu lisible
+
 ## [0.3.0] - 2026-03-25
 
 ### Added
