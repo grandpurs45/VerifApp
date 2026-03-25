@@ -9,6 +9,22 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.3.0] - 2026-03-25
+
+### Added
+- Compte administrateur initial sur installation vierge (`admin` / `admin`) avec changement de mot de passe obligatoire a la premiere connexion.
+- Ecran dedie de changement de mot de passe gestionnaire.
+- Separation de la configuration gestionnaire en 2 pages:
+  - `Types d engins` (types + postes)
+  - `Vehicules` (vehicules + zones + materiel)
+
+### Changed
+- Ergonomie de la grille materiel (controles): actions Modifier/Supprimer alignees sur chaque ligne.
+- Filtrage dynamique dans la configuration materiel:
+  - postes filtres selon le type du vehicule selectionne
+  - zones filtrees selon le vehicule selectionne
+- Messages d erreur de suppression plus explicites en cas de dependances metier (FK).
+
 ## [0.2.0] - 2026-03-24
 
 ### Added

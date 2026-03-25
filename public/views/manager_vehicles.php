@@ -19,14 +19,17 @@ $errorMap = [
     'invalid_vehicle' => 'Donnees vehicule invalides.',
     'vehicle_save_failed' => 'Impossible d enregistrer le vehicule.',
     'vehicle_delete_failed' => 'Suppression vehicule impossible (contraintes).',
+    'vehicle_in_use' => 'Suppression impossible: ce vehicule est utilise par des controles, zones ou verifications.',
     'invalid_zone' => 'Donnees zone invalides.',
     'zones_table_missing' => 'Migration zones non appliquee.',
     'zone_save_failed' => 'Impossible d enregistrer la zone.',
     'zone_delete_failed' => 'Suppression zone impossible (contraintes).',
+    'zone_in_use' => 'Suppression impossible: cette zone est utilisee par du materiel.',
     'invalid_controle' => 'Donnees controle invalides.',
     'invalid_controle_link' => 'Controle incoherent: lie vehicule + poste + zone.',
     'controle_save_failed' => 'Impossible d enregistrer le controle.',
     'controle_delete_failed' => 'Suppression controle impossible (contraintes).',
+    'controle_in_use' => 'Suppression impossible: ce materiel est deja reference dans des verifications.',
 ];
 
 $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 'Operation terminee.') : null;
@@ -147,20 +150,24 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
                     <option value="">Vehicule</option>
                     <?php foreach ($vehicles as $vehicle): ?>
-                        <option value="<?= (int) $vehicle['id'] ?>"><?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>">
+                            <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
                 <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
                     <option value="">Poste</option>
                     <?php foreach ($postes as $poste): ?>
-                        <option value="<?= (int) $poste['id'] ?>"><?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>">
+                            <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
                 <?php if ($hierarchyAvailable): ?>
                     <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
                         <option value="">Zone</option>
                         <?php foreach ($zones as $zone): ?>
-                            <option value="<?= (int) $zone['id'] ?>">
+                            <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>">
                                 <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>
@@ -178,28 +185,30 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
 
             <div class="space-y-3">
                 <?php foreach ($controles as $controle): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" data-control-form="1" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2">
                         <input type="hidden" name="id" value="<?= (int) $controle['id'] ?>">
                         <input type="text" name="libelle" value="<?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
                         <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
                             <option value="">Vehicule</option>
                             <?php foreach ($vehicles as $vehicle): ?>
-                                <option value="<?= (int) $vehicle['id'] ?>" <?= (int) ($controle['vehicule_id'] ?? 0) === (int) $vehicle['id'] ? 'selected' : '' ?>>
+                                <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>" <?= (int) ($controle['vehicule_id'] ?? 0) === (int) $vehicle['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                            <option value="">Poste</option>
                             <?php foreach ($postes as $poste): ?>
-                                <option value="<?= (int) $poste['id'] ?>" <?= (int) $controle['poste_id'] === (int) $poste['id'] ? 'selected' : '' ?>>
+                                <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>" <?= (int) $controle['poste_id'] === (int) $poste['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <?php if ($hierarchyAvailable): ?>
                             <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <option value="">Zone</option>
                                 <?php foreach ($zones as $zone): ?>
-                                    <option value="<?= (int) $zone['id'] ?>" <?= (int) ($controle['zone_id'] ?? 0) === (int) $zone['id'] ? 'selected' : '' ?>>
+                                    <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" <?= (int) ($controle['zone_id'] ?? 0) === (int) $zone['id'] ? 'selected' : '' ?>>
                                         <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -221,5 +230,77 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             </div>
         </section>
     </main>
+    <script>
+        (function () {
+            const forms = Array.from(document.querySelectorAll('form[data-control-form], form[action*="action=controle_save"]'));
+
+            function filterSelect(select, predicate) {
+                const currentValue = select.value;
+                let hasCurrent = false;
+
+                Array.from(select.options).forEach(function (option) {
+                    const keep = predicate(option);
+                    option.hidden = !keep;
+                    option.disabled = !keep;
+                    if (keep && option.value === currentValue) {
+                        hasCurrent = true;
+                    }
+                });
+
+                if (!hasCurrent) {
+                    select.value = '';
+                }
+            }
+
+            function syncForm(form) {
+                const vehicleSelect = form.querySelector('select[name="vehicule_id"]');
+                const posteSelect = form.querySelector('select[name="poste_id"]');
+                const zoneSelect = form.querySelector('select[name="zone_id"]');
+
+                if (!vehicleSelect || !posteSelect) {
+                    return;
+                }
+
+                const selectedVehicleOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+                const vehicleId = vehicleSelect.value;
+                const typeId = selectedVehicleOption ? (selectedVehicleOption.dataset.typeId || '') : '';
+
+                filterSelect(posteSelect, function (option) {
+                    if (option.value === '') {
+                        return true;
+                    }
+                    if (typeId === '') {
+                        return true;
+                    }
+                    return option.dataset.typeId === typeId;
+                });
+
+                if (zoneSelect) {
+                    filterSelect(zoneSelect, function (option) {
+                        if (option.value === '') {
+                            return true;
+                        }
+                        if (vehicleId === '') {
+                            return true;
+                        }
+                        return option.dataset.vehicleId === vehicleId;
+                    });
+                }
+            }
+
+            forms.forEach(function (form) {
+                const vehicleSelect = form.querySelector('select[name="vehicule_id"]');
+                if (!vehicleSelect) {
+                    return;
+                }
+
+                vehicleSelect.addEventListener('change', function () {
+                    syncForm(form);
+                });
+
+                syncForm(form);
+            });
+        })();
+    </script>
 </body>
 </html>

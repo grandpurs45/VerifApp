@@ -9,6 +9,7 @@ use App\Repositories\PosteRepository;
 use App\Repositories\TypeVehiculeRepository;
 use App\Repositories\VehicleRepository;
 use App\Repositories\ZoneRepository;
+use PDOException;
 use Throwable;
 
 final class ManagerAssetController
@@ -104,6 +105,9 @@ final class ManagerAssetController
             $typeRepository->delete($id);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=type_deleted');
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect('/index.php?controller=manager_assets&action=types&error=type_in_use');
+            }
             $this->redirect('/index.php?controller=manager_assets&action=types&error=type_delete_failed');
         }
     }
@@ -156,6 +160,9 @@ final class ManagerAssetController
             $vehicleRepository->delete($id);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_deleted');
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_in_use');
+            }
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_delete_failed');
         }
     }
@@ -207,6 +214,9 @@ final class ManagerAssetController
             $zoneRepository->delete($id);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_deleted');
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_in_use');
+            }
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_delete_failed');
         }
     }
@@ -259,6 +269,9 @@ final class ManagerAssetController
             $posteRepository->delete($id);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_deleted');
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_in_use');
+            }
             $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_delete_failed');
         }
     }
@@ -351,6 +364,9 @@ final class ManagerAssetController
             $controleRepository->delete($id);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_deleted');
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_in_use');
+            }
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_delete_failed');
         }
     }
@@ -374,5 +390,14 @@ final class ManagerAssetController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function isConstraintViolation(Throwable $throwable): bool
+    {
+        if ($throwable instanceof PDOException && (string) $throwable->getCode() === '23000') {
+            return true;
+        }
+
+        return str_contains(strtolower($throwable->getMessage()), 'foreign key constraint fails');
     }
 }

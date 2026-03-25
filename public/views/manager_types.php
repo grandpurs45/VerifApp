@@ -17,9 +17,11 @@ $errorMap = [
     'invalid_type' => 'Donnees type invalides.',
     'type_save_failed' => 'Impossible d enregistrer le type.',
     'type_delete_failed' => 'Suppression type impossible (contraintes).',
+    'type_in_use' => 'Suppression impossible: ce type est utilise par des vehicules ou postes.',
     'invalid_poste' => 'Donnees poste invalides.',
     'poste_save_failed' => 'Impossible d enregistrer le poste.',
     'poste_delete_failed' => 'Suppression poste impossible (contraintes).',
+    'poste_in_use' => 'Suppression impossible: ce poste est deja utilise par du materiel ou des verifications.',
 ];
 
 $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 'Operation terminee.') : null;
