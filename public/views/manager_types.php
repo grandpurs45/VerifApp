@@ -49,6 +49,11 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             </div>
         </header>
 
+        <nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
+            <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Types & postes</a>
+            <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
+        </nav>
+
         <?php if ($successMessage !== null): ?>
             <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm"><?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8') ?></section>
         <?php endif; ?>
@@ -57,16 +62,20 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
         <?php endif; ?>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-            <h2 class="text-xl font-semibold mb-4">Types d engins</h2>
-            <form method="post" action="/index.php?controller=manager_assets&action=type_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-semibold">Types d engins</h2>
+                <input id="types-search" type="search" placeholder="Rechercher un type..." class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-72">
+            </div>
+
+            <form method="post" action="/index.php?controller=manager_assets&action=type_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-5">
                 <input type="hidden" name="id" value="0">
                 <input type="text" name="nom" placeholder="Nom type (ex: VSAV, FPT)" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-10">
                 <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
-            <div class="space-y-2">
+            <div id="types-list" class="space-y-2">
                 <?php foreach ($typesVehicules as $typeVehicule): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=type_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=type_save" data-type-name="<?= htmlspecialchars(strtolower((string) $typeVehicule['nom']), ENT_QUOTES, 'UTF-8') ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $typeVehicule['id'] ?>">
                         <input type="text" name="nom" value="<?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-8">
                         <button type="submit" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm md:col-span-2 w-full">Modifier</button>
@@ -77,7 +86,19 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
         </section>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-            <h2 class="text-xl font-semibold mb-4">Postes par type</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-semibold">Postes par type</h2>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <input id="postes-search" type="search" placeholder="Rechercher un poste..." class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-72">
+                    <select id="postes-type-filter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-56">
+                        <option value="">Tous les types</option>
+                        <?php foreach ($typesVehicules as $typeVehicule): ?>
+                            <option value="<?= (int) $typeVehicule['id'] ?>"><?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
             <form method="post" action="/index.php?controller=manager_assets&action=poste_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
                 <input type="hidden" name="id" value="0">
                 <input type="text" name="nom" placeholder="Nom poste" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-4">
@@ -91,9 +112,9 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
-            <div class="space-y-2">
+            <div id="postes-list" class="space-y-2">
                 <?php foreach ($postes as $poste): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=poste_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=poste_save" data-poste-name="<?= htmlspecialchars(strtolower((string) $poste['nom'] . ' ' . (string) $poste['code']), ENT_QUOTES, 'UTF-8') ?>" data-poste-type-id="<?= (int) $poste['type_vehicule_id'] ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $poste['id'] ?>">
                         <input type="text" name="nom" value="<?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
                         <input type="text" name="code" value="<?= htmlspecialchars($poste['code'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
@@ -111,5 +132,44 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             </div>
         </section>
     </main>
+    <script>
+        (function () {
+            const typesSearch = document.getElementById('types-search');
+            const typesRows = Array.from(document.querySelectorAll('#types-list form[data-type-name]'));
+            const postesSearch = document.getElementById('postes-search');
+            const postesTypeFilter = document.getElementById('postes-type-filter');
+            const postesRows = Array.from(document.querySelectorAll('#postes-list form[data-poste-name]'));
+
+            function filterTypes() {
+                const q = (typesSearch.value || '').trim().toLowerCase();
+                typesRows.forEach(function (row) {
+                    const hay = row.dataset.typeName || '';
+                    row.style.display = hay.includes(q) ? '' : 'none';
+                });
+            }
+
+            function filterPostes() {
+                const q = (postesSearch.value || '').trim().toLowerCase();
+                const typeId = postesTypeFilter.value || '';
+                postesRows.forEach(function (row) {
+                    const hay = row.dataset.posteName || '';
+                    const rowTypeId = row.dataset.posteTypeId || '';
+                    const okText = hay.includes(q);
+                    const okType = typeId === '' || rowTypeId === typeId;
+                    row.style.display = okText && okType ? '' : 'none';
+                });
+            }
+
+            if (typesSearch) {
+                typesSearch.addEventListener('input', filterTypes);
+            }
+            if (postesSearch) {
+                postesSearch.addEventListener('input', filterPostes);
+            }
+            if (postesTypeFilter) {
+                postesTypeFilter.addEventListener('change', filterPostes);
+            }
+        })();
+    </script>
 </body>
 </html>

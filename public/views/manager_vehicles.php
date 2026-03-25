@@ -57,6 +57,11 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             </div>
         </header>
 
+        <nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
+            <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Types & postes</a>
+            <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
+        </nav>
+
         <?php if ($successMessage !== null): ?>
             <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm"><?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8') ?></section>
         <?php endif; ?>
@@ -76,7 +81,19 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
         <?php endif; ?>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-            <h2 class="text-xl font-semibold mb-4">Vehicules</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-semibold">Vehicules</h2>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <input id="vehicles-search" type="search" placeholder="Rechercher un vehicule..." class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-72">
+                    <select id="vehicles-type-filter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-56">
+                        <option value="">Tous les types</option>
+                        <?php foreach ($typesVehicules as $typeVehicule): ?>
+                            <option value="<?= (int) $typeVehicule['id'] ?>"><?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
             <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
                 <input type="hidden" name="id" value="0">
                 <input type="text" name="nom" placeholder="Nom vehicule" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-5">
@@ -93,9 +110,9 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
-            <div class="space-y-2">
+            <div id="vehicles-list" class="space-y-2">
                 <?php foreach ($vehicles as $vehicle): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" data-vehicle-name="<?= htmlspecialchars(strtolower((string) $vehicle['nom']), ENT_QUOTES, 'UTF-8') ?>" data-vehicle-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $vehicle['id'] ?>">
                         <input type="text" name="nom" value="<?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
                         <select name="type_vehicule_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
@@ -117,7 +134,19 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
         </section>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-            <h2 class="text-xl font-semibold mb-4">Zones par vehicule</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-semibold">Zones par vehicule</h2>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <input id="zones-search" type="search" placeholder="Rechercher une zone..." class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-72">
+                    <select id="zones-vehicle-filter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm w-full md:w-56">
+                        <option value="">Tous les vehicules</option>
+                        <?php foreach ($vehicles as $vehicle): ?>
+                            <option value="<?= (int) $vehicle['id'] ?>"><?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
             <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
                 <select name="vehicule_id" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-5">
                     <option value="">Vehicule</option>
@@ -129,9 +158,9 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
-            <div class="space-y-2">
+            <div id="zones-list" class="space-y-2">
                 <?php foreach ($zones as $zone): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=zone_delete" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=zone_delete" data-zone-name="<?= htmlspecialchars(strtolower((string) $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" data-zone-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $zone['id'] ?>">
                         <input type="text" readonly value="<?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
                         <input type="text" readonly value="<?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
@@ -232,7 +261,39 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
     </main>
     <script>
         (function () {
+            const vehiclesSearch = document.getElementById('vehicles-search');
+            const vehiclesTypeFilter = document.getElementById('vehicles-type-filter');
+            const vehicleRows = Array.from(document.querySelectorAll('#vehicles-list form[data-vehicle-name]'));
+
+            const zonesSearch = document.getElementById('zones-search');
+            const zonesVehicleFilter = document.getElementById('zones-vehicle-filter');
+            const zoneRows = Array.from(document.querySelectorAll('#zones-list form[data-zone-name]'));
+
             const forms = Array.from(document.querySelectorAll('form[data-control-form], form[action*="action=controle_save"]'));
+
+            function filterVehicles() {
+                const q = (vehiclesSearch.value || '').trim().toLowerCase();
+                const typeId = vehiclesTypeFilter.value || '';
+                vehicleRows.forEach(function (row) {
+                    const name = row.dataset.vehicleName || '';
+                    const rowTypeId = row.dataset.vehicleTypeId || '';
+                    const okText = name.includes(q);
+                    const okType = typeId === '' || rowTypeId === typeId;
+                    row.style.display = okText && okType ? '' : 'none';
+                });
+            }
+
+            function filterZones() {
+                const q = (zonesSearch.value || '').trim().toLowerCase();
+                const vehicleId = zonesVehicleFilter.value || '';
+                zoneRows.forEach(function (row) {
+                    const name = row.dataset.zoneName || '';
+                    const rowVehicleId = row.dataset.zoneVehicleId || '';
+                    const okText = name.includes(q);
+                    const okVehicle = vehicleId === '' || rowVehicleId === vehicleId;
+                    row.style.display = okText && okVehicle ? '' : 'none';
+                });
+            }
 
             function snapshotOptions(select) {
                 return Array.from(select.options).map(function (option) {
@@ -330,6 +391,19 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
 
                 syncForm(form);
             });
+
+            if (vehiclesSearch) {
+                vehiclesSearch.addEventListener('input', filterVehicles);
+            }
+            if (vehiclesTypeFilter) {
+                vehiclesTypeFilter.addEventListener('change', filterVehicles);
+            }
+            if (zonesSearch) {
+                zonesSearch.addEventListener('input', filterZones);
+            }
+            if (zonesVehicleFilter) {
+                zonesVehicleFilter.addEventListener('change', filterZones);
+            }
         })();
     </script>
 </body>
