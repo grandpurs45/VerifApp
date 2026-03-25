@@ -59,24 +59,17 @@ foreach ($migrationPaths as $path) {
     }
 
     try {
-        $connection->beginTransaction();
         $connection->exec($sql);
 
         $insert = $connection->prepare('INSERT INTO schema_migrations (filename) VALUES (:filename)');
         $insert->execute(['filename' => $filename]);
-        $connection->commit();
 
         $applied++;
         echo "[OK]   $filename\n";
     } catch (Throwable $throwable) {
-        if ($connection->inTransaction()) {
-            $connection->rollBack();
-        }
-
         fwrite(STDERR, "[FAIL] $filename\n" . $throwable->getMessage() . "\n");
         exit(1);
     }
 }
 
 echo "Migrations terminees. Nouvelles appliquees: $applied\n";
-
