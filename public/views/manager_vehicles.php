@@ -234,17 +234,42 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
         (function () {
             const forms = Array.from(document.querySelectorAll('form[data-control-form], form[action*="action=controle_save"]'));
 
-            function filterSelect(select, predicate) {
+            function snapshotOptions(select) {
+                return Array.from(select.options).map(function (option) {
+                    return {
+                        value: option.value,
+                        label: option.textContent,
+                        selected: option.selected,
+                        typeId: option.dataset.typeId || '',
+                        vehicleId: option.dataset.vehicleId || ''
+                    };
+                });
+            }
+
+            function refillSelect(select, sourceOptions, predicate) {
                 const currentValue = select.value;
+                select.innerHTML = '';
                 let hasCurrent = false;
 
-                Array.from(select.options).forEach(function (option) {
-                    const keep = predicate(option);
-                    option.hidden = !keep;
-                    option.disabled = !keep;
-                    if (keep && option.value === currentValue) {
+                sourceOptions.forEach(function (entry) {
+                    if (!predicate(entry)) {
+                        return;
+                    }
+
+                    const option = document.createElement('option');
+                    option.value = entry.value;
+                    option.textContent = entry.label;
+                    if (entry.typeId !== '') {
+                        option.dataset.typeId = entry.typeId;
+                    }
+                    if (entry.vehicleId !== '') {
+                        option.dataset.vehicleId = entry.vehicleId;
+                    }
+                    if (entry.value === currentValue) {
+                        option.selected = true;
                         hasCurrent = true;
                     }
+                    select.appendChild(option);
                 });
 
                 if (!hasCurrent) {
@@ -265,34 +290,39 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 const vehicleId = vehicleSelect.value;
                 const typeId = selectedVehicleOption ? (selectedVehicleOption.dataset.typeId || '') : '';
 
-                filterSelect(posteSelect, function (option) {
-                    if (option.value === '') {
+                refillSelect(posteSelect, form._allPosteOptions, function (entry) {
+                    if (entry.value === '') {
                         return true;
                     }
                     if (typeId === '') {
                         return true;
                     }
-                    return option.dataset.typeId === typeId;
+                    return entry.typeId === typeId;
                 });
 
                 if (zoneSelect) {
-                    filterSelect(zoneSelect, function (option) {
-                        if (option.value === '') {
+                    refillSelect(zoneSelect, form._allZoneOptions, function (entry) {
+                        if (entry.value === '') {
                             return true;
                         }
                         if (vehicleId === '') {
                             return true;
                         }
-                        return option.dataset.vehicleId === vehicleId;
+                        return entry.vehicleId === vehicleId;
                     });
                 }
             }
 
             forms.forEach(function (form) {
                 const vehicleSelect = form.querySelector('select[name="vehicule_id"]');
+                const posteSelect = form.querySelector('select[name="poste_id"]');
+                const zoneSelect = form.querySelector('select[name="zone_id"]');
                 if (!vehicleSelect) {
                     return;
                 }
+
+                form._allPosteOptions = posteSelect ? snapshotOptions(posteSelect) : [];
+                form._allZoneOptions = zoneSelect ? snapshotOptions(zoneSelect) : [];
 
                 vehicleSelect.addEventListener('change', function () {
                     syncForm(form);
