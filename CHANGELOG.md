@@ -9,6 +9,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.3.2] - 2026-03-25
+
+### Changed
+- Configuration Docker/documentation: suppression de `APP_VERSION` dans l'exemple d'environnement pour activer le versionning automatique via le fichier `VERSION`.
+- Documentation de deploiement mise a jour pour recommander de ne pas fixer `APP_VERSION`.
+
 ## [0.3.1] - 2026-03-25
 
 ### Fixed

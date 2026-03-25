@@ -27,7 +27,8 @@ Sortie:
 ## 3) Configurer l'environnement
 - Copier `.env.example` en `.env`.
 - Renseigner `APP_ENV`, `APP_URL`, `DB_*`.
-- Optionnel: `FIELD_QR_TOKEN`, `APP_VERSION`.
+- Optionnel: `FIELD_QR_TOKEN`.
+- Ne pas definir `APP_VERSION` pour laisser l'application lire automatiquement la version depuis le fichier `VERSION`.
 
 ## 4) Appliquer les migrations
 Sur le serveur:

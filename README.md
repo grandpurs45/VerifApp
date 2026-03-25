@@ -34,6 +34,7 @@ Commande serveur:
 
 ## Docker local/serveur
 1. Copier `.env.docker.example` vers `.env.docker`
+   (laisser `APP_VERSION` non defini pour version automatique via le fichier `VERSION`)
 2. Lancer:
 `docker compose up -d --build`
 3. Appliquer les migrations:
