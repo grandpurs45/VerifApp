@@ -1,0 +1,49 @@
+services:
+
+  web:
+    build: .
+    container_name: verifapp-web
+    ports:
+      - "8080:80"
+    env_file:
+      - .env.docker
+    volumes:
+      - ./.env.docker:/var/www/html/.env:ro
+      - ./public/uploads:/var/www/html/public/uploads
+      - ./storage/logs:/var/www/html/storage/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    container_name: verifapp-db
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpassword
+      MARIADB_DATABASE: verifapp
+      MARIADB_USER: verifapp_user
+      MARIADB_PASSWORD: verifapp_password
+    volumes:
+      - verifapp_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: verifapp-phpmyadmin
+    environment:
+      PMA_HOST: db
+    ports:
+      - "8081:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  verifapp_db_data:

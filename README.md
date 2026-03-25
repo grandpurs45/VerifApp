@@ -25,3 +25,10 @@ Commande PowerShell:
 ## Migration production
 Commande serveur:
 `php scripts/migrate.php`
+
+## Docker local/serveur
+1. Copier `.env.docker.example` vers `.env.docker`
+2. Lancer:
+`docker compose up -d --build`
+3. Appliquer les migrations:
+`docker compose exec web php scripts/migrate.php`
