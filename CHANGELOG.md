@@ -9,6 +9,13 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.7.1] - 2026-03-28
+
+### Fixed
+- Dashboard gestionnaire:
+  - correction des liens invites (QR) pour utiliser l'hote public courant de la requete
+  - fallback sur `APP_URL` si le contexte HTTP n'est pas disponible
+
 ## [0.7.0] - 2026-03-28
 
 ### Added

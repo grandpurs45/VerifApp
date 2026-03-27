@@ -21,7 +21,7 @@ final class ManagerController
         $assignmentStats = $anomalyRepository->getAssignmentStats(
             is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null
         );
-        $appUrl = rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
+        $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim((string) (Env::get('FIELD_QR_TOKEN', '') ?? ''));
         $pharmacyToken = trim((string) (Env::get('PHARMACY_QR_TOKEN', '') ?? ''));
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '');
@@ -35,5 +35,20 @@ final class ManagerController
     public function forbidden(): void
     {
         require dirname(__DIR__, 2) . '/public/views/manager_forbidden.php';
+    }
+
+    private function resolvePublicBaseUrl(): string
+    {
+        $requestHost = isset($_SERVER['HTTP_HOST']) ? trim((string) $_SERVER['HTTP_HOST']) : '';
+        if ($requestHost !== '') {
+            $isHttps =
+                (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off') ||
+                (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443');
+            $scheme = $isHttps ? 'https' : 'http';
+
+            return $scheme . '://' . $requestHost;
+        }
+
+        return rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
     }
 }
