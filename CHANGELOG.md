@@ -9,6 +9,31 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.5.0] - 2026-03-27
+
+### Added
+- Controles quantitatifs et de mesure:
+  - type de saisie `statut`, `quantite`, `mesure`
+  - valeur attendue, unite, seuil minimum/maximum configurables
+  - calcul automatique `OK/NOK` pour les saisies numeriques
+- Sous-zones hierarchiques dans les engins (`zone parent > sous-zone`).
+
+### Changed
+- Administration materiel:
+  - parametrage des champs quantitatifs/mesures dans le CRUD controles
+  - affichage/contextualisation des champs selon le type de saisie
+  - selecteur de zone avec chemin complet hierarchique
+- Verification terrain:
+  - saisie numerique pour les controles `quantite/mesure`
+  - regroupement par chemin de zone hierarchique
+- Detail/export des verifications:
+  - affichage des valeurs relevees pour les controles non `statut`
+  - affichage des chemins de zones hierarchiques.
+
+### Database
+- Migration `013_add_quantitative_controls.sql`.
+- Migration `014_add_zone_hierarchy.sql`.
+
 ## [0.4.0] - 2026-03-25
 
 ### Changed
