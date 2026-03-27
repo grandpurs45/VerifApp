@@ -9,6 +9,23 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.7.0] - 2026-03-28
+
+### Added
+- Module roles et acces:
+  - creation de roles (admin systeme non supprimable)
+  - association des roles aux fonctionnalites manager
+  - ecran dedie de gestion des permissions
+- Module utilisateurs (CRUD):
+  - creation de comptes
+  - modification profil (nom, email, role, statut)
+  - desactivation securisee (pas de suppression physique)
+  - reset mot de passe avec changement obligatoire a la prochaine connexion
+- Menu administration dedie avec navigation centralisee.
+
+### Database
+- Migration `017_create_roles_permissions.sql`.
+
 ## [0.6.0] - 2026-03-27
 
 ### Added

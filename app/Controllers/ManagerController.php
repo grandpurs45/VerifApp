@@ -31,4 +31,9 @@ final class ManagerController
 
         require dirname(__DIR__, 2) . '/public/views/manager_dashboard.php';
     }
+
+    public function forbidden(): void
+    {
+        require dirname(__DIR__, 2) . '/public/views/manager_forbidden.php';
+    }
 }

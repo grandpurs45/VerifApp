@@ -32,6 +32,11 @@ Commande serveur:
   - mot de passe: `admin`
 - Le changement de mot de passe est obligatoire a la premiere connexion.
 
+## Gestion des roles et acces
+- Interface: `/index.php?controller=manager_roles&action=index`
+- Les permissions manager sont pilotables par role (migration `017`).
+- Le role `admin` est systeme et non supprimable.
+
 ## Docker local/serveur
 1. Copier `.env.docker.example` vers `.env.docker`
    (laisser `APP_VERSION` non defini pour version automatique via le fichier `VERSION`)

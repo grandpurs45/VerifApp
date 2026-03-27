@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\ManagerAccess;
 use App\Repositories\UserRepository;
 
 final class AuthController
@@ -40,7 +41,7 @@ final class AuthController
         if (
             $user === null ||
             (int) $user['actif'] !== 1 ||
-            !in_array((string) $user['role'], ['responsable_materiel', 'admin'], true) ||
+            !ManagerAccess::hasPermission((string) $user['role'], 'dashboard.view') ||
             !password_verify($password, (string) $user['mot_de_passe'])
         ) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');

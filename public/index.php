@@ -8,15 +8,19 @@ use App\Controllers\ControleController;
 use App\Controllers\FieldAuthController;
 use App\Controllers\FieldController;
 use App\Controllers\HomeController;
+use App\Controllers\ManagerAdminController;
 use App\Controllers\ManagerAssetController;
 use App\Controllers\ManagerController;
 use App\Controllers\ManagerPharmacyController;
+use App\Controllers\ManagerRoleController;
+use App\Controllers\ManagerUserController;
 use App\Controllers\PharmacyController;
 use App\Controllers\PosteController;
 use App\Controllers\VehicleController;
 use App\Controllers\VerificationController;
 use App\Core\Autoloader;
 use App\Core\Env;
+use App\Core\ManagerAccess;
 
 require_once dirname(__DIR__) . '/app/Core/Autoloader.php';
 
@@ -39,6 +43,8 @@ $hasPharmacyAccess = $pharmacyToken === '' || (isset($_SESSION['pharmacy_access'
 
 $managerRoutes = [
     'manager/dashboard',
+    'manager/forbidden',
+    'manager_admin/menu',
     'verifications/history',
     'verifications/show',
     'verifications/export',
@@ -59,6 +65,13 @@ $managerRoutes = [
     'manager_assets/controle_delete',
     'manager_pharmacy/index',
     'manager_pharmacy/article_save',
+    'manager_roles/index',
+    'manager_roles/role_save',
+    'manager_roles/role_delete',
+    'manager_roles/permissions_save',
+    'manager_users/index',
+    'manager_users/save',
+    'manager_users/delete',
 ];
 
 $fieldRoutes = [
@@ -79,6 +92,47 @@ $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
 if (in_array($routeKey, $managerRoutes, true) && !$isManagerAuthenticated) {
     header('Location: /index.php?controller=manager_auth&action=login_form');
     exit;
+}
+
+$managerRoutePermissions = [
+    'manager/dashboard' => 'dashboard.view',
+    'manager_admin/menu' => 'dashboard.view',
+    'verifications/history' => 'verifications.history',
+    'verifications/show' => 'verifications.history',
+    'verifications/export' => 'verifications.history',
+    'anomalies/index' => 'anomalies.manage',
+    'anomalies/update' => 'anomalies.manage',
+    'manager_assets/index' => 'assets.manage',
+    'manager_assets/types' => 'assets.manage',
+    'manager_assets/vehicles' => 'assets.manage',
+    'manager_assets/type_save' => 'assets.manage',
+    'manager_assets/type_delete' => 'assets.manage',
+    'manager_assets/vehicle_save' => 'assets.manage',
+    'manager_assets/vehicle_delete' => 'assets.manage',
+    'manager_assets/zone_save' => 'assets.manage',
+    'manager_assets/zone_delete' => 'assets.manage',
+    'manager_assets/poste_save' => 'assets.manage',
+    'manager_assets/poste_delete' => 'assets.manage',
+    'manager_assets/controle_save' => 'assets.manage',
+    'manager_assets/controle_delete' => 'assets.manage',
+    'manager_pharmacy/index' => 'pharmacy.manage',
+    'manager_pharmacy/article_save' => 'pharmacy.manage',
+    'manager_roles/index' => 'users.manage',
+    'manager_roles/role_save' => 'users.manage',
+    'manager_roles/role_delete' => 'users.manage',
+    'manager_roles/permissions_save' => 'users.manage',
+    'manager_users/index' => 'users.manage',
+    'manager_users/save' => 'users.manage',
+    'manager_users/delete' => 'users.manage',
+];
+
+if (isset($managerRoutePermissions[$routeKey]) && $isManagerAuthenticated) {
+    $managerRole = (string) ($_SESSION['manager_user']['role'] ?? '');
+    $permission = $managerRoutePermissions[$routeKey];
+    if (!ManagerAccess::hasPermission($managerRole, $permission)) {
+        header('Location: /index.php?controller=manager&action=forbidden');
+        exit;
+    }
 }
 
 if (in_array($routeKey, $fieldRoutes, true) && !$hasFieldAccess) {
@@ -151,6 +205,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager' && $action === 'dashboard') {
         $controller = new ManagerController();
         $controller->dashboard();
+        return;
+    }
+
+    if ($controllerName === 'manager' && $action === 'forbidden') {
+        $controller = new ManagerController();
+        $controller->forbidden();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'menu') {
+        $controller = new ManagerAdminController();
+        $controller->menu();
         return;
     }
 
@@ -241,6 +307,48 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'article_save') {
         $controller = new ManagerPharmacyController();
         $controller->articleSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_roles' && $action === 'index') {
+        $controller = new ManagerRoleController();
+        $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_roles' && $action === 'role_save') {
+        $controller = new ManagerRoleController();
+        $controller->roleSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_roles' && $action === 'role_delete') {
+        $controller = new ManagerRoleController();
+        $controller->roleDelete();
+        return;
+    }
+
+    if ($controllerName === 'manager_roles' && $action === 'permissions_save') {
+        $controller = new ManagerRoleController();
+        $controller->permissionsSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_users' && $action === 'index') {
+        $controller = new ManagerUserController();
+        $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_users' && $action === 'save') {
+        $controller = new ManagerUserController();
+        $controller->save();
+        return;
+    }
+
+    if ($controllerName === 'manager_users' && $action === 'delete') {
+        $controller = new ManagerUserController();
+        $controller->delete();
         return;
     }
 
