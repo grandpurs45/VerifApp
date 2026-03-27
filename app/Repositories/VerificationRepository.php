@@ -14,6 +14,7 @@ final class VerificationRepository
     private ?bool $anomaliesTableExists = null;
     private ?bool $usersTableExists = null;
     private ?bool $utilisateurColumnExists = null;
+    private ?bool $valeurSaisieColumnExists = null;
 
     public function createWithLines(
         int $vehicleId,
@@ -73,12 +74,21 @@ final class VerificationRepository
 
             $verificationId = (int) $connection->lastInsertId();
 
-            $lineStatement = $connection->prepare(
-                '
-                INSERT INTO verification_lignes (verification_id, controle_id, resultat, commentaire, photo)
-                VALUES (:verification_id, :controle_id, :resultat, :commentaire, NULL)
-                '
-            );
+            if ($this->hasValeurSaisieColumn()) {
+                $lineStatement = $connection->prepare(
+                    '
+                    INSERT INTO verification_lignes (verification_id, controle_id, resultat, valeur_saisie, commentaire, photo)
+                    VALUES (:verification_id, :controle_id, :resultat, :valeur_saisie, :commentaire, NULL)
+                    '
+                );
+            } else {
+                $lineStatement = $connection->prepare(
+                    '
+                    INSERT INTO verification_lignes (verification_id, controle_id, resultat, commentaire, photo)
+                    VALUES (:verification_id, :controle_id, :resultat, :commentaire, NULL)
+                    '
+                );
+            }
 
             $anomalyStatement = null;
             if ($this->hasAnomaliesTable()) {
@@ -91,12 +101,18 @@ final class VerificationRepository
             }
 
             foreach ($lines as $line) {
-                $lineStatement->execute([
+                $lineParams = [
                     'verification_id' => $verificationId,
                     'controle_id' => (int) $line['controle_id'],
                     'resultat' => $line['resultat'],
                     'commentaire' => $line['commentaire'],
-                ]);
+                ];
+
+                if ($this->hasValeurSaisieColumn()) {
+                    $lineParams['valeur_saisie'] = $line['valeur_saisie'] ?? null;
+                }
+
+                $lineStatement->execute($lineParams);
 
                 $verificationLineId = (int) $connection->lastInsertId();
 
@@ -336,10 +352,17 @@ final class VerificationRepository
                 vl.id,
                 vl.controle_id,
                 vl.resultat,
+                ' . ($this->hasValeurSaisieColumn() ? 'vl.valeur_saisie,' : 'NULL AS valeur_saisie,') . '
                 vl.commentaire,
+                c.zone_id,
                 c.zone,
                 c.ordre,
                 c.libelle,
+                ' . ($this->hasControleInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
+                ' . ($this->hasControleInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                ' . ($this->hasControleInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
+                ' . ($this->hasControleInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
+                ' . ($this->hasControleInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
                 ' . $anomalySelect . '
             FROM verification_lignes vl
             INNER JOIN controles c ON c.id = vl.controle_id
@@ -406,5 +429,35 @@ final class VerificationRepository
         }
 
         return $this->utilisateurColumnExists;
+    }
+
+    private function hasValeurSaisieColumn(): bool
+    {
+        if ($this->valeurSaisieColumnExists !== null) {
+            return $this->valeurSaisieColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM verification_lignes LIKE 'valeur_saisie'");
+            $this->valeurSaisieColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->valeurSaisieColumnExists = false;
+        }
+
+        return $this->valeurSaisieColumnExists;
+    }
+
+    private function hasControleInputSchema(): bool
+    {
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM controles LIKE 'type_saisie'");
+            return $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            return false;
+        }
     }
 }

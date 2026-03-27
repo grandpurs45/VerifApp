@@ -8,6 +8,7 @@ use App\Repositories\ControleRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\VehicleRepository;
 use App\Repositories\VerificationRepository;
+use App\Repositories\ZoneRepository;
 
 final class VerificationController
 {
@@ -52,19 +53,42 @@ final class VerificationController
 
         $controles = $controleRepository->findByVehicleAndPosteId($vehicleId, $posteId);
         $resultats = is_array($_POST['resultats'] ?? null) ? $_POST['resultats'] : [];
+        $values = is_array($_POST['valeurs'] ?? null) ? $_POST['valeurs'] : [];
         $commentaires = is_array($_POST['commentaires'] ?? null) ? $_POST['commentaires'] : [];
         $allowedStatuses = ['ok', 'nok', 'na'];
         $lines = [];
 
         foreach ($controles as $controle) {
             $controleId = (int) $controle['id'];
-            $rawResult = $resultats[(string) $controleId] ?? null;
-            $result = is_string($rawResult) ? strtolower(trim($rawResult)) : '';
+            $inputType = strtolower((string) ($controle['type_saisie'] ?? 'statut'));
+            if (!in_array($inputType, ['statut', 'quantite', 'mesure'], true)) {
+                $inputType = 'statut';
+            }
 
-            if (!in_array($result, $allowedStatuses, true)) {
-                $this->redirect(
-                    '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
-                );
+            $result = '';
+            $valueInput = null;
+
+            if ($inputType === 'statut') {
+                $rawResult = $resultats[(string) $controleId] ?? null;
+                $result = is_string($rawResult) ? strtolower(trim($rawResult)) : '';
+
+                if (!in_array($result, $allowedStatuses, true)) {
+                    $this->redirect(
+                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
+                    );
+                }
+            } else {
+                $rawValue = $values[(string) $controleId] ?? null;
+                $valueString = is_string($rawValue) ? trim($rawValue) : '';
+
+                if ($valueString === '' || !is_numeric($valueString)) {
+                    $this->redirect(
+                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
+                    );
+                }
+
+                $valueInput = (float) $valueString;
+                $result = $this->computeResultForNumericControl($controle, $valueInput);
             }
 
             $rawComment = $commentaires[(string) $controleId] ?? null;
@@ -74,6 +98,7 @@ final class VerificationController
                 'controle_id' => $controleId,
                 'resultat' => $result,
                 'commentaire' => $comment === '' ? null : $comment,
+                'valeur_saisie' => $valueInput,
             ];
         }
 
@@ -117,6 +142,9 @@ final class VerificationController
 
         $verification = $verificationRepository->findById($verificationId);
         $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId);
+        if ($verification !== null) {
+            $lines = $this->applyZonePaths((int) $verification['vehicule_id'], $lines);
+        }
 
         require dirname(__DIR__, 2) . '/public/views/verification_show.php';
     }
@@ -127,6 +155,9 @@ final class VerificationController
 
         $verification = $verificationRepository->findById($verificationId);
         $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId);
+        if ($verification !== null) {
+            $lines = $this->applyZonePaths((int) $verification['vehicule_id'], $lines);
+        }
 
         require dirname(__DIR__, 2) . '/public/views/verification_export.php';
     }
@@ -143,5 +174,60 @@ final class VerificationController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function computeResultForNumericControl(array $controle, float $value): string
+    {
+        $inputType = strtolower((string) ($controle['type_saisie'] ?? 'statut'));
+
+        if ($inputType === 'quantite') {
+            $expected = $controle['valeur_attendue'] !== null ? (float) $controle['valeur_attendue'] : null;
+            if ($expected === null) {
+                return 'ok';
+            }
+
+            return $value >= $expected ? 'ok' : 'nok';
+        }
+
+        if ($inputType === 'mesure') {
+            $min = $controle['seuil_min'] !== null ? (float) $controle['seuil_min'] : null;
+            $max = $controle['seuil_max'] !== null ? (float) $controle['seuil_max'] : null;
+
+            if ($min !== null && $value < $min) {
+                return 'nok';
+            }
+
+            if ($max !== null && $value > $max) {
+                return 'nok';
+            }
+
+            return 'ok';
+        }
+
+        return 'ok';
+    }
+
+    private function applyZonePaths(int $vehicleId, array $lines): array
+    {
+        if ($vehicleId <= 0 || $lines === []) {
+            return $lines;
+        }
+
+        $zoneRepository = new ZoneRepository();
+        $zoneMap = [];
+
+        foreach ($zoneRepository->findByVehicleId($vehicleId) as $zone) {
+            $zoneMap[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom']);
+        }
+
+        foreach ($lines as &$line) {
+            $zoneId = isset($line['zone_id']) ? (int) $line['zone_id'] : 0;
+            if ($zoneId > 0 && isset($zoneMap[$zoneId])) {
+                $line['zone'] = $zoneMap[$zoneId];
+            }
+        }
+        unset($line);
+
+        return $lines;
     }
 }

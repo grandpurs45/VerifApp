@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Repositories\ControleRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\VehicleRepository;
+use App\Repositories\ZoneRepository;
 
 final class ControleController
 {
@@ -25,6 +26,20 @@ final class ControleController
 
             if ($poste !== null) {
                 $controles = $controleRepository->findByVehicleAndPosteId($vehicleId, $posteId);
+
+                $zoneRepository = new ZoneRepository();
+                $zoneMap = [];
+                foreach ($zoneRepository->findByVehicleId($vehicleId) as $zone) {
+                    $zoneMap[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom']);
+                }
+
+                foreach ($controles as &$controle) {
+                    $zoneId = isset($controle['zone_id']) ? (int) $controle['zone_id'] : 0;
+                    if ($zoneId > 0 && isset($zoneMap[$zoneId])) {
+                        $controle['zone'] = $zoneMap[$zoneId];
+                    }
+                }
+                unset($controle);
             }
         }
 

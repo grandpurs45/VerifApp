@@ -130,43 +130,95 @@ $totalControles = count($controles);
 
                         <ul class="space-y-4">
                             <?php foreach ($controlesZone as $controle): ?>
-                                <?php $controleId = (int) $controle['id']; ?>
-                                <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card>
+                                <?php
+                                $controleId = (int) $controle['id'];
+                                $inputType = strtolower((string) ($controle['type_saisie'] ?? 'statut'));
+                                if (!in_array($inputType, ['statut', 'quantite', 'mesure'], true)) {
+                                    $inputType = 'statut';
+                                }
+                                $expectedValue = isset($controle['valeur_attendue']) ? (string) $controle['valeur_attendue'] : '';
+                                $unit = isset($controle['unite']) ? trim((string) $controle['unite']) : '';
+                                $minThreshold = isset($controle['seuil_min']) ? (string) $controle['seuil_min'] : '';
+                                $maxThreshold = isset($controle['seuil_max']) ? (string) $controle['seuil_max'] : '';
+                                ?>
+                                <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card data-control-type="<?= htmlspecialchars($inputType, ENT_QUOTES, 'UTF-8') ?>" data-control-id="<?= $controleId ?>">
                                     <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?></p>
 
-                                    <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
-                                        <label class="cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
-                                            <span class="block rounded-xl border border-emerald-400 bg-emerald-200/20 px-2 py-4 text-center text-emerald-100 transition peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                OK
-                                            </span>
-                                        </label>
-                                        <label class="cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
-                                            <span class="block rounded-xl border border-red-400 bg-red-200/20 px-2 py-4 text-center text-red-100 transition peer-checked:bg-red-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                NOK
-                                            </span>
-                                        </label>
-                                        <label class="cursor-pointer">
-                                            <input type="radio" name="resultats[<?= $controleId ?>]" value="na" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
-                                            <span class="block rounded-xl border border-slate-400 bg-slate-300/20 px-2 py-4 text-center text-slate-100 transition peer-checked:bg-slate-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                NA
-                                            </span>
-                                        </label>
-                                    </div>
+                                    <?php if ($inputType === 'statut'): ?>
+                                        <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                                <span class="block rounded-xl border border-emerald-400 bg-emerald-200/20 px-2 py-4 text-center text-emerald-100 transition peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                    OK
+                                                </span>
+                                            </label>
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                                <span class="block rounded-xl border border-red-400 bg-red-200/20 px-2 py-4 text-center text-red-100 transition peer-checked:bg-red-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                    NOK
+                                                </span>
+                                            </label>
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="resultats[<?= $controleId ?>]" value="na" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
+                                                <span class="block rounded-xl border border-slate-400 bg-slate-300/20 px-2 py-4 text-center text-slate-100 transition peer-checked:bg-slate-500 peer-checked:text-white peer-checked:shadow-lg">
+                                                    NA
+                                                </span>
+                                            </label>
+                                        </div>
 
-                                    <div class="mt-3 hidden" data-comment-wrap="<?= $controleId ?>">
-                                        <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-red-200">
-                                            Commentaire NOK (obligatoire)
-                                        </label>
-                                        <textarea
-                                            id="commentaire_<?= $controleId ?>"
-                                            name="commentaires[<?= $controleId ?>]"
-                                            rows="2"
-                                            class="mt-1 w-full rounded-xl border border-red-400 bg-slate-900 px-3 py-2 text-sm text-white"
-                                            placeholder="Explique l'anomalie constatee"
-                                        ></textarea>
-                                    </div>
+                                        <div class="mt-3 hidden" data-comment-wrap="<?= $controleId ?>">
+                                            <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-red-200">
+                                                Commentaire NOK (obligatoire)
+                                            </label>
+                                            <textarea
+                                                id="commentaire_<?= $controleId ?>"
+                                                name="commentaires[<?= $controleId ?>]"
+                                                rows="2"
+                                                class="mt-1 w-full rounded-xl border border-red-400 bg-slate-900 px-3 py-2 text-sm text-white"
+                                                placeholder="Explique l'anomalie constatee"
+                                            ></textarea>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="rounded-xl border border-slate-600 bg-slate-900 p-3 space-y-2">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <div>
+                                                    <label for="valeur_<?= $controleId ?>" class="text-xs font-semibold text-slate-300">Valeur relevee</label>
+                                                    <input
+                                                        id="valeur_<?= $controleId ?>"
+                                                        name="valeurs[<?= $controleId ?>]"
+                                                        type="number"
+                                                        step="0.01"
+                                                        inputmode="decimal"
+                                                        required
+                                                        class="mt-1 w-full rounded-xl border border-slate-500 bg-slate-950 px-3 py-2 text-sm text-white"
+                                                        data-control-value="<?= $controleId ?>"
+                                                    >
+                                                </div>
+                                                <div class="text-xs text-slate-300 pt-1">
+                                                    <?php if ($inputType === 'quantite'): ?>
+                                                        <p>Quantite attendue : <strong><?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?></strong><?= $unit !== '' ? ' ' . htmlspecialchars($unit, ENT_QUOTES, 'UTF-8') : '' ?></p>
+                                                    <?php else: ?>
+                                                        <?php if ($unit !== ''): ?><p>Unite : <strong><?= htmlspecialchars($unit, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
+                                                        <?php if ($minThreshold !== ''): ?><p>Min : <strong><?= htmlspecialchars($minThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
+                                                        <?php if ($maxThreshold !== ''): ?><p>Max : <strong><?= htmlspecialchars($maxThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3" data-comment-wrap="<?= $controleId ?>">
+                                            <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-slate-300">
+                                                Commentaire (optionnel)
+                                            </label>
+                                            <textarea
+                                                id="commentaire_<?= $controleId ?>"
+                                                name="commentaires[<?= $controleId ?>]"
+                                                rows="2"
+                                                class="mt-1 w-full rounded-xl border border-slate-500 bg-slate-900 px-3 py-2 text-sm text-white"
+                                                placeholder="Contexte, precision, observation"
+                                            ></textarea>
+                                        </div>
+                                    <?php endif; ?>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -190,16 +242,30 @@ $totalControles = count($controles);
     <script>
         (function () {
             const total = <?= $totalControles ?>;
+            const cards = Array.from(document.querySelectorAll('[data-control-card]'));
             const radios = Array.from(document.querySelectorAll('.control-radio'));
+            const numericInputs = Array.from(document.querySelectorAll('input[data-control-value]'));
             const progressText = document.getElementById('progressText');
             const progressBottom = document.getElementById('progressBottom');
             const progressBar = document.getElementById('progressBar');
 
             function updateProgress() {
-                const names = new Set(radios.map((radio) => radio.name));
                 let answered = 0;
-                names.forEach((name) => {
-                    if (document.querySelector('input[name="' + name.replace(/"/g, '\\"') + '"]:checked')) {
+
+                cards.forEach((card) => {
+                    const type = card.dataset.controlType || 'statut';
+                    const controlId = card.dataset.controlId || '';
+
+                    if (type === 'statut') {
+                        const checked = card.querySelector('input.control-radio:checked');
+                        if (checked) {
+                            answered += 1;
+                        }
+                        return;
+                    }
+
+                    const input = card.querySelector('input[data-control-value="' + controlId + '"]');
+                    if (input && input.value.trim() !== '') {
                         answered += 1;
                     }
                 });
@@ -232,6 +298,10 @@ $totalControles = count($controles);
                     updateProgress();
                     updateCommentVisibility(radio.dataset.controlId, radio.value);
                 });
+            });
+
+            numericInputs.forEach((input) => {
+                input.addEventListener('input', updateProgress);
             });
 
             updateProgress();

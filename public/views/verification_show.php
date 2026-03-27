@@ -103,6 +103,16 @@ foreach ($lines as $line) {
                                     </span>
                                 </div>
 
+                                <?php if (($line['type_saisie'] ?? 'statut') !== 'statut'): ?>
+                                    <p class="text-sm text-slate-600 mt-2">
+                                        Valeur relevee :
+                                        <strong><?= htmlspecialchars((string) ($line['valeur_saisie'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></strong>
+                                        <?php if (($line['unite'] ?? '') !== ''): ?>
+                                            <?= htmlspecialchars((string) $line['unite'], ENT_QUOTES, 'UTF-8') ?>
+                                        <?php endif; ?>
+                                    </p>
+                                <?php endif; ?>
+
                                 <?php if (($line['commentaire'] ?? null) !== null && trim((string) $line['commentaire']) !== ''): ?>
                                     <p class="text-sm text-slate-600 mt-2">
                                         Commentaire : <?= nl2br(htmlspecialchars((string) $line['commentaire'], ENT_QUOTES, 'UTF-8')) ?>

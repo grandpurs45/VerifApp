@@ -11,6 +11,7 @@ use PDOException;
 final class ControleRepository
 {
     private ?bool $isHierarchicalSchema = null;
+    private ?bool $hasInputSchema = null;
 
     public function findByPosteId(int $posteId): array
     {
@@ -20,6 +21,11 @@ final class ControleRepository
             SELECT
                 id,
                 libelle,
+                ' . ($this->hasInputSchema() ? 'type_saisie,' : '\'statut\' AS type_saisie,') . '
+                ' . ($this->hasInputSchema() ? 'valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                ' . ($this->hasInputSchema() ? 'unite,' : 'NULL AS unite,') . '
+                ' . ($this->hasInputSchema() ? 'seuil_min,' : 'NULL AS seuil_min,') . '
+                ' . ($this->hasInputSchema() ? 'seuil_max,' : 'NULL AS seuil_max,') . '
                 zone,
                 ordre
             FROM controles
@@ -48,6 +54,12 @@ final class ControleRepository
             SELECT
                 c.id,
                 c.libelle,
+                c.zone_id,
+                ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
+                ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
+                ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
+                ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
                 z.nom AS zone,
                 c.ordre
             FROM controles c
@@ -76,6 +88,11 @@ final class ControleRepository
                 SELECT
                     c.id,
                     c.libelle,
+                    ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
+                    ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                    ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
+                    ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
+                    ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
                     c.poste_id,
                     c.vehicule_id,
                     c.zone_id,
@@ -95,6 +112,11 @@ final class ControleRepository
                 SELECT
                     c.id,
                     c.libelle,
+                    ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
+                    ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                    ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
+                    ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
+                    ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
                     c.poste_id,
                     NULL AS vehicule_id,
                     NULL AS zone_id,
@@ -125,19 +147,32 @@ final class ControleRepository
         int $order,
         bool $active,
         ?int $vehicleId = null,
-        ?int $zoneId = null
+        ?int $zoneId = null,
+        string $inputType = 'statut',
+        ?float $expectedValue = null,
+        ?string $unit = null,
+        ?float $minThreshold = null,
+        ?float $maxThreshold = null
     ): bool {
         $connection = Database::getConnection();
+        $hasInputSchema = $this->hasInputSchema();
 
         if ($this->hasHierarchicalSchema() && $vehicleId !== null && $zoneId !== null) {
-            $sql = '
-                INSERT INTO controles (libelle, poste_id, vehicule_id, zone_id, zone, ordre, actif)
-                VALUES (:libelle, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
-            ';
+            if ($hasInputSchema) {
+                $sql = '
+                    INSERT INTO controles (libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, vehicule_id, zone_id, zone, ordre, actif)
+                    VALUES (:libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
+                ';
+            } else {
+                $sql = '
+                    INSERT INTO controles (libelle, poste_id, vehicule_id, zone_id, zone, ordre, actif)
+                    VALUES (:libelle, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
+                ';
+            }
 
             $statement = $connection->prepare($sql);
 
-            return $statement->execute([
+            $params = [
                 'libelle' => $label,
                 'poste_id' => $posteId,
                 'vehicule_id' => $vehicleId,
@@ -145,23 +180,50 @@ final class ControleRepository
                 'zone' => $zone,
                 'ordre' => $order,
                 'actif' => $active ? 1 : 0,
-            ]);
+            ];
+
+            if ($hasInputSchema) {
+                $params['type_saisie'] = $inputType;
+                $params['valeur_attendue'] = $expectedValue;
+                $params['unite'] = $unit;
+                $params['seuil_min'] = $minThreshold;
+                $params['seuil_max'] = $maxThreshold;
+            }
+
+            return $statement->execute($params);
         }
 
-        $sql = '
-            INSERT INTO controles (libelle, poste_id, zone, ordre, actif)
-            VALUES (:libelle, :poste_id, :zone, :ordre, :actif)
-        ';
+        if ($hasInputSchema) {
+            $sql = '
+                INSERT INTO controles (libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, zone, ordre, actif)
+                VALUES (:libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :zone, :ordre, :actif)
+            ';
+        } else {
+            $sql = '
+                INSERT INTO controles (libelle, poste_id, zone, ordre, actif)
+                VALUES (:libelle, :poste_id, :zone, :ordre, :actif)
+            ';
+        }
 
         $statement = $connection->prepare($sql);
 
-        return $statement->execute([
+        $params = [
             'libelle' => $label,
             'poste_id' => $posteId,
             'zone' => $zone,
             'ordre' => $order,
             'actif' => $active ? 1 : 0,
-        ]);
+        ];
+
+        if ($hasInputSchema) {
+            $params['type_saisie'] = $inputType;
+            $params['valeur_attendue'] = $expectedValue;
+            $params['unite'] = $unit;
+            $params['seuil_min'] = $minThreshold;
+            $params['seuil_max'] = $maxThreshold;
+        }
+
+        return $statement->execute($params);
     }
 
     public function update(
@@ -172,26 +234,51 @@ final class ControleRepository
         int $order,
         bool $active,
         ?int $vehicleId = null,
-        ?int $zoneId = null
+        ?int $zoneId = null,
+        string $inputType = 'statut',
+        ?float $expectedValue = null,
+        ?string $unit = null,
+        ?float $minThreshold = null,
+        ?float $maxThreshold = null
     ): bool {
         $connection = Database::getConnection();
+        $hasInputSchema = $this->hasInputSchema();
 
         if ($this->hasHierarchicalSchema() && $vehicleId !== null && $zoneId !== null) {
-            $sql = '
-                UPDATE controles
-                SET libelle = :libelle,
-                    poste_id = :poste_id,
-                    vehicule_id = :vehicule_id,
-                    zone_id = :zone_id,
-                    zone = :zone,
-                    ordre = :ordre,
-                    actif = :actif
-                WHERE id = :id
-            ';
+            if ($hasInputSchema) {
+                $sql = '
+                    UPDATE controles
+                    SET libelle = :libelle,
+                        type_saisie = :type_saisie,
+                        valeur_attendue = :valeur_attendue,
+                        unite = :unite,
+                        seuil_min = :seuil_min,
+                        seuil_max = :seuil_max,
+                        poste_id = :poste_id,
+                        vehicule_id = :vehicule_id,
+                        zone_id = :zone_id,
+                        zone = :zone,
+                        ordre = :ordre,
+                        actif = :actif
+                    WHERE id = :id
+                ';
+            } else {
+                $sql = '
+                    UPDATE controles
+                    SET libelle = :libelle,
+                        poste_id = :poste_id,
+                        vehicule_id = :vehicule_id,
+                        zone_id = :zone_id,
+                        zone = :zone,
+                        ordre = :ordre,
+                        actif = :actif
+                    WHERE id = :id
+                ';
+            }
 
             $statement = $connection->prepare($sql);
 
-            return $statement->execute([
+            $params = [
                 'id' => $id,
                 'libelle' => $label,
                 'poste_id' => $posteId,
@@ -200,29 +287,66 @@ final class ControleRepository
                 'zone' => $zone,
                 'ordre' => $order,
                 'actif' => $active ? 1 : 0,
-            ]);
+            ];
+
+            if ($hasInputSchema) {
+                $params['type_saisie'] = $inputType;
+                $params['valeur_attendue'] = $expectedValue;
+                $params['unite'] = $unit;
+                $params['seuil_min'] = $minThreshold;
+                $params['seuil_max'] = $maxThreshold;
+            }
+
+            return $statement->execute($params);
         }
 
-        $sql = '
-            UPDATE controles
-            SET libelle = :libelle,
-                poste_id = :poste_id,
-                zone = :zone,
-                ordre = :ordre,
-                actif = :actif
-            WHERE id = :id
-        ';
+        if ($hasInputSchema) {
+            $sql = '
+                UPDATE controles
+                SET libelle = :libelle,
+                    type_saisie = :type_saisie,
+                    valeur_attendue = :valeur_attendue,
+                    unite = :unite,
+                    seuil_min = :seuil_min,
+                    seuil_max = :seuil_max,
+                    poste_id = :poste_id,
+                    zone = :zone,
+                    ordre = :ordre,
+                    actif = :actif
+                WHERE id = :id
+            ';
+        } else {
+            $sql = '
+                UPDATE controles
+                SET libelle = :libelle,
+                    poste_id = :poste_id,
+                    zone = :zone,
+                    ordre = :ordre,
+                    actif = :actif
+                WHERE id = :id
+            ';
+        }
 
         $statement = $connection->prepare($sql);
 
-        return $statement->execute([
+        $params = [
             'id' => $id,
             'libelle' => $label,
             'poste_id' => $posteId,
             'zone' => $zone,
             'ordre' => $order,
             'actif' => $active ? 1 : 0,
-        ]);
+        ];
+
+        if ($hasInputSchema) {
+            $params['type_saisie'] = $inputType;
+            $params['valeur_attendue'] = $expectedValue;
+            $params['unite'] = $unit;
+            $params['seuil_min'] = $minThreshold;
+            $params['seuil_max'] = $maxThreshold;
+        }
+
+        return $statement->execute($params);
     }
 
     public function delete(int $id): bool
@@ -255,5 +379,33 @@ final class ControleRepository
         }
 
         return $this->isHierarchicalSchema;
+    }
+
+    public function hasInputSchema(): bool
+    {
+        if ($this->hasInputSchema !== null) {
+            return $this->hasInputSchema;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $typeColumn = $connection->query("SHOW COLUMNS FROM controles LIKE 'type_saisie'");
+            $expectedColumn = $connection->query("SHOW COLUMNS FROM controles LIKE 'valeur_attendue'");
+            $unitColumn = $connection->query("SHOW COLUMNS FROM controles LIKE 'unite'");
+            $minColumn = $connection->query("SHOW COLUMNS FROM controles LIKE 'seuil_min'");
+            $maxColumn = $connection->query("SHOW COLUMNS FROM controles LIKE 'seuil_max'");
+
+            $this->hasInputSchema =
+                $typeColumn !== false && $typeColumn->fetchColumn() !== false &&
+                $expectedColumn !== false && $expectedColumn->fetchColumn() !== false &&
+                $unitColumn !== false && $unitColumn->fetchColumn() !== false &&
+                $minColumn !== false && $minColumn->fetchColumn() !== false &&
+                $maxColumn !== false && $maxColumn->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->hasInputSchema = false;
+        }
+
+        return $this->hasInputSchema;
     }
 }

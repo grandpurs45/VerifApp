@@ -24,7 +24,7 @@ $errorMap = [
     'zones_table_missing' => 'Migration zones non appliquee.',
     'zone_save_failed' => 'Impossible d enregistrer la zone.',
     'zone_delete_failed' => 'Suppression zone impossible (contraintes).',
-    'zone_in_use' => 'Suppression impossible: cette zone est utilisee par du materiel.',
+    'zone_in_use' => 'Suppression impossible: cette zone est utilisee par du materiel ou contient des sous-zones.',
     'invalid_controle' => 'Donnees controle invalides.',
     'invalid_controle_link' => 'Controle incoherent: lie vehicule + poste + zone.',
     'controle_save_failed' => 'Impossible d enregistrer le controle.',
@@ -147,22 +147,30 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             </div>
 
             <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
-                <select name="vehicule_id" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-5">
+                <select name="vehicule_id" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-4" data-zone-vehicle-select>
                     <option value="">Vehicule</option>
                     <?php foreach ($vehicles as $vehicle): ?>
                         <option value="<?= (int) $vehicle['id'] ?>"><?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?></option>
                     <?php endforeach; ?>
                 </select>
-                <input type="text" name="nom" placeholder="Nom zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-5">
+                <select name="parent_id" class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-3" data-zone-parent-select>
+                    <option value="">Zone parent (optionnel)</option>
+                    <?php foreach ($zones as $zone): ?>
+                        <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>">
+                            <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="text" name="nom" placeholder="Nom zone / sous-zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-3">
                 <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
             <div id="zones-list" class="space-y-2">
                 <?php foreach ($zones as $zone): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=zone_delete" data-zone-name="<?= htmlspecialchars(strtolower((string) $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" data-zone-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                    <form method="post" action="/index.php?controller=manager_assets&action=zone_delete" data-zone-name="<?= htmlspecialchars(strtolower((string) ($zone['chemin'] ?? $zone['nom'])), ENT_QUOTES, 'UTF-8') ?>" data-zone-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                         <input type="hidden" name="id" value="<?= (int) $zone['id'] ?>">
                         <input type="text" readonly value="<?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
-                        <input type="text" readonly value="<?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
+                        <input type="text" readonly value="<?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-5">
                         <button type="submit" data-confirm="Supprimer cette zone ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
                     </form>
                 <?php endforeach; ?>
@@ -188,98 +196,133 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     </select>
                 </div>
             </div>
-            <p class="text-sm text-slate-600 mb-4">Edition rapide en ligne avec filtres instantanes.</p>
+            <p class="text-sm text-slate-600 mb-2">Edition rapide en ligne avec filtres instantanes.</p>
+            <p class="text-xs text-slate-500 mb-4">
+                Regle: <strong>Statut</strong> = aucun champ requis. <strong>Quantite</strong> = renseigner au moins <em>Attendue</em> (et optionnellement <em>Unite</em>). <strong>Mesure</strong> = renseigner <em>Unite</em> et au moins un seuil <em>Min</em> ou <em>Max</em>.
+            </p>
 
-            <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 mb-4">
+            <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 mb-4">
                 <input type="hidden" name="id" value="0">
-                <input type="text" name="libelle" placeholder="Libelle controle" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
-                    <option value="">Vehicule</option>
-                    <?php foreach ($vehicles as $vehicle): ?>
-                        <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>">
-                            <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                    <option value="">Poste</option>
-                    <?php foreach ($postes as $poste): ?>
-                        <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>">
-                            <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if ($hierarchyAvailable): ?>
-                    <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <option value="">Zone</option>
-                        <?php foreach ($zones as $zone): ?>
-                            <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>">
-                                <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+                    <input type="text" name="libelle" placeholder="Libelle controle" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+                    <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
+                        <option value="">Vehicule</option>
+                        <?php foreach ($vehicles as $vehicle): ?>
+                            <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>">
+                                <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                <?php else: ?>
-                    <input type="text" name="zone_nom" placeholder="Zone" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                <?php endif; ?>
-                <input type="number" name="ordre" value="0" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                    <option value="1">Actif</option>
-                    <option value="0">Inactif</option>
-                </select>
-                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold">Ajouter</button>
+                    <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <option value="">Poste</option>
+                        <?php foreach ($postes as $poste): ?>
+                            <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>">
+                                <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if ($hierarchyAvailable): ?>
+                        <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                            <option value="">Zone</option>
+                            <?php foreach ($zones as $zone): ?>
+                                    <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>">
+                                        <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php else: ?>
+                        <input type="text" name="zone_nom" placeholder="Zone" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <?php endif; ?>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-8 gap-2">
+                    <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-input-type>
+                        <option value="statut">Statut</option>
+                        <option value="quantite">Quantite</option>
+                        <option value="mesure">Mesure</option>
+                    </select>
+                    <div data-wrap="expected">
+                        <input type="number" step="0.01" min="0" name="valeur_attendue" placeholder="Attendue (ex: 5)" aria-label="Valeur attendue" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                    </div>
+                    <div data-wrap="unit">
+                        <input type="text" name="unite" placeholder="Unite (ex: bar)" aria-label="Unite" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
+                    </div>
+                    <div data-wrap="min">
+                        <input type="number" step="0.01" name="seuil_min" placeholder="Min (ex: 120)" aria-label="Seuil minimum" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                    </div>
+                    <div data-wrap="max">
+                        <input type="number" step="0.01" name="seuil_max" placeholder="Max (ex: 300)" aria-label="Seuil maximum" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                    </div>
+                    <input type="number" name="ordre" value="0" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <option value="1">Actif</option>
+                        <option value="0">Inactif</option>
+                    </select>
+                    <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold">Ajouter</button>
+                </div>
             </form>
-
-            <div class="hidden md:grid md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <div>Libelle</div>
-                <div>Vehicule</div>
-                <div>Poste</div>
-                <div>Zone</div>
-                <div>Ordre</div>
-                <div>Statut</div>
-                <div>Actions</div>
-            </div>
 
             <div id="controls-list" class="space-y-3">
                 <?php foreach ($controles as $controle): ?>
-                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" data-control-form="1" data-control-label="<?= htmlspecialchars(strtolower((string) $controle['libelle']), ENT_QUOTES, 'UTF-8') ?>" data-control-vehicle-id="<?= (int) ($controle['vehicule_id'] ?? 0) ?>" data-control-poste-id="<?= (int) $controle['poste_id'] ?>" class="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1.4fr_1.5fr_80px_100px_210px] gap-2 rounded-xl md:rounded-none border border-slate-100 md:border-0 p-2 md:p-0">
+                    <form method="post" action="/index.php?controller=manager_assets&action=controle_save" data-control-form="1" data-control-label="<?= htmlspecialchars(strtolower((string) $controle['libelle']), ENT_QUOTES, 'UTF-8') ?>" data-control-vehicle-id="<?= (int) ($controle['vehicule_id'] ?? 0) ?>" data-control-poste-id="<?= (int) $controle['poste_id'] ?>" class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
                         <input type="hidden" name="id" value="<?= (int) $controle['id'] ?>">
-                        <input type="text" name="libelle" value="<?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
-                            <option value="">Vehicule</option>
-                            <?php foreach ($vehicles as $vehicle): ?>
-                                <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>" <?= (int) ($controle['vehicule_id'] ?? 0) === (int) $vehicle['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <option value="">Poste</option>
-                            <?php foreach ($postes as $poste): ?>
-                                <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>" <?= (int) $controle['poste_id'] === (int) $poste['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <?php if ($hierarchyAvailable): ?>
-                            <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                <option value="">Zone</option>
-                                <?php foreach ($zones as $zone): ?>
-                                    <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" <?= (int) ($controle['zone_id'] ?? 0) === (int) $zone['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($zone['nom'], ENT_QUOTES, 'UTF-8') ?>
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+                            <input type="text" name="libelle" value="<?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+                            <select name="vehicule_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" <?= $hierarchyAvailable ? 'required' : '' ?>>
+                                <option value="">Vehicule</option>
+                                <?php foreach ($vehicles as $vehicle): ?>
+                                    <option value="<?= (int) $vehicle['id'] ?>" data-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>" <?= (int) ($controle['vehicule_id'] ?? 0) === (int) $vehicle['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($vehicle['nom'], ENT_QUOTES, 'UTF-8') ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                        <?php else: ?>
-                            <input type="text" name="zone_nom" value="<?= htmlspecialchars($controle['zone'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <?php endif; ?>
-                        <input type="number" name="ordre" value="<?= (int) $controle['ordre'] ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <option value="1" <?= (int) $controle['actif'] === 1 ? 'selected' : '' ?>>Actif</option>
-                            <option value="0" <?= (int) $controle['actif'] === 0 ? 'selected' : '' ?>>Inactif</option>
-                        </select>
-                        <div class="flex gap-2">
-                            <button type="submit" data-loading-label="Maj..." class="flex-1 rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Modifier</button>
-                            <button formaction="/index.php?controller=manager_assets&action=controle_delete" type="submit" data-confirm="Supprimer ce controle ?" data-loading-label="Suppression..." class="flex-1 rounded-xl bg-red-600 text-white px-3 py-2 text-sm">Supprimer</button>
+                            <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <option value="">Poste</option>
+                                <?php foreach ($postes as $poste): ?>
+                                    <option value="<?= (int) $poste['id'] ?>" data-type-id="<?= (int) $poste['type_vehicule_id'] ?>" <?= (int) $controle['poste_id'] === (int) $poste['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($poste['nom'], ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if ($hierarchyAvailable): ?>
+                                <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                    <option value="">Zone</option>
+                                    <?php foreach ($zones as $zone): ?>
+                                        <option value="<?= (int) $zone['id'] ?>" data-vehicle-id="<?= (int) $zone['vehicule_id'] ?>" <?= (int) ($controle['zone_id'] ?? 0) === (int) $zone['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($zone['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <input type="text" name="zone_nom" value="<?= htmlspecialchars($controle['zone'], ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                            <?php endif; ?>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-8 gap-2">
+                            <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-input-type>
+                                <option value="statut" <?= (($controle['type_saisie'] ?? 'statut') === 'statut') ? 'selected' : '' ?>>Statut</option>
+                                <option value="quantite" <?= (($controle['type_saisie'] ?? 'statut') === 'quantite') ? 'selected' : '' ?>>Quantite</option>
+                                <option value="mesure" <?= (($controle['type_saisie'] ?? 'statut') === 'mesure') ? 'selected' : '' ?>>Mesure</option>
+                            </select>
+                            <div data-wrap="expected">
+                                <input type="number" step="0.01" min="0" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Attendue" aria-label="Valeur attendue" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                            </div>
+                            <div data-wrap="unit">
+                                <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Unite" aria-label="Unite" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
+                            </div>
+                            <div data-wrap="min">
+                                <input type="number" step="0.01" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Min" aria-label="Seuil minimum" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                            </div>
+                            <div data-wrap="max">
+                                <input type="number" step="0.01" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Max" aria-label="Seuil maximum" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                            </div>
+                            <input type="number" name="ordre" value="<?= (int) $controle['ordre'] ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                            <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <option value="1" <?= (int) $controle['actif'] === 1 ? 'selected' : '' ?>>Actif</option>
+                                <option value="0" <?= (int) $controle['actif'] === 0 ? 'selected' : '' ?>>Inactif</option>
+                            </select>
+                            <div class="flex gap-2">
+                                <button type="submit" data-loading-label="Maj..." class="flex-1 rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Modifier</button>
+                                <button formaction="/index.php?controller=manager_assets&action=controle_delete" type="submit" data-confirm="Supprimer ce controle ?" data-loading-label="Suppression..." class="flex-1 rounded-xl bg-red-600 text-white px-3 py-2 text-sm">Supprimer</button>
+                            </div>
                         </div>
                     </form>
                 <?php endforeach; ?>
@@ -295,6 +338,8 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             const zonesSearch = document.getElementById('zones-search');
             const zonesVehicleFilter = document.getElementById('zones-vehicle-filter');
             const zoneRows = Array.from(document.querySelectorAll('#zones-list form[data-zone-name]'));
+            const zoneVehicleSelect = document.querySelector('[data-zone-vehicle-select]');
+            const zoneParentSelect = document.querySelector('[data-zone-parent-select]');
 
             const controlsSearch = document.getElementById('controls-search');
             const controlsVehicleFilter = document.getElementById('controls-vehicle-filter');
@@ -325,6 +370,36 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     const okVehicle = vehicleId === '' || rowVehicleId === vehicleId;
                     row.style.display = okText && okVehicle ? '' : 'none';
                 });
+            }
+
+            function syncZoneParentSelect() {
+                if (!zoneVehicleSelect || !zoneParentSelect) {
+                    return;
+                }
+
+                const vehicleId = zoneVehicleSelect.value || '';
+                const currentValue = zoneParentSelect.value;
+                let keepCurrent = false;
+
+                Array.from(zoneParentSelect.options).forEach(function (option, index) {
+                    if (index === 0 || option.value === '') {
+                        option.hidden = false;
+                        option.disabled = false;
+                        return;
+                    }
+
+                    const optionVehicleId = option.dataset.vehicleId || '';
+                    const keep = vehicleId === '' || optionVehicleId === vehicleId;
+                    option.hidden = !keep;
+                    option.disabled = !keep;
+                    if (keep && option.value === currentValue) {
+                        keepCurrent = true;
+                    }
+                });
+
+                if (!keepCurrent) {
+                    zoneParentSelect.value = '';
+                }
             }
 
             function filterControlsList() {
@@ -422,10 +497,70 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                 }
             }
 
+            function syncInputTypeFields(form) {
+                const inputType = form.querySelector('select[name="type_saisie"]');
+                if (!inputType) {
+                    return;
+                }
+
+                const expectedInput = form.querySelector('[data-field="expected"]');
+                const unitInput = form.querySelector('[data-field="unit"]');
+                const minInput = form.querySelector('[data-field="min"]');
+                const maxInput = form.querySelector('[data-field="max"]');
+                const expectedWrap = form.querySelector('[data-wrap="expected"]');
+                const unitWrap = form.querySelector('[data-wrap="unit"]');
+                const minWrap = form.querySelector('[data-wrap="min"]');
+                const maxWrap = form.querySelector('[data-wrap="max"]');
+                const type = inputType.value || 'statut';
+
+                if (expectedInput) {
+                    expectedInput.disabled = type !== 'quantite';
+                    expectedInput.required = type === 'quantite';
+                    if (type !== 'quantite') {
+                        expectedInput.value = '';
+                    }
+                }
+                if (expectedWrap) {
+                    expectedWrap.classList.toggle('hidden', type !== 'quantite');
+                }
+
+                if (unitInput) {
+                    unitInput.disabled = type === 'statut';
+                    unitInput.required = type === 'mesure';
+                    if (type === 'statut') {
+                        unitInput.value = '';
+                    }
+                }
+                if (unitWrap) {
+                    unitWrap.classList.toggle('hidden', type === 'statut');
+                }
+
+                if (minInput) {
+                    minInput.disabled = type !== 'mesure';
+                    if (type !== 'mesure') {
+                        minInput.value = '';
+                    }
+                }
+                if (minWrap) {
+                    minWrap.classList.toggle('hidden', type !== 'mesure');
+                }
+
+                if (maxInput) {
+                    maxInput.disabled = type !== 'mesure';
+                    if (type !== 'mesure') {
+                        maxInput.value = '';
+                    }
+                }
+                if (maxWrap) {
+                    maxWrap.classList.toggle('hidden', type !== 'mesure');
+                }
+            }
+
             forms.forEach(function (form) {
                 const vehicleSelect = form.querySelector('select[name="vehicule_id"]');
                 const posteSelect = form.querySelector('select[name="poste_id"]');
                 const zoneSelect = form.querySelector('select[name="zone_id"]');
+                const inputTypeSelect = form.querySelector('select[name="type_saisie"]');
                 if (!vehicleSelect) {
                     return;
                 }
@@ -437,7 +572,14 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
                     syncForm(form);
                 });
 
+                if (inputTypeSelect) {
+                    inputTypeSelect.addEventListener('change', function () {
+                        syncInputTypeFields(form);
+                    });
+                }
+
                 syncForm(form);
+                syncInputTypeFields(form);
             });
 
             if (vehiclesSearch) {
@@ -451,6 +593,10 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             }
             if (zonesVehicleFilter) {
                 zonesVehicleFilter.addEventListener('change', filterZones);
+            }
+            if (zoneVehicleSelect) {
+                zoneVehicleSelect.addEventListener('change', syncZoneParentSelect);
+                syncZoneParentSelect();
             }
             if (controlsSearch) {
                 controlsSearch.addEventListener('input', filterControlsList);

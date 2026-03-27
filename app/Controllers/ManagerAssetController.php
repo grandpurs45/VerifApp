@@ -174,6 +174,7 @@ final class ManagerAssetController
         }
 
         $vehicleId = isset($_POST['vehicule_id']) ? (int) $_POST['vehicule_id'] : 0;
+        $parentId = isset($_POST['parent_id']) ? (int) $_POST['parent_id'] : 0;
         $name = trim((string) ($_POST['nom'] ?? ''));
 
         if ($vehicleId <= 0 || $name === '') {
@@ -185,8 +186,12 @@ final class ManagerAssetController
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zones_table_missing');
         }
 
+        if ($parentId > 0 && !$zoneRepository->belongsToVehicle($parentId, $vehicleId)) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_zone');
+        }
+
         try {
-            $zoneRepository->create($vehicleId, $name);
+            $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_save_failed');
@@ -290,9 +295,41 @@ final class ManagerAssetController
         $zoneName = trim((string) ($_POST['zone_nom'] ?? ''));
         $order = isset($_POST['ordre']) ? (int) $_POST['ordre'] : 0;
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
+        $inputType = strtolower(trim((string) ($_POST['type_saisie'] ?? 'statut')));
+        $expectedValueRaw = trim((string) ($_POST['valeur_attendue'] ?? ''));
+        $unitRaw = trim((string) ($_POST['unite'] ?? ''));
+        $minThresholdRaw = trim((string) ($_POST['seuil_min'] ?? ''));
+        $maxThresholdRaw = trim((string) ($_POST['seuil_max'] ?? ''));
+
+        $allowedInputTypes = ['statut', 'quantite', 'mesure'];
+        if (!in_array($inputType, $allowedInputTypes, true)) {
+            $inputType = 'statut';
+        }
+
+        $expectedValue = $expectedValueRaw === '' ? null : (float) $expectedValueRaw;
+        $minThreshold = $minThresholdRaw === '' ? null : (float) $minThresholdRaw;
+        $maxThreshold = $maxThresholdRaw === '' ? null : (float) $maxThresholdRaw;
+        $unit = $unitRaw === '' ? null : $unitRaw;
 
         if ($label === '' || $posteId <= 0 || $order < 0) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+        }
+
+        if ($inputType === 'statut') {
+            $expectedValue = null;
+            $minThreshold = null;
+            $maxThreshold = null;
+            $unit = null;
+        } elseif ($inputType === 'quantite') {
+            if ($expectedValue === null || $expectedValue < 0) {
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+            }
+            $minThreshold = null;
+            $maxThreshold = null;
+        } elseif ($inputType === 'mesure') {
+            if ($unit === null || ($minThreshold === null && $maxThreshold === null)) {
+                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+            }
         }
 
         $controleRepository = new ControleRepository();
@@ -326,7 +363,12 @@ final class ManagerAssetController
                     $order,
                     $active,
                     $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
-                    $controleRepository->hasHierarchicalSchema() ? $zoneId : null
+                    $controleRepository->hasHierarchicalSchema() ? $zoneId : null,
+                    $inputType,
+                    $expectedValue,
+                    $unit,
+                    $minThreshold,
+                    $maxThreshold
                 );
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_updated');
             }
@@ -338,7 +380,12 @@ final class ManagerAssetController
                 $order,
                 $active,
                 $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
-                $controleRepository->hasHierarchicalSchema() ? $zoneId : null
+                $controleRepository->hasHierarchicalSchema() ? $zoneId : null,
+                $inputType,
+                $expectedValue,
+                $unit,
+                $minThreshold,
+                $maxThreshold
             );
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_created');
         } catch (Throwable $throwable) {

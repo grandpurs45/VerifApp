@@ -92,6 +92,7 @@ declare(strict_types=1);
                         <tr>
                             <th>Controle</th>
                             <th>Resultat</th>
+                            <th>Valeur</th>
                             <th>Commentaire</th>
                             <th>Anomalie</th>
                         </tr>
@@ -101,6 +102,16 @@ declare(strict_types=1);
                             <tr>
                                 <td><?= htmlspecialchars($line['libelle'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= strtoupper(htmlspecialchars((string) $line['resultat'], ENT_QUOTES, 'UTF-8')) ?></td>
+                                <td>
+                                    <?php if (($line['type_saisie'] ?? 'statut') !== 'statut'): ?>
+                                        <?= htmlspecialchars((string) ($line['valeur_saisie'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                                        <?php if (($line['unite'] ?? '') !== ''): ?>
+                                            <?= htmlspecialchars((string) $line['unite'], ENT_QUOTES, 'UTF-8') ?>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= nl2br(htmlspecialchars((string) ($line['commentaire'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></td>
                                 <td>
                                     <?php if (($line['anomalie_id'] ?? null) !== null): ?>
