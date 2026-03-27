@@ -103,7 +103,7 @@ foreach ($lines as $line) {
                                     </span>
                                 </div>
 
-                                <?php if (($line['type_saisie'] ?? 'statut') !== 'statut'): ?>
+                                <?php if (($line['type_saisie'] ?? 'statut') === 'mesure'): ?>
                                     <p class="text-sm text-slate-600 mt-2">
                                         Valeur relevee :
                                         <strong><?= htmlspecialchars((string) ($line['valeur_saisie'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></strong>

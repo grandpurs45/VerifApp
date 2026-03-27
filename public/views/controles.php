@@ -144,7 +144,14 @@ $totalControles = count($controles);
                                 <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card data-control-type="<?= htmlspecialchars($inputType, ENT_QUOTES, 'UTF-8') ?>" data-control-id="<?= $controleId ?>">
                                     <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?></p>
 
-                                    <?php if ($inputType === 'statut'): ?>
+                                    <?php if ($inputType === 'statut' || $inputType === 'quantite'): ?>
+                                        <?php if ($inputType === 'quantite'): ?>
+                                            <p class="mb-2 text-xs text-slate-300">
+                                                Quantite attendue :
+                                                <strong><?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?></strong>
+                                                <?= $unit !== '' ? htmlspecialchars(' ' . $unit, ENT_QUOTES, 'UTF-8') : '' ?>
+                                            </p>
+                                        <?php endif; ?>
                                         <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
@@ -195,13 +202,9 @@ $totalControles = count($controles);
                                                     >
                                                 </div>
                                                 <div class="text-xs text-slate-300 pt-1">
-                                                    <?php if ($inputType === 'quantite'): ?>
-                                                        <p>Quantite attendue : <strong><?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?></strong><?= $unit !== '' ? ' ' . htmlspecialchars($unit, ENT_QUOTES, 'UTF-8') : '' ?></p>
-                                                    <?php else: ?>
-                                                        <?php if ($unit !== ''): ?><p>Unite : <strong><?= htmlspecialchars($unit, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
-                                                        <?php if ($minThreshold !== ''): ?><p>Min : <strong><?= htmlspecialchars($minThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
-                                                        <?php if ($maxThreshold !== ''): ?><p>Max : <strong><?= htmlspecialchars($maxThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
-                                                    <?php endif; ?>
+                                                    <?php if ($unit !== ''): ?><p>Unite : <strong><?= htmlspecialchars($unit, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
+                                                    <?php if ($minThreshold !== ''): ?><p>Min : <strong><?= htmlspecialchars($minThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
+                                                    <?php if ($maxThreshold !== ''): ?><p>Max : <strong><?= htmlspecialchars($maxThreshold, ENT_QUOTES, 'UTF-8') ?></strong></p><?php endif; ?>
                                                 </div>
                                             </div>
                                         </div>
@@ -256,7 +259,7 @@ $totalControles = count($controles);
                     const type = card.dataset.controlType || 'statut';
                     const controlId = card.dataset.controlId || '';
 
-                    if (type === 'statut') {
+                    if (type !== 'mesure') {
                         const checked = card.querySelector('input.control-radio:checked');
                         if (checked) {
                             answered += 1;

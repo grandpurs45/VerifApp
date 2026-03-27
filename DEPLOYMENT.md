@@ -28,6 +28,7 @@ Sortie:
 - Copier `.env.example` en `.env`.
 - Renseigner `APP_ENV`, `APP_URL`, `DB_*`.
 - Optionnel: `FIELD_QR_TOKEN`.
+- Optionnel: `PHARMACY_QR_TOKEN` pour proteger l'acces QR du module pharmacie.
 - Ne pas definir `APP_VERSION` pour laisser l'application lire automatiquement la version depuis le fichier `VERSION`.
 
 ## 4) Appliquer les migrations

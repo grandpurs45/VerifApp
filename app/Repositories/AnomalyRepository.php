@@ -11,6 +11,7 @@ use PDOException;
 final class AnomalyRepository
 {
     private ?bool $tableExists = null;
+    private ?bool $assigneeColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -28,8 +29,12 @@ final class AnomalyRepository
         $params = [];
 
         if (($filters['statut'] ?? '') !== '') {
-            $where[] = 'a.statut = :statut';
-            $params['statut'] = $filters['statut'];
+            if (($filters['statut'] ?? '') === 'actives') {
+                $where[] = "a.statut IN ('ouverte', 'en_cours')";
+            } else {
+                $where[] = 'a.statut = :statut';
+                $params['statut'] = $filters['statut'];
+            }
         }
 
         if (($filters['priorite'] ?? '') !== '') {
@@ -57,7 +62,20 @@ final class AnomalyRepository
             $params['date_to'] = $filters['date_to'];
         }
 
+        if (($filters['assigne_a'] ?? '') !== '') {
+            if (($filters['assigne_a'] ?? '') === 'none') {
+                $where[] = 'a.assigne_a IS NULL';
+            } elseif (ctype_digit((string) $filters['assigne_a'])) {
+                $where[] = 'a.assigne_a = :assigne_a';
+                $params['assigne_a'] = (int) $filters['assigne_a'];
+            }
+        }
+
         $whereSql = $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);
+        $assigneeSelect = $this->hasAssigneeColumn()
+            ? 'a.assigne_a, COALESCE(ua.nom, ua.email) AS assigne_nom'
+            : 'NULL AS assigne_a, NULL AS assigne_nom';
+        $assigneeJoin = $this->hasAssigneeColumn() ? 'LEFT JOIN utilisateurs ua ON ua.id = a.assigne_a' : '';
 
         $sql = '
             SELECT
@@ -65,6 +83,7 @@ final class AnomalyRepository
                 a.verification_ligne_id,
                 a.statut,
                 a.priorite,
+                ' . $assigneeSelect . ',
                 a.commentaire,
                 a.date_creation,
                 a.date_resolution,
@@ -81,6 +100,7 @@ final class AnomalyRepository
             INNER JOIN vehicules veh ON veh.id = v.vehicule_id
             INNER JOIN postes p ON p.id = v.poste_id
             INNER JOIN controles c ON c.id = vl.controle_id
+            ' . $assigneeJoin . '
             ' . $whereSql . '
             ORDER BY
                 CASE a.statut
@@ -101,7 +121,7 @@ final class AnomalyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function updateStatus(int $anomalyId, string $status, string $priority, ?string $comment): bool
+    public function updateStatus(int $anomalyId, string $status, string $priority, ?string $comment, ?int $assigneeId): bool
     {
         if (!$this->hasTable()) {
             return false;
@@ -110,28 +130,50 @@ final class AnomalyRepository
         $connection = Database::getConnection();
         $isResolvedStatus = in_array($status, ['resolue', 'cloturee'], true);
 
-        $sql = '
-            UPDATE anomalies
-            SET
-                statut = :statut,
-                priorite = :priorite,
-                commentaire = :commentaire,
-                date_resolution = CASE
-                    WHEN :is_resolved = 1 THEN COALESCE(date_resolution, NOW())
-                    ELSE NULL
-                END
-            WHERE id = :id
-        ';
+        if ($this->hasAssigneeColumn()) {
+            $sql = '
+                UPDATE anomalies
+                SET
+                    statut = :statut,
+                    priorite = :priorite,
+                    assigne_a = :assigne_a,
+                    commentaire = :commentaire,
+                    date_resolution = CASE
+                        WHEN :is_resolved = 1 THEN COALESCE(date_resolution, NOW())
+                        ELSE NULL
+                    END
+                WHERE id = :id
+            ';
+        } else {
+            $sql = '
+                UPDATE anomalies
+                SET
+                    statut = :statut,
+                    priorite = :priorite,
+                    commentaire = :commentaire,
+                    date_resolution = CASE
+                        WHEN :is_resolved = 1 THEN COALESCE(date_resolution, NOW())
+                        ELSE NULL
+                    END
+                WHERE id = :id
+            ';
+        }
 
         $statement = $connection->prepare($sql);
 
-        return $statement->execute([
+        $params = [
             'statut' => $status,
             'priorite' => $priority,
             'commentaire' => $comment,
             'is_resolved' => $isResolvedStatus ? 1 : 0,
             'id' => $anomalyId,
-        ]);
+        ];
+
+        if ($this->hasAssigneeColumn()) {
+            $params['assigne_a'] = $assigneeId;
+        }
+
+        return $statement->execute($params);
     }
 
     public function getStatusStats(): array
@@ -171,12 +213,47 @@ final class AnomalyRepository
 
         foreach ($rows as $row) {
             $status = (string) ($row['statut'] ?? '');
-            if (array_key_exists($status, $stats)) {
+            if ($status === 'cloturee') {
+                $stats['resolue'] += (int) ($row['total'] ?? 0);
+            } elseif (array_key_exists($status, $stats)) {
                 $stats[$status] = (int) ($row['total'] ?? 0);
             }
         }
 
         return $stats;
+    }
+
+    public function getAssignmentStats(?int $userId): array
+    {
+        if (!$this->hasTable() || !$this->hasAssigneeColumn()) {
+            return [
+                'non_assignees' => 0,
+                'mes_anomalies' => 0,
+            ];
+        }
+
+        $connection = Database::getConnection();
+        $sql = '
+            SELECT
+                SUM(CASE WHEN a.assigne_a IS NULL AND a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS non_assignees,
+                SUM(CASE WHEN :user_id > 0 AND a.assigne_a = :user_id AND a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS mes_anomalies
+            FROM anomalies a
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute(['user_id' => $userId ?? 0]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        if ($row === false) {
+            return [
+                'non_assignees' => 0,
+                'mes_anomalies' => 0,
+            ];
+        }
+
+        return [
+            'non_assignees' => (int) ($row['non_assignees'] ?? 0),
+            'mes_anomalies' => (int) ($row['mes_anomalies'] ?? 0),
+        ];
     }
 
     private function hasTable(): bool
@@ -195,5 +272,28 @@ final class AnomalyRepository
         }
 
         return $this->tableExists;
+    }
+
+    private function hasAssigneeColumn(): bool
+    {
+        if ($this->assigneeColumnExists !== null) {
+            return $this->assigneeColumnExists;
+        }
+
+        if (!$this->hasTable()) {
+            $this->assigneeColumnExists = false;
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM anomalies LIKE 'assigne_a'");
+            $this->assigneeColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->assigneeColumnExists = false;
+        }
+
+        return $this->assigneeColumnExists;
     }
 }

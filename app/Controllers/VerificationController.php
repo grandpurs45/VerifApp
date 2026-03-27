@@ -68,7 +68,7 @@ final class VerificationController
             $result = '';
             $valueInput = null;
 
-            if ($inputType === 'statut') {
+            if ($inputType === 'statut' || $inputType === 'quantite') {
                 $rawResult = $resultats[(string) $controleId] ?? null;
                 $result = is_string($rawResult) ? strtolower(trim($rawResult)) : '';
 

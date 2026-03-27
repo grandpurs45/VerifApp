@@ -10,6 +10,8 @@ use App\Controllers\FieldController;
 use App\Controllers\HomeController;
 use App\Controllers\ManagerAssetController;
 use App\Controllers\ManagerController;
+use App\Controllers\ManagerPharmacyController;
+use App\Controllers\PharmacyController;
 use App\Controllers\PosteController;
 use App\Controllers\VehicleController;
 use App\Controllers\VerificationController;
@@ -32,6 +34,8 @@ $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION
 $isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
 $fieldToken = (string) (Env::get('FIELD_QR_TOKEN', '') ?? '');
 $hasFieldAccess = $fieldToken === '' || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
+$pharmacyToken = (string) (Env::get('PHARMACY_QR_TOKEN', '') ?? '');
+$hasPharmacyAccess = $pharmacyToken === '' || (isset($_SESSION['pharmacy_access']) && $_SESSION['pharmacy_access'] === true);
 
 $managerRoutes = [
     'manager/dashboard',
@@ -53,6 +57,8 @@ $managerRoutes = [
     'manager_assets/poste_delete',
     'manager_assets/controle_save',
     'manager_assets/controle_delete',
+    'manager_pharmacy/index',
+    'manager_pharmacy/article_save',
 ];
 
 $fieldRoutes = [
@@ -61,6 +67,11 @@ $fieldRoutes = [
     'controles/list',
     'verifications/store',
     'verifications/saved',
+];
+
+$pharmacyRoutes = [
+    'pharmacy/form',
+    'pharmacy/save',
 ];
 
 $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
@@ -72,6 +83,11 @@ if (in_array($routeKey, $managerRoutes, true) && !$isManagerAuthenticated) {
 
 if (in_array($routeKey, $fieldRoutes, true) && !$hasFieldAccess) {
     header('Location: /index.php?controller=field&action=denied');
+    exit;
+}
+
+if (in_array($routeKey, $pharmacyRoutes, true) && !$hasPharmacyAccess) {
+    header('Location: /index.php?controller=pharmacy&action=denied');
     exit;
 }
 
@@ -216,6 +232,18 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_pharmacy' && $action === 'index') {
+        $controller = new ManagerPharmacyController();
+        $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'article_save') {
+        $controller = new ManagerPharmacyController();
+        $controller->articleSave();
+        return;
+    }
+
     if ($controllerName === 'field' && $action === 'access') {
         $controller = new FieldController();
         $controller->access();
@@ -224,6 +252,30 @@ if ($controllerName !== null) {
 
     if ($controllerName === 'field' && $action === 'denied') {
         $controller = new FieldController();
+        $controller->denied();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'access') {
+        $controller = new PharmacyController();
+        $controller->access();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'form') {
+        $controller = new PharmacyController();
+        $controller->form();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'save') {
+        $controller = new PharmacyController();
+        $controller->save();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'denied') {
+        $controller = new PharmacyController();
         $controller->denied();
         return;
     }

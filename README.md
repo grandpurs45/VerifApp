@@ -39,3 +39,10 @@ Commande serveur:
 `docker compose up -d --build`
 3. Appliquer les migrations:
 `docker compose exec web php scripts/migrate.php`
+
+## Module pharmacie (QR)
+- Definir `PHARMACY_QR_TOKEN` dans `.env` (ou `.env.docker`) pour proteger l'acces QR.
+- Lien QR terrain:
+`/index.php?controller=pharmacy&action=access&token=VOTRE_TOKEN`
+- Backoffice gestionnaire:
+`/index.php?controller=manager_pharmacy&action=index`

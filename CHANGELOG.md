@@ -9,6 +9,39 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.6.0] - 2026-03-27
+
+### Added
+- Assignation des anomalies:
+  - responsable assigne par anomalie (`assigne_a`)
+  - action rapide "M'assigner cette anomalie"
+  - filtres par assignation (y compris non assignees)
+- Module pharmacie separe:
+  - gestionnaire: CRUD articles stock (stock actuel, unite, seuil alerte)
+  - terrain QR: declaration rapide des sorties de stock
+  - declaration multi-articles en un seul formulaire
+  - historique des mouvements de sortie
+- Liens "acces invites" dans le dashboard gestionnaire:
+  - verification terrain
+  - sortie pharmacie
+  - copie rapide des URLs QR
+
+### Changed
+- Vue anomalies gestionnaire simplifiee et plus lisible (cartes, badges, filtres).
+- Statuts anomalies harmonises (`cloturee` consolidee vers `resolue`).
+- Verification terrain:
+  - pour les controles `quantite`, saisie simplifiee en `OK/NOK/NA`
+  - la quantite attendue reste informative (pas de valeur obligatoire a saisir)
+- Acces QR verification: retour en mode sans authentification obligatoire.
+- UX pharmacie:
+  - message de confirmation explicite apres enregistrement
+  - formulaire masque apres succes avec action "nouvelle sortie"
+  - backoffice pharmacie recompose pour une lecture plus claire.
+
+### Database
+- Migration `015_add_assignee_to_anomalies.sql`.
+- Migration `016_create_pharmacy_module.sql`.
+
 ## [0.5.0] - 2026-03-27
 
 ### Added
