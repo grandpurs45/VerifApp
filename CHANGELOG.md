@@ -9,6 +9,18 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.4] - 2026-03-28
+
+### Added
+- Rien pour le moment.
+
+### Fixed
+- Checklist terrain (controles mesure):
+  - blocage des valeurs hors plage configuree (`min/max`) cote formulaire
+  - validation serveur renforcée pour refuser l'enregistrement hors plage
+- Vue anomalies:
+  - filtre statut par defaut positionne sur `Actives (A traiter + En cours)`
+
 ## [0.8.3] - 2026-03-28
 
 ### Added
@@ -19,10 +31,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
   - suppression du choix `NA`
   - passage a 2 choix explicites: `Present` / `Absent`
   - commentaire obligatoire si `Absent`
+- Controles quantite/mesure:
+  - saisie et configuration passees en unites entieres (pas de decimales)
 
 ### Fixed
 - Validation serveur de saisie alignee sur l'UI:
   - seules les valeurs `ok` et `nok` sont acceptees pour les controles statut/quantite
+- Validation serveur des valeurs numeriques:
+  - rejet des decimales pour les controles quantite/mesure
 
 ## [0.8.2] - 2026-03-28
 

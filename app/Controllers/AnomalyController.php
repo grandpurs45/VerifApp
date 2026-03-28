@@ -21,7 +21,7 @@ final class AnomalyController
         $managerUserId = is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : 0;
 
         $filters = [
-            'statut' => isset($_GET['statut']) ? (string) $_GET['statut'] : '',
+            'statut' => array_key_exists('statut', $_GET) ? (string) $_GET['statut'] : 'actives',
             'priorite' => isset($_GET['priorite']) ? (string) $_GET['priorite'] : '',
             'vehicule_id' => isset($_GET['vehicule_id']) ? (string) $_GET['vehicule_id'] : '',
             'poste_id' => isset($_GET['poste_id']) ? (string) $_GET['poste_id'] : '',

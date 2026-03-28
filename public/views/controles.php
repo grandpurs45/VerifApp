@@ -16,6 +16,8 @@ if ($errorCode === 'agent_required') {
     $errorMessage = 'Nom du verificateur obligatoire.';
 } elseif ($errorCode === 'incomplete') {
     $errorMessage = 'Tous les controles doivent etre renseignes.';
+} elseif ($errorCode === 'out_of_range') {
+    $errorMessage = 'Une valeur relevee est hors plage autorisee.';
 }
 
 $fieldUser = $_SESSION['field_user'] ?? null;
@@ -198,8 +200,10 @@ $totalControles = count($controles);
                                                         id="valeur_<?= $controleId ?>"
                                                         name="valeurs[<?= $controleId ?>]"
                                                         type="number"
-                                                        step="0.01"
-                                                        inputmode="decimal"
+                                                        step="1"
+                                                        inputmode="numeric"
+                                                        <?= $minThreshold !== '' ? 'min="' . htmlspecialchars($minThreshold, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                        <?= $maxThreshold !== '' ? 'max="' . htmlspecialchars($maxThreshold, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
                                                         required
                                                         class="mt-1 w-full rounded-xl border border-slate-500 bg-slate-950 px-3 py-2 text-sm text-white"
                                                         data-control-value="<?= $controleId ?>"

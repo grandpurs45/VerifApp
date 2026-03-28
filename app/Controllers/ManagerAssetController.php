@@ -306,12 +306,19 @@ final class ManagerAssetController
             $inputType = 'statut';
         }
 
-        $expectedValue = $expectedValueRaw === '' ? null : (float) $expectedValueRaw;
-        $minThreshold = $minThresholdRaw === '' ? null : (float) $minThresholdRaw;
-        $maxThreshold = $maxThresholdRaw === '' ? null : (float) $maxThresholdRaw;
+        $expectedValue = $this->parseIntegerOrNull($expectedValueRaw);
+        $minThreshold = $this->parseIntegerOrNull($minThresholdRaw);
+        $maxThreshold = $this->parseIntegerOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
 
         if ($label === '' || $posteId <= 0 || $order < 0) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+        }
+
+        if (($expectedValueRaw !== '' && $expectedValue === null)
+            || ($minThresholdRaw !== '' && $minThreshold === null)
+            || ($maxThresholdRaw !== '' && $maxThreshold === null)
+        ) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
         }
 
@@ -431,6 +438,20 @@ final class ManagerAssetController
         }
 
         return (int) $vehicle['type_vehicule_id'] === (int) $poste['type_vehicule_id'];
+    }
+
+    private function parseIntegerOrNull(string $raw): ?float
+    {
+        $value = trim($raw);
+        if ($value === '') {
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
+            return null;
+        }
+
+        return (float) ((int) $value);
     }
 
     private function redirect(string $location): void

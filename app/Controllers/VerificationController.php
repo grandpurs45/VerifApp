@@ -81,13 +81,20 @@ final class VerificationController
                 $rawValue = $values[(string) $controleId] ?? null;
                 $valueString = is_string($rawValue) ? trim($rawValue) : '';
 
-                if ($valueString === '' || !is_numeric($valueString)) {
+                if ($valueString === '' || filter_var($valueString, FILTER_VALIDATE_INT) === false) {
                     $this->redirect(
                         '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
                     );
                 }
 
-                $valueInput = (float) $valueString;
+                $valueInput = (float) ((int) $valueString);
+
+                if ($inputType === 'mesure' && !$this->isValueWithinMeasureThresholds($controle, $valueInput)) {
+                    $this->redirect(
+                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=out_of_range'
+                    );
+                }
+
                 $result = $this->computeResultForNumericControl($controle, $valueInput);
             }
 
@@ -229,5 +236,21 @@ final class VerificationController
         unset($line);
 
         return $lines;
+    }
+
+    private function isValueWithinMeasureThresholds(array $controle, float $value): bool
+    {
+        $min = $controle['seuil_min'] !== null ? (float) $controle['seuil_min'] : null;
+        $max = $controle['seuil_max'] !== null ? (float) $controle['seuil_max'] : null;
+
+        if ($min !== null && $value < $min) {
+            return false;
+        }
+
+        if ($max !== null && $value > $max) {
+            return false;
+        }
+
+        return true;
     }
 }
