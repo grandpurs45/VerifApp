@@ -140,20 +140,28 @@ $totalControles = count($controles);
                                 $unit = isset($controle['unite']) ? trim((string) $controle['unite']) : '';
                                 $minThreshold = isset($controle['seuil_min']) ? (string) $controle['seuil_min'] : '';
                                 $maxThreshold = isset($controle['seuil_max']) ? (string) $controle['seuil_max'] : '';
+                                $controlLabel = (string) $controle['libelle'];
+                                $displayLabel = $controlLabel;
+
+                                if ($inputType === 'quantite' && $expectedValue !== '') {
+                                    $normalizedExpected = str_replace(',', '.', trim($expectedValue));
+                                    if (is_numeric($normalizedExpected)) {
+                                        $expectedNumber = (float) $normalizedExpected;
+                                        if (abs($expectedNumber - round($expectedNumber)) < 0.0000001) {
+                                            $expectedText = (string) (int) round($expectedNumber);
+                                        } else {
+                                            $expectedText = rtrim(rtrim(number_format($expectedNumber, 2, '.', ''), '0'), '.');
+                                        }
+                                    } else {
+                                        $expectedText = $expectedValue;
+                                    }
+                                    $displayLabel = trim($expectedText . ' ' . $controlLabel);
+                                }
                                 ?>
                                 <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card data-control-type="<?= htmlspecialchars($inputType, ENT_QUOTES, 'UTF-8') ?>" data-control-id="<?= $controleId ?>">
-                                    <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($controle['libelle'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($displayLabel, ENT_QUOTES, 'UTF-8') ?></p>
 
                                     <?php if ($inputType === 'statut' || $inputType === 'quantite'): ?>
-                                        <?php if ($inputType === 'quantite'): ?>
-                                            <div class="mb-3 rounded-xl border border-amber-300/70 bg-amber-200/20 px-3 py-2">
-                                                <p class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-200">Quantite attendue</p>
-                                                <p class="mt-1 text-base font-extrabold text-amber-100">
-                                                    <?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?>
-                                                    <?= $unit !== '' ? htmlspecialchars(' ' . $unit, ENT_QUOTES, 'UTF-8') : '' ?>
-                                                </p>
-                                            </div>
-                                        <?php endif; ?>
                                         <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">

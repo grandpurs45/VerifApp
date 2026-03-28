@@ -9,6 +9,16 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.2] - 2026-03-28
+
+### Added
+- Rien pour le moment.
+
+### Fixed
+- Checklist terrain (controles quantite):
+  - fusion de la quantite attendue avec le libelle article sur une seule ligne lisible mobile
+  - suppression du bloc dedie "quantite attendue" pour eviter l'information en double
+
 ## [0.8.1] - 2026-03-28
 
 ### Added
