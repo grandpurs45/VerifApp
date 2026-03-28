@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-$appVersion = \App\Core\AppVersion::current();
-
 $successMap = [
     'vehicle_created' => 'Vehicule cree.',
     'vehicle_updated' => 'Vehicule modifie.',
@@ -34,50 +32,37 @@ $errorMap = [
 
 $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 'Operation terminee.') : null;
 $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une erreur est survenue.') : null;
+        
+$pageTitle = 'Configuration vehicules - VerifApp';
+$pageHeading = 'Configuration - Vehicules';
+$pageSubtitle = 'Chaque vehicule est rattache a un type et possede ses zones.';
+$pageBackUrl = '/index.php?controller=manager&action=dashboard';
+$pageBackLabel = 'Retour dashboard';
+
+require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration vehicules - VerifApp</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 min-h-screen text-slate-900">
-    <main class="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
-        <header class="flex items-start justify-between gap-3">
-            <div>
-                <a href="/index.php?controller=manager&action=dashboard" class="text-sm text-slate-500 hover:text-slate-700"><- Retour dashboard</a>
-                <h1 class="text-3xl font-bold mt-2">Configuration - Vehicules</h1>
-                <p class="text-slate-600 mt-1">Chaque vehicule est rattache a un type et possede ses zones.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <a href="/index.php?controller=manager_assets&action=types" class="rounded-lg bg-slate-700 text-white px-4 py-2 text-sm font-medium">Page Types</a>
-                <span class="inline-flex rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></span>
-            </div>
-        </header>
 
-        <nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
-            <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Types & postes</a>
-            <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
-        </nav>
+<nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
+    <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Types & postes</a>
+    <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
+</nav>
 
-        <?php if ($successMessage !== null || $errorMessage !== null): ?>
-            <section id="manager-toast" class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border p-4 text-sm shadow-lg <?= $errorMessage !== null ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">
-                <?= htmlspecialchars((string) ($errorMessage ?? $successMessage), ENT_QUOTES, 'UTF-8') ?>
-            </section>
-        <?php endif; ?>
+<?php if ($successMessage !== null || $errorMessage !== null): ?>
+    <section id="manager-toast" class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border p-4 text-sm shadow-lg <?= $errorMessage !== null ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">
+        <?= htmlspecialchars((string) ($errorMessage ?? $successMessage), ENT_QUOTES, 'UTF-8') ?>
+    </section>
+<?php endif; ?>
 
-        <?php if (!$zonesAvailable): ?>
-            <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
-                Migration zones non appliquee. Lance `009_create_zones.sql` pour activer la gestion fine des zones.
-            </section>
-        <?php endif; ?>
-        <?php if (!$hierarchyAvailable): ?>
-            <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
-                Mode compatibilite actif. Applique `010_link_controles_to_vehicle_zone.sql` pour lier chaque materiel a un vehicule + une zone.
-            </section>
-        <?php endif; ?>
+<?php if (!$zonesAvailable): ?>
+    <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+        Migration zones non appliquee. Lance `009_create_zones.sql` pour activer la gestion fine des zones.
+    </section>
+<?php endif; ?>
+<?php if (!$hierarchyAvailable): ?>
+    <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+        Mode compatibilite actif. Applique `010_link_controles_to_vehicle_zone.sql` pour lier chaque materiel a un vehicule + une zone.
+    </section>
+<?php endif; ?>
 
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -643,5 +628,5 @@ $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une err
             });
         })();
     </script>
-</body>
-</html>
+
+<?php require __DIR__ . '/partials/backoffice_shell_bottom.php'; ?>

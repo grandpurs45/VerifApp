@@ -9,6 +9,34 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.0] - 2026-03-28
+
+### Added
+- Backoffice shell unifie:
+  - navigation laterale desktop
+  - navigation mobile persistante
+  - entete standardise avec actions communes
+- Modularisation des vues gestionnaire via partials partages:
+  - `public/views/partials/backoffice_shell_top.php`
+  - `public/views/partials/backoffice_shell_bottom.php`
+
+### Changed
+- Ecrans backoffice migres vers le shell commun (PC + smartphone):
+  - dashboard
+  - administration
+  - roles et acces
+  - utilisateurs
+  - anomalies
+  - historique
+  - pharmacie
+  - configuration types
+  - configuration vehicules
+
+### Fixed
+- Visibilite du module Administration alignee sur la permission `users.manage`:
+  - bouton lateral masque pour les profils non autorises
+  - acces direct a `/manager_admin/menu` protege avec la meme permission
+
 ## [0.7.1] - 2026-03-28
 
 ### Fixed

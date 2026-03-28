@@ -96,7 +96,7 @@ if (in_array($routeKey, $managerRoutes, true) && !$isManagerAuthenticated) {
 
 $managerRoutePermissions = [
     'manager/dashboard' => 'dashboard.view',
-    'manager_admin/menu' => 'dashboard.view',
+    'manager_admin/menu' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',

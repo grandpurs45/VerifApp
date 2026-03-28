@@ -146,11 +146,13 @@ $totalControles = count($controles);
 
                                     <?php if ($inputType === 'statut' || $inputType === 'quantite'): ?>
                                         <?php if ($inputType === 'quantite'): ?>
-                                            <p class="mb-2 text-xs text-slate-300">
-                                                Quantite attendue :
-                                                <strong><?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?></strong>
-                                                <?= $unit !== '' ? htmlspecialchars(' ' . $unit, ENT_QUOTES, 'UTF-8') : '' ?>
-                                            </p>
+                                            <div class="mb-3 rounded-xl border border-amber-300/70 bg-amber-200/20 px-3 py-2">
+                                                <p class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-200">Quantite attendue</p>
+                                                <p class="mt-1 text-base font-extrabold text-amber-100">
+                                                    <?= htmlspecialchars($expectedValue !== '' ? $expectedValue : '-', ENT_QUOTES, 'UTF-8') ?>
+                                                    <?= $unit !== '' ? htmlspecialchars(' ' . $unit, ENT_QUOTES, 'UTF-8') : '' ?>
+                                                </p>
+                                            </div>
                                         <?php endif; ?>
                                         <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
                                             <label class="cursor-pointer">
