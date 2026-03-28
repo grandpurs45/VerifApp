@@ -138,57 +138,49 @@ $totalControles = count($controles);
                                 if (!in_array($inputType, ['statut', 'quantite', 'mesure'], true)) {
                                     $inputType = 'statut';
                                 }
-                                $expectedValue = isset($controle['valeur_attendue']) ? (string) $controle['valeur_attendue'] : '';
                                 $unit = isset($controle['unite']) ? trim((string) $controle['unite']) : '';
                                 $minThreshold = isset($controle['seuil_min']) ? (string) $controle['seuil_min'] : '';
                                 $maxThreshold = isset($controle['seuil_max']) ? (string) $controle['seuil_max'] : '';
                                 $controlLabel = (string) $controle['libelle'];
-                                $displayLabel = $controlLabel;
-
-                                if ($inputType === 'quantite' && $expectedValue !== '') {
-                                    $normalizedExpected = str_replace(',', '.', trim($expectedValue));
-                                    if (is_numeric($normalizedExpected)) {
-                                        $expectedNumber = (float) $normalizedExpected;
-                                        if (abs($expectedNumber - round($expectedNumber)) < 0.0000001) {
-                                            $expectedText = (string) (int) round($expectedNumber);
-                                        } else {
-                                            $expectedText = rtrim(rtrim(number_format($expectedNumber, 2, '.', ''), '0'), '.');
-                                        }
-                                    } else {
-                                        $expectedText = $expectedValue;
-                                    }
-                                    $displayLabel = trim($expectedText . ' ' . $controlLabel);
-                                }
                                 ?>
                                 <li class="rounded-2xl border border-slate-600 bg-slate-900/70 p-3" data-control-card data-control-type="<?= htmlspecialchars($inputType, ENT_QUOTES, 'UTF-8') ?>" data-control-id="<?= $controleId ?>">
-                                    <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($displayLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($controlLabel, ENT_QUOTES, 'UTF-8') ?></p>
 
-                                    <?php if ($inputType === 'statut' || $inputType === 'quantite'): ?>
+                                    <?php if ($inputType === 'quantite'): ?>
+                                        <input type="hidden" name="resultats[<?= $controleId ?>]" value="nok">
+                                        <label class="block cursor-pointer">
+                                            <input type="checkbox" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-check" data-control-id="<?= $controleId ?>">
+                                            <span class="flex items-center justify-between gap-3 rounded-2xl border border-slate-500 bg-slate-800 px-4 py-5 text-base font-extrabold text-slate-100 transition peer-checked:border-emerald-400 peer-checked:bg-emerald-500/25 peer-checked:text-white peer-checked:shadow-lg">
+                                                <span>Objet present</span>
+                                                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-400 bg-slate-700 text-lg leading-none peer-checked:border-emerald-300 peer-checked:bg-emerald-400 peer-checked:text-slate-900">✓</span>
+                                            </span>
+                                        </label>
+                                    <?php elseif ($inputType === 'statut'): ?>
                                         <div class="grid grid-cols-2 gap-2 text-sm font-extrabold">
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
                                                 <span class="block rounded-xl border border-emerald-400 bg-emerald-200/20 px-2 py-4 text-center text-emerald-100 transition peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                    Present
+                                                    Fonctionnel
                                                 </span>
                                             </label>
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
                                                 <span class="block rounded-xl border border-red-400 bg-red-200/20 px-2 py-4 text-center text-red-100 transition peer-checked:bg-red-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                    Absent
+                                                    Non fonctionnel
                                                 </span>
                                             </label>
                                         </div>
 
                                         <div class="mt-3 hidden" data-comment-wrap="<?= $controleId ?>">
                                             <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-red-200">
-                                                Commentaire Absent (obligatoire)
+                                                Commentaire Non fonctionnel (obligatoire)
                                             </label>
                                             <textarea
                                                 id="commentaire_<?= $controleId ?>"
                                                 name="commentaires[<?= $controleId ?>]"
                                                 rows="2"
                                                 class="mt-1 w-full rounded-xl border border-red-400 bg-slate-900 px-3 py-2 text-sm text-white"
-                                                placeholder="Precise pourquoi l'objet est absent"
+                                                placeholder="Precise la panne ou le dysfonctionnement"
                                             ></textarea>
                                         </div>
                                     <?php else: ?>
@@ -255,6 +247,7 @@ $totalControles = count($controles);
             const total = <?= $totalControles ?>;
             const cards = Array.from(document.querySelectorAll('[data-control-card]'));
             const radios = Array.from(document.querySelectorAll('.control-radio'));
+            const checks = Array.from(document.querySelectorAll('.control-check'));
             const numericInputs = Array.from(document.querySelectorAll('input[data-control-value]'));
             const progressText = document.getElementById('progressText');
             const progressBottom = document.getElementById('progressBottom');
@@ -266,6 +259,11 @@ $totalControles = count($controles);
                 cards.forEach((card) => {
                     const type = card.dataset.controlType || 'statut';
                     const controlId = card.dataset.controlId || '';
+
+                    if (type === 'quantite') {
+                        answered += 1;
+                        return;
+                    }
 
                     if (type !== 'mesure') {
                         const checked = card.querySelector('input.control-radio:checked');
@@ -313,6 +311,10 @@ $totalControles = count($controles);
 
             numericInputs.forEach((input) => {
                 input.addEventListener('input', updateProgress);
+            });
+
+            checks.forEach((check) => {
+                check.addEventListener('change', updateProgress);
             });
 
             updateProgress();

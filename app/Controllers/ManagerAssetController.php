@@ -296,7 +296,6 @@ final class ManagerAssetController
         $order = isset($_POST['ordre']) ? (int) $_POST['ordre'] : 0;
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
         $inputType = strtolower(trim((string) ($_POST['type_saisie'] ?? 'statut')));
-        $expectedValueRaw = trim((string) ($_POST['valeur_attendue'] ?? ''));
         $unitRaw = trim((string) ($_POST['unite'] ?? ''));
         $minThresholdRaw = trim((string) ($_POST['seuil_min'] ?? ''));
         $maxThresholdRaw = trim((string) ($_POST['seuil_max'] ?? ''));
@@ -306,7 +305,7 @@ final class ManagerAssetController
             $inputType = 'statut';
         }
 
-        $expectedValue = $this->parseIntegerOrNull($expectedValueRaw);
+        $expectedValue = null;
         $minThreshold = $this->parseIntegerOrNull($minThresholdRaw);
         $maxThreshold = $this->parseIntegerOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
@@ -315,8 +314,7 @@ final class ManagerAssetController
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
         }
 
-        if (($expectedValueRaw !== '' && $expectedValue === null)
-            || ($minThresholdRaw !== '' && $minThreshold === null)
+        if (($minThresholdRaw !== '' && $minThreshold === null)
             || ($maxThresholdRaw !== '' && $maxThreshold === null)
         ) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
@@ -328,12 +326,12 @@ final class ManagerAssetController
             $maxThreshold = null;
             $unit = null;
         } elseif ($inputType === 'quantite') {
-            if ($expectedValue === null || $expectedValue < 0) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
-            }
+            $expectedValue = null;
             $minThreshold = null;
             $maxThreshold = null;
+            $unit = null;
         } elseif ($inputType === 'mesure') {
+            $expectedValue = null;
             if ($unit === null || ($minThreshold === null && $maxThreshold === null)) {
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
             }

@@ -183,7 +183,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
             <p class="text-sm text-slate-600 mb-2">Edition rapide en ligne avec filtres instantanes.</p>
             <p class="text-xs text-slate-500 mb-4">
-                Regle: <strong>Statut</strong> = aucun champ requis. <strong>Quantite</strong> = renseigner au moins <em>Attendue</em> (et optionnellement <em>Unite</em>). <strong>Mesure</strong> = renseigner <em>Unite</em> et au moins un seuil <em>Min</em> ou <em>Max</em>.
+                Regle: <strong>Choix (fonctionnel/non fonctionnel)</strong> = aucun champ requis. <strong>Check (present/absent)</strong> = aucun champ requis. <strong>Valeur</strong> = renseigner <em>Unite</em> et au moins un seuil <em>Min</em> ou <em>Max</em>.
             </p>
 
             <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 mb-4">
@@ -221,9 +221,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-8 gap-2">
                     <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-input-type>
-                        <option value="statut">Statut</option>
-                        <option value="quantite">Quantite</option>
-                        <option value="mesure">Mesure</option>
+                        <option value="statut">Choix (fonctionnel/non fonctionnel)</option>
+                        <option value="quantite">Check (present/absent)</option>
+                        <option value="mesure">Valeur</option>
                     </select>
                     <div data-wrap="expected">
                         <input type="number" step="1" min="0" name="valeur_attendue" placeholder="Attendue (ex: 5)" aria-label="Valeur attendue" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
@@ -283,9 +283,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-8 gap-2">
                             <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-input-type>
-                                <option value="statut" <?= (($controle['type_saisie'] ?? 'statut') === 'statut') ? 'selected' : '' ?>>Statut</option>
-                                <option value="quantite" <?= (($controle['type_saisie'] ?? 'statut') === 'quantite') ? 'selected' : '' ?>>Quantite</option>
-                                <option value="mesure" <?= (($controle['type_saisie'] ?? 'statut') === 'mesure') ? 'selected' : '' ?>>Mesure</option>
+                                <option value="statut" <?= (($controle['type_saisie'] ?? 'statut') === 'statut') ? 'selected' : '' ?>>Choix (fonctionnel/non fonctionnel)</option>
+                                <option value="quantite" <?= (($controle['type_saisie'] ?? 'statut') === 'quantite') ? 'selected' : '' ?>>Check (present/absent)</option>
+                                <option value="mesure" <?= (($controle['type_saisie'] ?? 'statut') === 'mesure') ? 'selected' : '' ?>>Valeur</option>
                             </select>
                             <div data-wrap="expected">
                                 <input type="number" step="1" min="0" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Attendue" aria-label="Valeur attendue" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
@@ -499,25 +499,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 const type = inputType.value || 'statut';
 
                 if (expectedInput) {
-                    expectedInput.disabled = type !== 'quantite';
-                    expectedInput.required = type === 'quantite';
-                    if (type !== 'quantite') {
-                        expectedInput.value = '';
-                    }
+                    expectedInput.disabled = true;
+                    expectedInput.required = false;
+                    expectedInput.value = '';
                 }
                 if (expectedWrap) {
-                    expectedWrap.classList.toggle('hidden', type !== 'quantite');
+                    expectedWrap.classList.add('hidden');
                 }
 
                 if (unitInput) {
-                    unitInput.disabled = type === 'statut';
+                    unitInput.disabled = type !== 'mesure';
                     unitInput.required = type === 'mesure';
-                    if (type === 'statut') {
+                    if (type !== 'mesure') {
                         unitInput.value = '';
                     }
                 }
                 if (unitWrap) {
-                    unitWrap.classList.toggle('hidden', type === 'statut');
+                    unitWrap.classList.toggle('hidden', type !== 'mesure');
                 }
 
                 if (minInput) {

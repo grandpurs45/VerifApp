@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.5] - 2026-03-28
+
+### Changed
+- Configuration des controles (manager):
+  - nouveaux libelles metier du type de reponse: `Valeur`, `Check`, `Choix`
+  - `Check` utilise le flux presence/absence
+  - `Choix` utilise le flux fonctionnel/non fonctionnel
+- Checklist terrain:
+  - affichage adapte selon le type choisi:
+    - `Check` => grosse case a cocher `Objet present`
+    - `Choix` => `Fonctionnel / Non fonctionnel`
+    - `Valeur` => saisie numerique avec seuils
+
 ## [0.8.4] - 2026-03-28
 
 ### Added
