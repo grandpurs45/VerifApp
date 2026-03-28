@@ -162,37 +162,31 @@ $totalControles = count($controles);
                                     <p class="mb-3 text-base font-semibold text-white"><?= htmlspecialchars($displayLabel, ENT_QUOTES, 'UTF-8') ?></p>
 
                                     <?php if ($inputType === 'statut' || $inputType === 'quantite'): ?>
-                                        <div class="grid grid-cols-3 gap-2 text-sm font-extrabold">
+                                        <div class="grid grid-cols-2 gap-2 text-sm font-extrabold">
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="ok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
                                                 <span class="block rounded-xl border border-emerald-400 bg-emerald-200/20 px-2 py-4 text-center text-emerald-100 transition peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                    OK
+                                                    Present
                                                 </span>
                                             </label>
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="resultats[<?= $controleId ?>]" value="nok" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
                                                 <span class="block rounded-xl border border-red-400 bg-red-200/20 px-2 py-4 text-center text-red-100 transition peer-checked:bg-red-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                    NOK
-                                                </span>
-                                            </label>
-                                            <label class="cursor-pointer">
-                                                <input type="radio" name="resultats[<?= $controleId ?>]" value="na" class="peer sr-only control-radio" required data-control-id="<?= $controleId ?>">
-                                                <span class="block rounded-xl border border-slate-400 bg-slate-300/20 px-2 py-4 text-center text-slate-100 transition peer-checked:bg-slate-500 peer-checked:text-white peer-checked:shadow-lg">
-                                                    NA
+                                                    Absent
                                                 </span>
                                             </label>
                                         </div>
 
                                         <div class="mt-3 hidden" data-comment-wrap="<?= $controleId ?>">
                                             <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-red-200">
-                                                Commentaire NOK (obligatoire)
+                                                Commentaire Absent (obligatoire)
                                             </label>
                                             <textarea
                                                 id="commentaire_<?= $controleId ?>"
                                                 name="commentaires[<?= $controleId ?>]"
                                                 rows="2"
                                                 class="mt-1 w-full rounded-xl border border-red-400 bg-slate-900 px-3 py-2 text-sm text-white"
-                                                placeholder="Explique l'anomalie constatee"
+                                                placeholder="Precise pourquoi l'objet est absent"
                                             ></textarea>
                                         </div>
                                     <?php else: ?>

@@ -55,7 +55,7 @@ final class VerificationController
         $resultats = is_array($_POST['resultats'] ?? null) ? $_POST['resultats'] : [];
         $values = is_array($_POST['valeurs'] ?? null) ? $_POST['valeurs'] : [];
         $commentaires = is_array($_POST['commentaires'] ?? null) ? $_POST['commentaires'] : [];
-        $allowedStatuses = ['ok', 'nok', 'na'];
+        $allowedStatuses = ['ok', 'nok'];
         $lines = [];
 
         foreach ($controles as $controle) {

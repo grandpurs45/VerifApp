@@ -9,6 +9,21 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.3] - 2026-03-28
+
+### Added
+- Rien pour le moment.
+
+### Changed
+- Checklist terrain (controles statut/quantite):
+  - suppression du choix `NA`
+  - passage a 2 choix explicites: `Present` / `Absent`
+  - commentaire obligatoire si `Absent`
+
+### Fixed
+- Validation serveur de saisie alignee sur l'UI:
+  - seules les valeurs `ok` et `nok` sont acceptees pour les controles statut/quantite
+
 ## [0.8.2] - 2026-03-28
 
 ### Added
