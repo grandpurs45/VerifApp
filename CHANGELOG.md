@@ -9,6 +9,17 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.8.1] - 2026-03-28
+
+### Added
+- Rien pour le moment.
+
+### Fixed
+- Affichage de version:
+  - priorite au fichier `VERSION` (release courante)
+  - `APP_VERSION` utilise uniquement en fallback
+  - suppression de la valeur figee `APP_VERSION=0.2.0` dans `.env.docker`
+
 ## [0.8.0] - 2026-03-28
 
 ### Added
