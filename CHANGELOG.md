@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.10.3] - 2026-03-29
+
+### Added
+- Base de connaissance de depannage QR:
+  - section README dediee aux erreurs de permissions `.env`
+  - section DEPLOYMENT dediee au diagnostic et correctifs
+
+### Changed
+- Docker:
+  - montage `.env.docker` en ecriture dans `docker-compose.yml` pour permettre la regeneration des tokens QR
+- Parametres application:
+  - message d aide detaille dans l interface en cas d erreur d ecriture `.env`
+
 ## [0.10.2] - 2026-03-29
 
 ### Added
@@ -18,11 +31,15 @@ Le format suit Keep a Changelog et Semantic Versioning.
 - Roles et acces:
   - permissions du role `Administrateur` systeme affichees en grise et non modifiables
   - verrou backend pour refuser toute tentative de mise a jour des permissions du role systeme
+- Docker/documentation:
+  - montage `.env.docker` en ecriture dans `docker-compose.yml` pour permettre la regeneration QR
+  - ajout d une base de connaissance de depannage (README + DEPLOYMENT)
 
 ### Fixed
 - Parametres application (QR):
   - gestion defensive des permissions fichier `.env` pour eviter les warnings PHP
   - retour utilisateur propre `env_write_failed` en cas de droits insuffisants
+  - message d aide detaille directement dans l interface administration
 
 ## [0.10.1] - 2026-03-29
 

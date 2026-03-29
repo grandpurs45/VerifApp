@@ -17,8 +17,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <?= $target === 'pharmacy' ? 'Lien/QR pharmacie regeneres.' : 'Lien/QR verification terrain regeneres.' ?>
     </section>
 <?php elseif ($error === 'env_write_failed'): ?>
-    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
-        Impossible d ecrire le token dans le fichier .env (permissions serveur).
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm space-y-2">
+        <p>Impossible d ecrire le token dans le fichier <code>.env</code> (permissions serveur).</p>
+        <p class="text-xs">Correctif Docker compose (si volume en lecture seule): retirer <code>:ro</code> sur le montage <code>.env.docker:/var/www/html/.env</code> puis redemarrer.</p>
+        <p class="text-xs">Correctif permissions Linux (exemple): <code>sudo chgrp www-data /var/www/html/.env && sudo chmod 664 /var/www/html/.env</code></p>
     </section>
 <?php elseif ($error === 'invalid_target'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">

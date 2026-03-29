@@ -45,6 +45,16 @@ Commande serveur:
 3. Appliquer les migrations:
 `docker compose exec web php scripts/migrate.php`
 
+## Depannage QR (permissions .env)
+Si l'administration affiche `Impossible d ecrire le token dans le fichier .env`:
+
+1. Verifier le montage Docker de `.env` (pas en lecture seule):
+`./.env.docker:/var/www/html/.env`
+
+2. Donner les droits d'ecriture a l'utilisateur PHP (exemple Debian/Ubuntu):
+`sudo chgrp www-data /var/www/html/.env`
+`sudo chmod 664 /var/www/html/.env`
+
 ## Module pharmacie (QR)
 - Definir `PHARMACY_QR_TOKEN` dans `.env` (ou `.env.docker`) pour proteger l'acces QR.
 - Lien QR terrain:
