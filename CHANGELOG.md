@@ -9,6 +9,13 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.10.0] - 2026-03-29
+
+### Added
+- Parametres application (administration):
+  - generation des liens invites (terrain + pharmacie)
+  - generation des QR codes associes directement depuis l administration
+
 ## [0.9.0] - 2026-03-29
 
 ### Changed
