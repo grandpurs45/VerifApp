@@ -48,6 +48,7 @@ $managerRoutes = [
     'manager/forbidden',
     'manager_admin/menu',
     'manager_admin/settings',
+    'manager_admin/regenerate_qr_token',
     'verifications/history',
     'verifications/show',
     'verifications/export',
@@ -126,6 +127,7 @@ $managerRoutePermissions = [
     'manager/account_save' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
+    'manager_admin/regenerate_qr_token' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',
@@ -264,6 +266,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'settings') {
         $controller = new ManagerAdminController();
         $controller->settings();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'regenerate_qr_token') {
+        $controller = new ManagerAdminController();
+        $controller->regenerateQrToken();
         return;
     }
 

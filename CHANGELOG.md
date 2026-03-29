@@ -9,6 +9,17 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.10.1] - 2026-03-29
+
+### Added
+- Rien pour le moment.
+
+### Changed
+- Parametres application (administration):
+  - boutons `Generer/Regenerer lien + QR` pour verification terrain et pharmacie
+  - regeneration = nouveau token, nouveau lien, nouveau QR
+  - confirmation explicite avant regeneration (anciens liens/QR invalides)
+
 ## [0.10.0] - 2026-03-29
 
 ### Added

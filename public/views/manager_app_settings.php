@@ -11,6 +11,21 @@ $pageBackLabel = 'Retour administration';
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
+<?php if ($success === 'token_regenerated'): ?>
+    <?php $target = isset($_GET['target']) ? (string) $_GET['target'] : ''; ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        <?= $target === 'pharmacy' ? 'Lien/QR pharmacie regeneres.' : 'Lien/QR verification terrain regeneres.' ?>
+    </section>
+<?php elseif ($error === 'env_write_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Impossible d ecrire le token dans le fichier .env (permissions serveur).
+    </section>
+<?php elseif ($error === 'invalid_target'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Cible de regeneration invalide.
+    </section>
+<?php endif; ?>
+
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Securite session</h2>
     <p class="text-sm text-slate-600 mt-2">
@@ -34,6 +49,16 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <div class="mt-3 flex flex-wrap gap-2">
                 <a href="<?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-semibold">Ouvrir lien</a>
                 <button type="button" data-copy-target="fieldGuestUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Copier lien</button>
+                <form method="post" action="/index.php?controller=manager_admin&action=regenerate_qr_token">
+                    <input type="hidden" name="target" value="field">
+                    <button
+                        type="submit"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                        onclick="return window.confirm('Regenerer ce lien QR ? Les anciens liens et anciens QR ne fonctionneront plus.');"
+                    >
+                        <?= $fieldToken === '' ? 'Generer lien + QR' : 'Regenerer lien + QR' ?>
+                    </button>
+                </form>
             </div>
             <div class="mt-4">
                 <img
@@ -50,6 +75,16 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <div class="mt-3 flex flex-wrap gap-2">
                 <a href="<?= htmlspecialchars($pharmacyGuestUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-semibold">Ouvrir lien</a>
                 <button type="button" data-copy-target="pharmacyGuestUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Copier lien</button>
+                <form method="post" action="/index.php?controller=manager_admin&action=regenerate_qr_token">
+                    <input type="hidden" name="target" value="pharmacy">
+                    <button
+                        type="submit"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                        onclick="return window.confirm('Regenerer ce lien QR ? Les anciens liens et anciens QR ne fonctionneront plus.');"
+                    >
+                        <?= $pharmacyToken === '' ? 'Generer lien + QR' : 'Regenerer lien + QR' ?>
+                    </button>
+                </form>
             </div>
             <div class="mt-4">
                 <img
