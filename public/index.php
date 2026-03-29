@@ -43,8 +43,11 @@ $hasPharmacyAccess = $pharmacyToken === '' || (isset($_SESSION['pharmacy_access'
 
 $managerRoutes = [
     'manager/dashboard',
+    'manager/account',
+    'manager/account_save',
     'manager/forbidden',
     'manager_admin/menu',
+    'manager_admin/settings',
     'verifications/history',
     'verifications/show',
     'verifications/export',
@@ -88,15 +91,41 @@ $pharmacyRoutes = [
 ];
 
 $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
+$managerSessionExpired = false;
+
+$sessionTimeoutRaw = (string) (Env::get('MANAGER_SESSION_TTL_MINUTES', '120') ?? '120');
+$sessionTimeoutMinutes = ctype_digit($sessionTimeoutRaw) ? (int) $sessionTimeoutRaw : 120;
+if ($sessionTimeoutMinutes <= 0) {
+    $sessionTimeoutMinutes = 120;
+}
+
+if ($isManagerAuthenticated) {
+    $now = time();
+    $lastActivity = isset($_SESSION['manager_last_activity']) ? (int) $_SESSION['manager_last_activity'] : $now;
+    if (($now - $lastActivity) > ($sessionTimeoutMinutes * 60)) {
+        unset($_SESSION['manager_user'], $_SESSION['manager_password_reset_user'], $_SESSION['manager_last_activity']);
+        $isManagerAuthenticated = false;
+        $managerSessionExpired = true;
+    } else {
+        $_SESSION['manager_last_activity'] = $now;
+    }
+}
 
 if (in_array($routeKey, $managerRoutes, true) && !$isManagerAuthenticated) {
-    header('Location: /index.php?controller=manager_auth&action=login_form');
+    $redirect = '/index.php?controller=manager_auth&action=login_form';
+    if ($managerSessionExpired) {
+        $redirect .= '&error=session_expired';
+    }
+    header('Location: ' . $redirect);
     exit;
 }
 
 $managerRoutePermissions = [
     'manager/dashboard' => 'dashboard.view',
+    'manager/account' => 'dashboard.view',
+    'manager/account_save' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
+    'manager_admin/settings' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',
@@ -208,6 +237,18 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager' && $action === 'account') {
+        $controller = new ManagerController();
+        $controller->account();
+        return;
+    }
+
+    if ($controllerName === 'manager' && $action === 'account_save') {
+        $controller = new ManagerController();
+        $controller->accountSave();
+        return;
+    }
+
     if ($controllerName === 'manager' && $action === 'forbidden') {
         $controller = new ManagerController();
         $controller->forbidden();
@@ -217,6 +258,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'menu') {
         $controller = new ManagerAdminController();
         $controller->menu();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'settings') {
+        $controller = new ManagerAdminController();
+        $controller->settings();
         return;
     }
 

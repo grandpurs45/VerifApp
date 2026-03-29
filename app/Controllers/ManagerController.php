@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Repositories\AnomalyRepository;
+use App\Repositories\UserRepository;
 use App\Repositories\VerificationRepository;
 
 final class ManagerController
@@ -37,6 +38,66 @@ final class ManagerController
         require dirname(__DIR__, 2) . '/public/views/manager_forbidden.php';
     }
 
+    public function account(): void
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $updated = isset($_GET['updated']) ? (string) $_GET['updated'] : '';
+        require dirname(__DIR__, 2) . '/public/views/manager_account.php';
+    }
+
+    public function accountSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager&action=account');
+        }
+
+        $managerUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
+        if ($managerUserId <= 0) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=session_expired');
+        }
+
+        $name = trim((string) ($_POST['nom'] ?? ''));
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+
+        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->redirect('/index.php?controller=manager&action=account&error=invalid_profile');
+        }
+
+        $userRepository = new UserRepository();
+        $currentUser = $userRepository->findById($managerUserId);
+        if ($currentUser === null) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=session_expired');
+        }
+
+        $existingByEmail = $userRepository->findByEmail($email);
+        if ($existingByEmail !== null && (int) $existingByEmail['id'] !== $managerUserId) {
+            $this->redirect('/index.php?controller=manager&action=account&error=email_taken');
+        }
+
+        $saved = $userRepository->updateProfile(
+            $managerUserId,
+            $name,
+            $email,
+            (string) $currentUser['role'],
+            (int) $currentUser['actif'] === 1
+        );
+
+        if (!$saved) {
+            $this->redirect('/index.php?controller=manager&action=account&error=save_failed');
+        }
+
+        $_SESSION['manager_user'] = [
+            'id' => $managerUserId,
+            'nom' => $name,
+            'email' => $email,
+            'role' => (string) $currentUser['role'],
+        ];
+        $_SESSION['manager_last_activity'] = time();
+
+        $this->redirect('/index.php?controller=manager&action=account&updated=1');
+    }
+
     private function resolvePublicBaseUrl(): string
     {
         $requestHost = isset($_SERVER['HTTP_HOST']) ? trim((string) $_SERVER['HTTP_HOST']) : '';
@@ -50,5 +111,11 @@ final class ManagerController
         }
 
         return rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
+    }
+
+    private function redirect(string $location): void
+    {
+        header('Location: ' . $location);
+        exit;
     }
 }

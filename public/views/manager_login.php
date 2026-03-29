@@ -10,6 +10,8 @@ if ($error === 'missing_fields') {
     $errorMessage = 'Identifiants invalides ou acces non autorise.';
 } elseif ($error === 'password_change_required') {
     $errorMessage = 'Compte admin initial detecte: changement de mot de passe requis.';
+} elseif ($error === 'session_expired') {
+    $errorMessage = 'Session expiree. Merci de vous reconnecter.';
 }
 ?>
 <!DOCTYPE html>

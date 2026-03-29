@@ -31,9 +31,15 @@ if ($success === 'updated') {
     <main class="max-w-md mx-auto p-4 md:p-8">
         <header class="mb-6">
             <h1 class="text-3xl font-bold">Securisation du compte</h1>
-            <p class="text-sm text-slate-600 mt-2">
-                Premiere connexion detectee. Modifiez le mot de passe avant d acceder a l espace gestionnaire.
-            </p>
+            <?php if (isset($isForcedChange) && $isForcedChange): ?>
+                <p class="text-sm text-slate-600 mt-2">
+                    Premiere connexion detectee. Modifiez le mot de passe avant d acceder a l espace gestionnaire.
+                </p>
+            <?php else: ?>
+                <p class="text-sm text-slate-600 mt-2">
+                    Mets a jour ton mot de passe pour securiser ton acces.
+                </p>
+            <?php endif; ?>
         </header>
 
         <?php if ($errorMessage !== null): ?>

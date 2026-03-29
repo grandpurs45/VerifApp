@@ -9,7 +9,7 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
-## [0.8.5] - 2026-03-28
+## [0.9.0] - 2026-03-29
 
 ### Changed
 - Configuration des controles (manager):
@@ -21,6 +21,24 @@ Le format suit Keep a Changelog et Semantic Versioning.
     - `Check` => grosse case a cocher `Objet present`
     - `Choix` => `Fonctionnel / Non fonctionnel`
     - `Valeur` => saisie numerique avec seuils
+- Backoffice:
+  - detail verification integre au shell commun (menu lateral + bandeau)
+  - nouvel espace `Mon compte` (profil + changement mot de passe)
+  - menu `Administration` recentre sur le parametrage applicatif (roles/utilisateurs uniquement)
+  - `Mon compte`: edition du profil (nom/email) et suppression du lien "retour dashboard"
+  - changement de mot de passe accessible depuis `Mon compte` (plus reserve a la premiere connexion)
+  - expiration de session gestionnaire configurable via `MANAGER_SESSION_TTL_MINUTES`
+  - edition profil en mode `Editer` (lecture par defaut, champs activables a la demande)
+  - ajout d un menu `Parametres application` dans `Administration`
+
+### Fixed
+- `Mon compte`:
+  - correction du crash `Call to undefined method ManagerController::redirect()`
+
+## [0.8.5] - 2026-03-28
+
+### Added
+- Rien pour le moment.
 
 ## [0.8.4] - 2026-03-28
 

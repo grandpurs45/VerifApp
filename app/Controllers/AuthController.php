@@ -60,6 +60,7 @@ final class AuthController
             'email' => (string) $user['email'],
             'role' => (string) $user['role'],
         ];
+        $_SESSION['manager_last_activity'] = time();
 
         $this->redirect('/index.php?controller=manager&action=dashboard');
     }
@@ -68,15 +69,14 @@ final class AuthController
     {
         unset($_SESSION['manager_user']);
         unset($_SESSION['manager_password_reset_user']);
+        unset($_SESSION['manager_last_activity']);
         $this->redirect('/index.php?controller=manager_auth&action=login_form&logged_out=1');
     }
 
     public function changePasswordForm(): void
     {
-        if (!isset($_SESSION['manager_password_reset_user']['id'])) {
-            if ($this->isAuthenticated()) {
-                $this->redirect('/index.php?controller=manager&action=dashboard');
-            }
+        $isForcedChange = isset($_SESSION['manager_password_reset_user']['id']);
+        if (!$isForcedChange && !$this->isAuthenticated()) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form');
         }
 
@@ -92,8 +92,10 @@ final class AuthController
         }
 
         $pendingUserId = (int) ($_SESSION['manager_password_reset_user']['id'] ?? 0);
-        if ($pendingUserId <= 0) {
-            $this->redirect('/index.php?controller=manager_auth&action=login_form');
+        $managerUserId = (int) ($_SESSION['manager_user']['id'] ?? 0);
+        $targetUserId = $pendingUserId > 0 ? $pendingUserId : $managerUserId;
+        if ($targetUserId <= 0) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=session_expired');
         }
 
         $currentPassword = (string) ($_POST['current_password'] ?? '');
@@ -113,14 +115,14 @@ final class AuthController
         }
 
         $userRepository = new UserRepository();
-        $user = $userRepository->findById($pendingUserId);
+        $user = $userRepository->findById($targetUserId);
 
         if ($user === null || !password_verify($currentPassword, (string) $user['mot_de_passe'])) {
             $this->redirect('/index.php?controller=manager_auth&action=change_password_form&error=invalid_current_password');
         }
 
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
-        $userRepository->updatePasswordAndClearFlag($pendingUserId, $passwordHash);
+        $userRepository->updatePasswordAndClearFlag($targetUserId, $passwordHash);
 
         $_SESSION['manager_user'] = [
             'id' => (int) $user['id'],
@@ -128,9 +130,14 @@ final class AuthController
             'email' => (string) $user['email'],
             'role' => (string) $user['role'],
         ];
+        $_SESSION['manager_last_activity'] = time();
         unset($_SESSION['manager_password_reset_user']);
 
-        $this->redirect('/index.php?controller=manager&action=dashboard&password_changed=1');
+        if ($pendingUserId > 0) {
+            $this->redirect('/index.php?controller=manager&action=dashboard&password_changed=1');
+        }
+
+        $this->redirect('/index.php?controller=manager&action=account&password_changed=1');
     }
 
     private function isAuthenticated(): bool

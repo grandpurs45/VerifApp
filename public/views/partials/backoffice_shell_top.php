@@ -39,6 +39,12 @@ $allModules = [
         'permission' => 'pharmacy.manage',
     ],
     [
+        'label' => 'Mon compte',
+        'route' => '/index.php?controller=manager&action=account',
+        'route_key' => 'manager/account',
+        'permission' => 'dashboard.view',
+    ],
+    [
         'label' => 'Administration',
         'route' => '/index.php?controller=manager_admin&action=menu',
         'route_key' => 'manager_admin/menu',
@@ -89,11 +95,16 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                     <?php endforeach; ?>
                 </nav>
                 <div class="mt-auto pt-4">
-                    <div class="flex items-center justify-between">
-                        <span class="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></span>
-                        <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-3 py-2 text-xs font-semibold">
-                            Deconnexion
-                        </a>
+                    <div class="space-y-2">
+                        <span class="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <a href="/index.php?controller=manager&action=account" class="rounded-xl border border-white/30 px-2 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                                Compte
+                            </a>
+                            <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-2 py-2 text-center text-xs font-semibold whitespace-nowrap">
+                                Deconnexion
+                            </a>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -116,7 +127,10 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         </div>
                         <div class="flex items-center gap-2 lg:hidden">
                             <span class="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></span>
-                            <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-3 py-2 text-xs font-semibold">
+                            <a href="/index.php?controller=manager&action=account" class="rounded-xl border border-white/30 px-3 py-2 text-xs font-semibold text-white whitespace-nowrap">
+                                Compte
+                            </a>
+                            <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-3 py-2 text-xs font-semibold whitespace-nowrap">
                                 Deconnexion
                             </a>
                         </div>
