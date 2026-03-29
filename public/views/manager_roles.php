@@ -76,22 +76,26 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <?php if ($selectedRole === null): ?>
         <p class="text-sm text-slate-500 mt-2">Aucun role selectionne.</p>
     <?php else: ?>
+        <?php $isSystemRoleSelected = (int) ($selectedRole['is_system'] ?? 0) === 1 || (string) ($selectedRole['code'] ?? '') === 'admin'; ?>
         <p class="text-sm text-slate-600 mt-2">
             Role: <strong><?= htmlspecialchars((string) $selectedRole['nom'], ENT_QUOTES, 'UTF-8') ?></strong>
             (<?= htmlspecialchars((string) $selectedRole['code'], ENT_QUOTES, 'UTF-8') ?>)
         </p>
-        <form method="post" action="/index.php?controller=manager_roles&action=permissions_save" class="mt-3 space-y-2">
+        <?php if ($isSystemRoleSelected): ?>
+            <p class="mt-2 text-xs font-semibold text-slate-500">Role systeme: permissions verrouillees.</p>
+        <?php endif; ?>
+        <form method="post" action="/index.php?controller=manager_roles&action=permissions_save" class="mt-3 space-y-2 <?= $isSystemRoleSelected ? 'opacity-60' : '' ?>">
             <input type="hidden" name="role_id" value="<?= (int) $selectedRole['id'] ?>">
             <?php foreach ($catalog as $permissionCode => $permissionLabel): ?>
                 <label class="flex items-start gap-2 rounded-xl border border-slate-200 p-3">
-                    <input type="checkbox" name="permissions[]" value="<?= htmlspecialchars($permissionCode, ENT_QUOTES, 'UTF-8') ?>" <?= in_array($permissionCode, $selectedPermissions, true) ? 'checked' : '' ?>>
+                    <input type="checkbox" name="permissions[]" value="<?= htmlspecialchars($permissionCode, ENT_QUOTES, 'UTF-8') ?>" <?= in_array($permissionCode, $selectedPermissions, true) ? 'checked' : '' ?> <?= $isSystemRoleSelected ? 'disabled' : '' ?>>
                     <span>
                         <span class="block text-sm font-semibold"><?= htmlspecialchars($permissionLabel, ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="block text-xs text-slate-500"><?= htmlspecialchars($permissionCode, ENT_QUOTES, 'UTF-8') ?></span>
                     </span>
                 </label>
             <?php endforeach; ?>
-            <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Enregistrer permissions</button>
+            <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white <?= $isSystemRoleSelected ? 'cursor-not-allowed opacity-60' : '' ?>" <?= $isSystemRoleSelected ? 'disabled' : '' ?>>Enregistrer permissions</button>
         </form>
     <?php endif; ?>
 </section>

@@ -176,6 +176,11 @@ final class RoleRepository
             return false;
         }
 
+        $role = $this->findById($roleId);
+        if ($role === null || (int) ($role['is_system'] ?? 0) === 1 || (string) ($role['code'] ?? '') === 'admin') {
+            return false;
+        }
+
         $allowed = array_keys(self::permissionCatalog());
         $filtered = [];
         foreach ($permissionCodes as $permissionCode) {

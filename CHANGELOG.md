@@ -9,6 +9,21 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.10.2] - 2026-03-29
+
+### Added
+- Rien pour le moment.
+
+### Changed
+- Roles et acces:
+  - permissions du role `Administrateur` systeme affichees en grise et non modifiables
+  - verrou backend pour refuser toute tentative de mise a jour des permissions du role systeme
+
+### Fixed
+- Parametres application (QR):
+  - gestion defensive des permissions fichier `.env` pour eviter les warnings PHP
+  - retour utilisateur propre `env_write_failed` en cas de droits insuffisants
+
 ## [0.10.1] - 2026-03-29
 
 ### Added

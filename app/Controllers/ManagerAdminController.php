@@ -93,11 +93,11 @@ final class ManagerAdminController
 
     private function setEnvValue(string $envPath, string $key, string $value): bool
     {
-        if (!is_file($envPath)) {
+        if (!is_file($envPath) || !is_readable($envPath) || !is_writable($envPath)) {
             return false;
         }
 
-        $content = file_get_contents($envPath);
+        $content = @file_get_contents($envPath);
         if ($content === false) {
             return false;
         }
@@ -115,6 +115,6 @@ final class ManagerAdminController
             $newContent = $content . $separator . $line . PHP_EOL;
         }
 
-        return file_put_contents($envPath, $newContent) !== false;
+        return @file_put_contents($envPath, $newContent) !== false;
     }
 }
