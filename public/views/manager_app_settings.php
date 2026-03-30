@@ -16,11 +16,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         <?= $target === 'pharmacy' ? 'Lien/QR pharmacie regeneres.' : 'Lien/QR verification terrain regeneres.' ?>
     </section>
-<?php elseif ($error === 'env_write_failed'): ?>
+<?php elseif ($error === 'settings_store_unavailable'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm space-y-2">
-        <p>Impossible d ecrire le token dans le fichier <code>.env</code> (permissions serveur).</p>
-        <p class="text-xs">Correctif Docker compose (si volume en lecture seule): retirer <code>:ro</code> sur le montage <code>.env.docker:/var/www/html/.env</code> puis redemarrer.</p>
-        <p class="text-xs">Correctif permissions Linux (exemple): <code>sudo chgrp www-data /var/www/html/.env && sudo chmod 664 /var/www/html/.env</code></p>
+        <p>Le stockage des parametres en base n est pas disponible.</p>
+        <p class="text-xs">Action requise: appliquer les migrations (incluant <code>018_create_app_settings.sql</code>).</p>
+    </section>
+<?php elseif ($error === 'settings_store_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm space-y-2">
+        <p>Impossible d enregistrer le token en base de donnees.</p>
+        <p class="text-xs">Verifier la connexion base de donnees et les droits SQL sur la table <code>app_settings</code>.</p>
     </section>
 <?php elseif ($error === 'invalid_target'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -34,7 +38,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         Expiration de session gestionnaire (minutes): <strong><?= htmlspecialchars($sessionTimeout, ENT_QUOTES, 'UTF-8') ?></strong>
     </p>
     <p class="text-xs text-slate-500 mt-2">
-        Parametre technique actuel: <code>MANAGER_SESSION_TTL_MINUTES</code> dans le fichier d environnement.
+        Source actuelle: <?= $settingsStorage === 'database' ? 'base de donnees (app_settings)' : 'fichier d environnement (.env)' ?>.
     </p>
 </section>
 

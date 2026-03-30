@@ -45,18 +45,18 @@ Commande serveur:
 3. Appliquer les migrations:
 `docker compose exec web php scripts/migrate.php`
 
-## Depannage QR (permissions .env)
-Si l'administration affiche `Impossible d ecrire le token dans le fichier .env`:
+## Depannage QR
+Depuis `0.11.0`, les tokens QR sont stockes en base (`app_settings`) et ne necessitent plus d'ecriture de `.env`.
 
-1. Verifier le montage Docker de `.env` (pas en lecture seule):
-`./.env.docker:/var/www/html/.env`
-
-2. Donner les droits d'ecriture a l'utilisateur PHP (exemple Debian/Ubuntu):
-`sudo chgrp www-data /var/www/html/.env`
-`sudo chmod 664 /var/www/html/.env`
+Si la regeneration echoue en administration:
+1. Verifier que les migrations sont a jour:
+`docker compose exec web php scripts/migrate.php`
+2. Verifier que la table `app_settings` existe (migration `018_create_app_settings.sql`).
+3. Verifier les droits SQL de l'utilisateur applicatif (SELECT/INSERT/UPDATE sur `app_settings`).
 
 ## Module pharmacie (QR)
-- Definir `PHARMACY_QR_TOKEN` dans `.env` (ou `.env.docker`) pour proteger l'acces QR.
+- Token configurable depuis l'administration (`Parametres application`), stocke en base.
+- Fallback possible via `PHARMACY_QR_TOKEN` dans `.env` (ou `.env.docker`) si `app_settings` indisponible.
 - Lien QR terrain:
 `/index.php?controller=pharmacy&action=access&token=VOTRE_TOKEN`
 - Backoffice gestionnaire:

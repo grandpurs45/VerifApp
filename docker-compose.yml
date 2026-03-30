@@ -8,7 +8,7 @@ services:
     env_file:
       - .env.docker
     volumes:
-      - ./.env.docker:/var/www/html/.env
+      - ./.env.docker:/var/www/html/.env:ro
       - ./public/uploads:/var/www/html/public/uploads
       - ./storage/logs:/var/www/html/storage/logs
     depends_on:

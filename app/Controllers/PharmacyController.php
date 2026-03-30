@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Repositories\AppSettingRepository;
 use App\Repositories\PharmacyRepository;
 
 final class PharmacyController
 {
     public function access(): void
     {
-        $configuredToken = (string) (Env::get('PHARMACY_QR_TOKEN', '') ?? '');
+        $configuredToken = $this->getPharmacyToken();
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
 
         if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
@@ -90,5 +91,18 @@ final class PharmacyController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function getPharmacyToken(): string
+    {
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable()) {
+            $token = $repository->get('pharmacy_qr_token');
+            if ($token !== null && trim($token) !== '') {
+                return trim($token);
+            }
+        }
+
+        return trim((string) (Env::get('PHARMACY_QR_TOKEN', '') ?? ''));
     }
 }

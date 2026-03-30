@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Repositories\AppSettingRepository;
 
 final class FieldController
 {
     public function access(): void
     {
-        $configuredToken = (string) (Env::get('FIELD_QR_TOKEN', '') ?? '');
+        $configuredToken = $this->getFieldToken();
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
 
         if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
@@ -30,5 +31,18 @@ final class FieldController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function getFieldToken(): string
+    {
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable()) {
+            $token = $repository->get('field_qr_token');
+            if ($token !== null && trim($token) !== '') {
+                return trim($token);
+            }
+        }
+
+        return trim((string) (Env::get('FIELD_QR_TOKEN', '') ?? ''));
     }
 }

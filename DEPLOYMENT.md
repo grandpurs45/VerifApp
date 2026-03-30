@@ -66,13 +66,13 @@ Uniquement en environnement de test/demo.
 - Les migrations appliquees en production ne doivent pas etre modifiees; ajouter une migration corrective.
 
 ## Depannage: generation QR impossible
-Symptome en administration:
-- `Impossible d ecrire le token dans le fichier .env (permissions serveur).`
+Depuis `0.11.0`, les tokens QR sont stockes en base (`app_settings`) et non plus ecrits dans `.env`.
+
+Symptomes possibles:
+- `Le stockage des parametres en base n est pas disponible.`
+- `Impossible d enregistrer le token en base de donnees.`
 
 Actions a verifier:
-1. Le fichier `.env` doit etre ecrivable par l'utilisateur PHP.
-2. Exemple Linux (Apache `www-data`):
-   - `sudo chgrp www-data /var/www/html/.env`
-   - `sudo chmod 664 /var/www/html/.env`
-3. En Docker compose, ne pas monter `.env` en lecture seule pour ce besoin:
-   - `./.env.docker:/var/www/html/.env`
+1. Migrations appliquees (incluant `018_create_app_settings.sql`).
+2. Table `app_settings` presente.
+3. Droits SQL de l'utilisateur applicatif sur `app_settings` (SELECT/INSERT/UPDATE).

@@ -9,6 +9,26 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.11.0] - 2026-03-30
+
+### Added
+- Parametres applicatifs en base de donnees:
+  - migration `018_create_app_settings.sql`
+  - stockage des tokens QR (`field_qr_token`, `pharmacy_qr_token`) dans `app_settings`
+
+### Changed
+- Lecture des parametres sensibles:
+  - priorite a `app_settings`, fallback sur `.env` si la table est absente/non migree
+- Docker:
+  - retour du montage `.env.docker` en lecture seule (plus besoin d ecriture runtime)
+- Documentation:
+  - base de connaissance QR mise a jour pour le stockage BDD et le depannage SQL
+
+### Fixed
+- Regeneration QR administration:
+  - suppression de la dependance aux droits d ecriture du fichier `.env`
+  - messages d erreur alignes sur les causes BDD (`settings_store_unavailable`, `settings_store_failed`)
+
 ## [0.10.3] - 2026-03-29
 
 ### Added

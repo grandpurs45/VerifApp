@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Repositories\AppSettingRepository;
 
 final class ManagerAdminController
 {
@@ -20,10 +21,11 @@ final class ManagerAdminController
         $managerUser = $_SESSION['manager_user'] ?? null;
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
-        $sessionTimeout = (string) (Env::get('MANAGER_SESSION_TTL_MINUTES', '120') ?? '120');
+        $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
         $appUrl = $this->resolvePublicBaseUrl();
-        $fieldToken = trim((string) (Env::get('FIELD_QR_TOKEN', '') ?? ''));
-        $pharmacyToken = trim((string) (Env::get('PHARMACY_QR_TOKEN', '') ?? ''));
+        $fieldToken = trim($this->getSettingValue('field_qr_token', 'FIELD_QR_TOKEN', ''));
+        $pharmacyToken = trim($this->getSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', ''));
+        $settingsStorage = $this->getSettingsStorageMode();
 
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '');
         $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '');
@@ -42,8 +44,8 @@ final class ManagerAdminController
 
         $target = strtolower(trim((string) ($_POST['target'] ?? '')));
         $allowedTargets = [
-            'field' => 'FIELD_QR_TOKEN',
-            'pharmacy' => 'PHARMACY_QR_TOKEN',
+            'field' => 'field_qr_token',
+            'pharmacy' => 'pharmacy_qr_token',
         ];
 
         if (!isset($allowedTargets[$target])) {
@@ -51,16 +53,16 @@ final class ManagerAdminController
         }
 
         $token = $this->generateToken();
-        $envKey = $allowedTargets[$target];
-        $envPath = dirname(__DIR__, 2) . '/.env';
-
-        $saved = $this->setEnvValue($envPath, $envKey, $token);
-        if (!$saved) {
-            $this->redirect('/index.php?controller=manager_admin&action=settings&error=env_write_failed');
+        $settingKey = $allowedTargets[$target];
+        $settingRepository = new AppSettingRepository();
+        if (!$settingRepository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
         }
 
-        // Keep runtime in sync without requiring a PHP restart.
-        $_ENV[$envKey] = $token;
+        $saved = $settingRepository->set($settingKey, $token);
+        if (!$saved) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_failed');
+        }
 
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=token_regenerated&target=' . rawurlencode($target));
     }
@@ -91,30 +93,23 @@ final class ManagerAdminController
         return bin2hex(random_bytes(32));
     }
 
-    private function setEnvValue(string $envPath, string $key, string $value): bool
+    private function getSettingValue(string $settingKey, string $envKey, string $default): string
     {
-        if (!is_file($envPath) || !is_readable($envPath) || !is_writable($envPath)) {
-            return false;
-        }
-
-        $content = @file_get_contents($envPath);
-        if ($content === false) {
-            return false;
-        }
-
-        $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
-        $line = $key . '=' . $value;
-
-        if (preg_match($pattern, $content) === 1) {
-            $newContent = preg_replace($pattern, $line, $content, 1);
-            if (!is_string($newContent)) {
-                return false;
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable()) {
+            $value = $repository->get($settingKey);
+            if ($value !== null && trim($value) !== '') {
+                return trim($value);
             }
-        } else {
-            $separator = str_ends_with($content, PHP_EOL) ? '' : PHP_EOL;
-            $newContent = $content . $separator . $line . PHP_EOL;
         }
 
-        return @file_put_contents($envPath, $newContent) !== false;
+        return trim((string) (Env::get($envKey, $default) ?? $default));
+    }
+
+    private function getSettingsStorageMode(): string
+    {
+        $repository = new AppSettingRepository();
+
+        return $repository->isAvailable() ? 'database' : 'env';
     }
 }

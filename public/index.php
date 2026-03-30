@@ -21,6 +21,7 @@ use App\Controllers\VerificationController;
 use App\Core\Autoloader;
 use App\Core\Env;
 use App\Core\ManagerAccess;
+use App\Repositories\AppSettingRepository;
 
 require_once dirname(__DIR__) . '/app/Core/Autoloader.php';
 
@@ -34,11 +35,23 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 $controllerName = isset($_GET['controller']) ? (string) $_GET['controller'] : null;
 $action = isset($_GET['action']) ? (string) $_GET['action'] : null;
 
+$appSettings = new AppSettingRepository();
+$readSetting = static function (string $settingKey, string $envKey, string $default = '') use ($appSettings): string {
+    if ($appSettings->isAvailable()) {
+        $value = $appSettings->get($settingKey);
+        if ($value !== null && trim($value) !== '') {
+            return trim($value);
+        }
+    }
+
+    return trim((string) (Env::get($envKey, $default) ?? $default));
+};
+
 $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION['manager_user']);
 $isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
-$fieldToken = (string) (Env::get('FIELD_QR_TOKEN', '') ?? '');
+$fieldToken = $readSetting('field_qr_token', 'FIELD_QR_TOKEN', '');
 $hasFieldAccess = $fieldToken === '' || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
-$pharmacyToken = (string) (Env::get('PHARMACY_QR_TOKEN', '') ?? '');
+$pharmacyToken = $readSetting('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', '');
 $hasPharmacyAccess = $pharmacyToken === '' || (isset($_SESSION['pharmacy_access']) && $_SESSION['pharmacy_access'] === true);
 
 $managerRoutes = [
@@ -94,7 +107,7 @@ $pharmacyRoutes = [
 $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
 $managerSessionExpired = false;
 
-$sessionTimeoutRaw = (string) (Env::get('MANAGER_SESSION_TTL_MINUTES', '120') ?? '120');
+$sessionTimeoutRaw = $readSetting('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
 $sessionTimeoutMinutes = ctype_digit($sessionTimeoutRaw) ? (int) $sessionTimeoutRaw : 120;
 if ($sessionTimeoutMinutes <= 0) {
     $sessionTimeoutMinutes = 120;
