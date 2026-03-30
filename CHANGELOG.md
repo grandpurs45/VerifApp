@@ -9,6 +9,15 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.11.1] - 2026-03-30
+
+### Added
+- Rien pour le moment.
+
+### Fixed
+- Checklist terrain:
+  - correction du calcul de progression pour les controles `Check` (plus de comptage automatique au chargement)
+
 ## [0.11.0] - 2026-03-30
 
 ### Added

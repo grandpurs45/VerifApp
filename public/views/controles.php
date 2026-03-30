@@ -261,7 +261,10 @@ $totalControles = count($controles);
                     const controlId = card.dataset.controlId || '';
 
                     if (type === 'quantite') {
-                        answered += 1;
+                        const check = card.querySelector('input.control-check');
+                        if (check && (check.checked || check.dataset.touched === '1')) {
+                            answered += 1;
+                        }
                         return;
                     }
 
@@ -314,7 +317,10 @@ $totalControles = count($controles);
             });
 
             checks.forEach((check) => {
-                check.addEventListener('change', updateProgress);
+                check.addEventListener('change', () => {
+                    check.dataset.touched = '1';
+                    updateProgress();
+                });
             });
 
             updateProgress();
