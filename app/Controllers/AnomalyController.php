@@ -13,6 +13,7 @@ final class AnomalyController
 {
     public function index(): void
     {
+        $caserneId = $this->resolveManagerCaserneId();
         $anomalyRepository = new AnomalyRepository();
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
@@ -30,11 +31,11 @@ final class AnomalyController
             'assigne_a' => isset($_GET['assigne_a']) ? (string) $_GET['assigne_a'] : '',
         ];
 
-        $anomalies = $anomalyRepository->findAll($filters);
+        $anomalies = $anomalyRepository->findAll($filters, $caserneId);
         $anomaliesAvailable = $anomalyRepository->isAvailable();
-        $vehicles = $vehicleRepository->findAllActive();
-        $postes = $posteRepository->findAll();
-        $assignableUsers = $userRepository->findAllActiveByRoles(['admin', 'responsable_materiel']);
+        $vehicles = $vehicleRepository->findAllActive($caserneId);
+        $postes = $posteRepository->findAll($caserneId);
+        $assignableUsers = $userRepository->findAllActiveByRoles(['admin', 'responsable_materiel'], $caserneId);
         $returnQuery = http_build_query(array_merge(
             ['controller' => 'anomalies', 'action' => 'index'],
             array_filter($filters, static fn ($value): bool => $value !== '')
@@ -56,6 +57,7 @@ final class AnomalyController
         $assigneeRaw = (string) ($_POST['assigne_a'] ?? '');
         $assignToMe = isset($_POST['assign_to_me']) && (string) $_POST['assign_to_me'] === '1';
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $caserneId = $this->resolveManagerCaserneId();
         $returnQuery = trim((string) ($_POST['return_query'] ?? ''));
 
         $allowedStatuses = ['ouverte', 'en_cours', 'resolue', 'cloturee'];
@@ -86,7 +88,8 @@ final class AnomalyController
             $status,
             $priority,
             $comment === '' ? null : $comment,
-            $assigneeId
+            $assigneeId,
+            $caserneId
         );
 
         $location = '/index.php?controller=anomalies&action=index&updated=1';
@@ -101,5 +104,12 @@ final class AnomalyController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+
+        return $caserneId > 0 ? $caserneId : null;
     }
 }

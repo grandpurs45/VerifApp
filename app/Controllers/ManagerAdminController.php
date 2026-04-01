@@ -6,6 +6,8 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
+use App\Repositories\CaserneRepository;
+use Throwable;
 
 final class ManagerAdminController
 {
@@ -19,6 +21,7 @@ final class ManagerAdminController
     public function settings(): void
     {
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $caserneId = $this->resolveManagerCaserneId();
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
@@ -26,14 +29,74 @@ final class ManagerAdminController
         $fieldToken = trim($this->getSettingValue('field_qr_token', 'FIELD_QR_TOKEN', ''));
         $pharmacyToken = trim($this->getSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', ''));
         $settingsStorage = $this->getSettingsStorageMode();
+        $caserneRepository = new CaserneRepository();
+        $casernes = $caserneRepository->findAll();
 
-        $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '');
-        $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '');
+        $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
+        $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
+        $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '') . $caserneParam;
 
         $fieldGuestUrl = $appUrl !== '' ? $appUrl . $fieldGuestPath : $fieldGuestPath;
         $pharmacyGuestUrl = $appUrl !== '' ? $appUrl . $pharmacyGuestPath : $pharmacyGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
+    }
+
+    public function caserneSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $nom = trim((string) ($_POST['nom'] ?? ''));
+        $code = strtolower(trim((string) ($_POST['code'] ?? '')));
+        $code = preg_replace('/[^a-z0-9_\\-]/', '_', $code ?? '');
+        $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
+
+        if ($nom === '' || $code === '') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_invalid');
+        }
+
+        $repository = new CaserneRepository();
+
+        try {
+            if ($id > 0) {
+                $existing = $repository->findById($id);
+                if ($existing === null) {
+                    $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_invalid');
+                }
+
+                if ((int) ($existing['actif'] ?? 0) === 1 && !$active && $repository->countActive() <= 1) {
+                    $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_last_active');
+                }
+
+                $ok = $repository->update($id, $nom, $code, $active);
+                if (!$ok) {
+                    $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_save_failed');
+                }
+
+                $managerCaserneId = $this->resolveManagerCaserneId();
+                if ($managerCaserneId !== null && $managerCaserneId === $id) {
+                    $_SESSION['manager_user']['caserne_nom'] = $nom;
+                }
+
+                $this->redirect('/index.php?controller=manager_admin&action=settings&success=caserne_updated');
+            }
+
+            $ok = $repository->create($nom, $code, $active);
+            if (!$ok) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_save_failed');
+            }
+
+            $this->redirect('/index.php?controller=manager_admin&action=settings&success=caserne_created');
+        } catch (Throwable $throwable) {
+            $message = strtolower($throwable->getMessage());
+            if (str_contains($message, 'duplicate') || str_contains($message, 'unique')) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_duplicate');
+            }
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_save_failed');
+        }
     }
 
     public function regenerateQrToken(): void
@@ -111,5 +174,12 @@ final class ManagerAdminController
         $repository = new AppSettingRepository();
 
         return $repository->isAvailable() ? 'database' : 'env';
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+
+        return $caserneId > 0 ? $caserneId : null;
     }
 }

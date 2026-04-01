@@ -18,7 +18,7 @@ final class ZoneRepository
         return $this->hasTable();
     }
 
-    public function findAllDetailed(): array
+    public function findAllDetailed(?int $caserneId = null): array
     {
         if (!$this->hasTable()) {
             return [];
@@ -30,25 +30,24 @@ final class ZoneRepository
             SELECT
                 z.id,
                 z.vehicule_id,
+                z.caserne_id,
                 ' . $parentSelect . ',
                 z.nom,
                 v.nom AS vehicule_nom
             FROM zones z
             INNER JOIN vehicules v ON v.id = z.vehicule_id
+            ' . ($caserneId !== null ? 'WHERE z.caserne_id = :caserne_id' : '') . '
             ORDER BY v.nom ASC, z.nom ASC
         ';
 
-        $statement = $connection->query($sql);
-
-        if ($statement === false) {
-            return [];
-        }
+        $statement = $connection->prepare($sql);
+        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
 
         $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
         return $this->withPaths($rows);
     }
 
-    public function findByVehicleId(int $vehicleId): array
+    public function findByVehicleId(int $vehicleId, ?int $caserneId = null): array
     {
         if (!$this->hasTable()) {
             return [];
@@ -57,18 +56,25 @@ final class ZoneRepository
         $connection = Database::getConnection();
         $parentSelect = $this->hasParentColumn() ? 'parent_id' : 'NULL AS parent_id';
         $statement = $connection->prepare('
-            SELECT id, vehicule_id, ' . $parentSelect . ', nom
+            SELECT id, vehicule_id, caserne_id, ' . $parentSelect . ', nom
             FROM zones
             WHERE vehicule_id = :vehicule_id
+              ' . ($caserneId !== null ? 'AND caserne_id = :caserne_id' : '') . '
             ORDER BY nom ASC
         ');
-        $statement->execute(['vehicule_id' => $vehicleId]);
+
+        $params = ['vehicule_id' => $vehicleId];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
+        $statement->execute($params);
 
         $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
         return $this->withPaths($rows);
     }
 
-    public function create(int $vehicleId, string $name, ?int $parentId = null): bool
+    public function create(int $vehicleId, string $name, ?int $parentId = null, int $caserneId = 0): bool
     {
         if (!$this->hasTable()) {
             return false;
@@ -77,17 +83,18 @@ final class ZoneRepository
         $connection = Database::getConnection();
         if ($this->hasParentColumn()) {
             $statement = $connection->prepare('
-                INSERT INTO zones (vehicule_id, parent_id, nom)
-                VALUES (:vehicule_id, :parent_id, :nom)
+                INSERT INTO zones (caserne_id, vehicule_id, parent_id, nom)
+                VALUES (:caserne_id, :vehicule_id, :parent_id, :nom)
             ');
         } else {
             $statement = $connection->prepare('
-                INSERT INTO zones (vehicule_id, nom)
-                VALUES (:vehicule_id, :nom)
+                INSERT INTO zones (caserne_id, vehicule_id, nom)
+                VALUES (:caserne_id, :vehicule_id, :nom)
             ');
         }
 
         $params = [
+            'caserne_id' => $caserneId,
             'vehicule_id' => $vehicleId,
             'nom' => $name,
         ];
@@ -99,19 +106,19 @@ final class ZoneRepository
         return $statement->execute($params);
     }
 
-    public function delete(int $id): bool
+    public function delete(int $id, int $caserneId): bool
     {
         if (!$this->hasTable()) {
             return false;
         }
 
         $connection = Database::getConnection();
-        $statement = $connection->prepare('DELETE FROM zones WHERE id = :id');
+        $statement = $connection->prepare('DELETE FROM zones WHERE id = :id AND caserne_id = :caserne_id');
 
-        return $statement->execute(['id' => $id]);
+        return $statement->execute(['id' => $id, 'caserne_id' => $caserneId]);
     }
 
-    public function belongsToVehicle(int $zoneId, int $vehicleId): bool
+    public function belongsToVehicle(int $zoneId, int $vehicleId, ?int $caserneId = null): bool
     {
         if (!$this->hasTable()) {
             return false;
@@ -123,12 +130,20 @@ final class ZoneRepository
             FROM zones
             WHERE id = :id
               AND vehicule_id = :vehicule_id
+              ' . ($caserneId !== null ? 'AND caserne_id = :caserne_id' : '') . '
             LIMIT 1
         ');
-        $statement->execute([
+
+        $params = [
             'id' => $zoneId,
             'vehicule_id' => $vehicleId,
-        ]);
+        ];
+
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
+        $statement->execute($params);
 
         return $statement->fetchColumn() !== false;
     }

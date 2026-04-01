@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\ManagerAccess;
+use App\Repositories\CaserneRepository;
 use App\Repositories\UserRepository;
 
 final class AuthController
@@ -16,6 +17,9 @@ final class AuthController
         }
         if (isset($_SESSION['manager_password_reset_user']['id'])) {
             $this->redirect('/index.php?controller=manager_auth&action=change_password_form');
+        }
+        if (isset($_SESSION['manager_caserne_pending']['user_id'])) {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
         }
 
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -54,21 +58,14 @@ final class AuthController
             $this->redirect('/index.php?controller=manager_auth&action=change_password_form');
         }
 
-        $_SESSION['manager_user'] = [
-            'id' => (int) $user['id'],
-            'nom' => (string) $user['nom'],
-            'email' => (string) $user['email'],
-            'role' => (string) $user['role'],
-        ];
-        $_SESSION['manager_last_activity'] = time();
-
-        $this->redirect('/index.php?controller=manager&action=dashboard');
+        $this->startManagerSessionForUser((int) $user['id'], false);
     }
 
     public function logout(): void
     {
         unset($_SESSION['manager_user']);
         unset($_SESSION['manager_password_reset_user']);
+        unset($_SESSION['manager_caserne_pending']);
         unset($_SESSION['manager_last_activity']);
         $this->redirect('/index.php?controller=manager_auth&action=login_form&logged_out=1');
     }
@@ -124,20 +121,97 @@ final class AuthController
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
         $userRepository->updatePasswordAndClearFlag($targetUserId, $passwordHash);
 
-        $_SESSION['manager_user'] = [
-            'id' => (int) $user['id'],
-            'nom' => (string) $user['nom'],
-            'email' => (string) $user['email'],
-            'role' => (string) $user['role'],
-        ];
-        $_SESSION['manager_last_activity'] = time();
         unset($_SESSION['manager_password_reset_user']);
 
         if ($pendingUserId > 0) {
-            $this->redirect('/index.php?controller=manager&action=dashboard&password_changed=1');
+            $this->startManagerSessionForUser($targetUserId, true);
         }
 
         $this->redirect('/index.php?controller=manager&action=account&password_changed=1');
+    }
+
+    public function selectCaserneForm(): void
+    {
+        $pending = $_SESSION['manager_caserne_pending'] ?? null;
+        if (!is_array($pending) || !isset($pending['user_id']) || !isset($pending['casernes']) || !is_array($pending['casernes'])) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form');
+        }
+
+        $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $casernes = $pending['casernes'];
+        $userName = (string) ($pending['nom'] ?? '');
+
+        require dirname(__DIR__, 2) . '/public/views/manager_select_caserne.php';
+    }
+
+    public function selectCaserne(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
+        }
+
+        $pending = $_SESSION['manager_caserne_pending'] ?? null;
+        if (!is_array($pending) || !isset($pending['user_id'])) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form');
+        }
+
+        $caserneId = isset($_POST['caserne_id']) ? (int) $_POST['caserne_id'] : 0;
+        if ($caserneId <= 0) {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form&error=missing_caserne');
+        }
+
+        $selectedCaserne = null;
+        foreach (($pending['casernes'] ?? []) as $caserne) {
+            if ((int) ($caserne['id'] ?? 0) === $caserneId) {
+                $selectedCaserne = $caserne;
+                break;
+            }
+        }
+
+        if (!is_array($selectedCaserne)) {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form&error=invalid_caserne');
+        }
+
+        $this->createAuthenticatedSession([
+            'id' => (int) $pending['user_id'],
+            'nom' => (string) ($pending['nom'] ?? ''),
+            'email' => (string) ($pending['email'] ?? ''),
+            'role' => (string) ($pending['role'] ?? ''),
+        ], $selectedCaserne);
+
+        $afterPasswordChange = ((int) ($pending['after_password_change'] ?? 0) === 1);
+        unset($_SESSION['manager_caserne_pending']);
+
+        $this->redirect('/index.php?controller=manager&action=dashboard' . ($afterPasswordChange ? '&password_changed=1' : ''));
+    }
+
+    public function switchCaserne(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        if (!is_array($managerUser) || !isset($managerUser['id'])) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form');
+        }
+
+        $caserneId = isset($_POST['caserne_id']) ? (int) $_POST['caserne_id'] : 0;
+        if ($caserneId <= 0) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $caserneRepository = new CaserneRepository();
+        $caserne = $caserneRepository->findByIdForUser($caserneId, (int) $managerUser['id']);
+        if ($caserne === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $_SESSION['manager_user']['caserne_id'] = (int) $caserne['id'];
+        $_SESSION['manager_user']['caserne_nom'] = (string) $caserne['nom'];
+        $_SESSION['manager_last_activity'] = time();
+
+        $this->redirect('/index.php?controller=manager&action=dashboard');
     }
 
     private function isAuthenticated(): bool
@@ -149,5 +223,52 @@ final class AuthController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function startManagerSessionForUser(int $userId, bool $afterPasswordChange): void
+    {
+        $userRepository = new UserRepository();
+        $caserneRepository = new CaserneRepository();
+        $user = $userRepository->findById($userId);
+
+        if ($user === null || (int) ($user['actif'] ?? 0) !== 1) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
+        }
+
+        $casernes = $caserneRepository->findByUserId($userId);
+        if ($casernes === []) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=no_caserne');
+        }
+
+        if (count($casernes) === 1) {
+            $this->createAuthenticatedSession($user, $casernes[0]);
+            $this->redirect('/index.php?controller=manager&action=dashboard' . ($afterPasswordChange ? '&password_changed=1' : ''));
+        }
+
+        $_SESSION['manager_caserne_pending'] = [
+            'user_id' => (int) $user['id'],
+            'nom' => (string) $user['nom'],
+            'email' => (string) $user['email'],
+            'role' => (string) $user['role'],
+            'casernes' => $casernes,
+            'after_password_change' => $afterPasswordChange ? 1 : 0,
+        ];
+
+        $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
+    }
+
+    private function createAuthenticatedSession(array $user, array $caserne): void
+    {
+        $_SESSION['manager_user'] = [
+            'id' => (int) ($user['id'] ?? 0),
+            'nom' => (string) ($user['nom'] ?? ''),
+            'email' => (string) ($user['email'] ?? ''),
+            'role' => (string) ($user['role'] ?? ''),
+            'caserne_id' => (int) ($caserne['id'] ?? 0),
+            'caserne_nom' => (string) ($caserne['nom'] ?? ''),
+        ];
+        $_SESSION['manager_last_activity'] = time();
+        unset($_SESSION['manager_password_reset_user']);
+        unset($_SESSION['manager_caserne_pending']);
     }
 }

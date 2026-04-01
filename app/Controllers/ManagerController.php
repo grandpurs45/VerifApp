@@ -14,20 +14,23 @@ final class ManagerController
 {
     public function dashboard(): void
     {
+        $caserneId = $this->resolveManagerCaserneId();
         $verificationRepository = new VerificationRepository();
         $anomalyRepository = new AnomalyRepository();
 
-        $stats = $verificationRepository->getDashboardStats();
-        $anomalyStats = $anomalyRepository->getStatusStats();
+        $stats = $verificationRepository->getDashboardStats($caserneId);
+        $anomalyStats = $anomalyRepository->getStatusStats($caserneId);
         $managerUser = $_SESSION['manager_user'] ?? null;
         $assignmentStats = $anomalyRepository->getAssignmentStats(
-            is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null
+            is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null,
+            $caserneId
         );
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = $this->getSettingValue('field_qr_token', 'FIELD_QR_TOKEN', '');
         $pharmacyToken = $this->getSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', '');
-        $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '');
-        $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '');
+        $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
+        $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
+        $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '') . $caserneParam;
         $fieldGuestUrl = $appUrl !== '' ? $appUrl . $fieldGuestPath : $fieldGuestPath;
         $pharmacyGuestUrl = $appUrl !== '' ? $appUrl . $pharmacyGuestPath : $pharmacyGuestPath;
 
@@ -93,6 +96,8 @@ final class ManagerController
             'nom' => $name,
             'email' => $email,
             'role' => (string) $currentUser['role'],
+            'caserne_id' => isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0,
+            'caserne_nom' => isset($_SESSION['manager_user']['caserne_nom']) ? (string) $_SESSION['manager_user']['caserne_nom'] : '',
         ];
         $_SESSION['manager_last_activity'] = time();
 
@@ -131,5 +136,12 @@ final class ManagerController
         }
 
         return trim((string) (Env::get($envKey, $default) ?? $default));
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+
+        return $caserneId > 0 ? $caserneId : null;
     }
 }

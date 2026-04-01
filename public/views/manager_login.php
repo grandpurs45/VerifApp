@@ -12,6 +12,8 @@ if ($error === 'missing_fields') {
     $errorMessage = 'Compte admin initial detecte: changement de mot de passe requis.';
 } elseif ($error === 'session_expired') {
     $errorMessage = 'Session expiree. Merci de vous reconnecter.';
+} elseif ($error === 'no_caserne') {
+    $errorMessage = 'Aucune caserne associee a ce compte. Contacte un administrateur.';
 }
 ?>
 <!DOCTYPE html>

@@ -18,7 +18,7 @@ final class AnomalyRepository
         return $this->hasTable();
     }
 
-    public function findAll(array $filters): array
+    public function findAll(array $filters, ?int $caserneId = null): array
     {
         if (!$this->hasTable()) {
             return [];
@@ -27,6 +27,11 @@ final class AnomalyRepository
         $connection = Database::getConnection();
         $where = [];
         $params = [];
+
+        if ($caserneId !== null) {
+            $where[] = 'v.caserne_id = :caserne_id';
+            $params['caserne_id'] = $caserneId;
+        }
 
         if (($filters['statut'] ?? '') !== '') {
             if (($filters['statut'] ?? '') === 'actives') {
@@ -121,7 +126,7 @@ final class AnomalyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function updateStatus(int $anomalyId, string $status, string $priority, ?string $comment, ?int $assigneeId): bool
+    public function updateStatus(int $anomalyId, string $status, string $priority, ?string $comment, ?int $assigneeId, ?int $caserneId = null): bool
     {
         if (!$this->hasTable()) {
             return false;
@@ -132,30 +137,36 @@ final class AnomalyRepository
 
         if ($this->hasAssigneeColumn()) {
             $sql = '
-                UPDATE anomalies
+                UPDATE anomalies a
+                INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+                INNER JOIN verifications v ON v.id = vl.verification_id
                 SET
-                    statut = :statut,
-                    priorite = :priorite,
-                    assigne_a = :assigne_a,
-                    commentaire = :commentaire,
-                    date_resolution = CASE
-                        WHEN :is_resolved = 1 THEN COALESCE(date_resolution, NOW())
+                    a.statut = :statut,
+                    a.priorite = :priorite,
+                    a.assigne_a = :assigne_a,
+                    a.commentaire = :commentaire,
+                    a.date_resolution = CASE
+                        WHEN :is_resolved = 1 THEN COALESCE(a.date_resolution, NOW())
                         ELSE NULL
                     END
-                WHERE id = :id
+                WHERE a.id = :id
+                  ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
             ';
         } else {
             $sql = '
-                UPDATE anomalies
+                UPDATE anomalies a
+                INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+                INNER JOIN verifications v ON v.id = vl.verification_id
                 SET
-                    statut = :statut,
-                    priorite = :priorite,
-                    commentaire = :commentaire,
-                    date_resolution = CASE
-                        WHEN :is_resolved = 1 THEN COALESCE(date_resolution, NOW())
+                    a.statut = :statut,
+                    a.priorite = :priorite,
+                    a.commentaire = :commentaire,
+                    a.date_resolution = CASE
+                        WHEN :is_resolved = 1 THEN COALESCE(a.date_resolution, NOW())
                         ELSE NULL
                     END
-                WHERE id = :id
+                WHERE a.id = :id
+                  ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
             ';
         }
 
@@ -173,10 +184,14 @@ final class AnomalyRepository
             $params['assigne_a'] = $assigneeId;
         }
 
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
         return $statement->execute($params);
     }
 
-    public function getStatusStats(): array
+    public function getStatusStats(?int $caserneId = null): array
     {
         if (!$this->hasTable()) {
             return [
@@ -190,13 +205,17 @@ final class AnomalyRepository
         $connection = Database::getConnection();
         $sql = '
             SELECT
-                statut,
+                a.statut,
                 COUNT(*) AS total
-            FROM anomalies
-            GROUP BY statut
+            FROM anomalies a
+            INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+            INNER JOIN verifications v ON v.id = vl.verification_id
+            ' . ($caserneId !== null ? 'WHERE v.caserne_id = :caserne_id' : '') . '
+            GROUP BY a.statut
         ';
 
-        $statement = $connection->query($sql);
+        $statement = $connection->prepare($sql);
+        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
 
         $stats = [
             'ouverte' => 0,
@@ -204,10 +223,6 @@ final class AnomalyRepository
             'resolue' => 0,
             'cloturee' => 0,
         ];
-
-        if ($statement === false) {
-            return $stats;
-        }
 
         $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
@@ -223,7 +238,7 @@ final class AnomalyRepository
         return $stats;
     }
 
-    public function getAssignmentStats(?int $userId): array
+    public function getAssignmentStats(?int $userId, ?int $caserneId = null): array
     {
         if (!$this->hasTable() || !$this->hasAssigneeColumn()) {
             return [
@@ -238,9 +253,18 @@ final class AnomalyRepository
                 SUM(CASE WHEN a.assigne_a IS NULL AND a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS non_assignees,
                 SUM(CASE WHEN :user_id > 0 AND a.assigne_a = :user_id AND a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS mes_anomalies
             FROM anomalies a
+            INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+            INNER JOIN verifications v ON v.id = vl.verification_id
+            ' . ($caserneId !== null ? 'WHERE v.caserne_id = :caserne_id' : '') . '
         ';
         $statement = $connection->prepare($sql);
-        $statement->execute(['user_id' => $userId ?? 0]);
+
+        $params = ['user_id' => $userId ?? 0];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
+        $statement->execute($params);
         $row = $statement->fetch(PDO::FETCH_ASSOC);
 
         if ($row === false) {

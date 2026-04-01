@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repositories\CaserneRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 
@@ -13,9 +14,20 @@ final class ManagerUserController
     {
         $userRepository = new UserRepository();
         $roleRepository = new RoleRepository();
+        $caserneRepository = new CaserneRepository();
+        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
 
         $users = $userRepository->findAll();
+        $filteredUsers = [];
+        foreach ($users as $user) {
+            $user['caserne_ids'] = $userRepository->findCaserneIdsByUserId((int) ($user['id'] ?? 0));
+            if ($currentCaserneId <= 0 || in_array($currentCaserneId, (array) $user['caserne_ids'], true)) {
+                $filteredUsers[] = $user;
+            }
+        }
+        $users = $filteredUsers;
         $roles = $roleRepository->isAvailable() ? $roleRepository->findAll() : [];
+        $casernes = $caserneRepository->findAllActive();
         $managerUser = $_SESSION['manager_user'] ?? null;
 
         if ($roles === []) {
@@ -41,6 +53,17 @@ final class ManagerUserController
         $role = trim((string) ($_POST['role'] ?? ''));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
         $password = (string) ($_POST['password'] ?? '');
+        $caserneIds = is_array($_POST['caserne_ids'] ?? null) ? array_map('intval', $_POST['caserne_ids']) : [];
+        $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
+        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        if ($id > 0 && $id === $currentUserId && $currentCaserneId > 0 && !in_array($currentCaserneId, $caserneIds, true)) {
+            $caserneIds[] = $currentCaserneId;
+        }
+        if ($caserneIds === []) {
+            if ($currentCaserneId > 0) {
+                $caserneIds = [$currentCaserneId];
+            }
+        }
 
         if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $role === '') {
             $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
@@ -61,6 +84,10 @@ final class ManagerUserController
             $ok = $userRepository->updateProfile($id, $name, $email, $role, $active);
             if (!$ok) {
                 $this->redirect('/index.php?controller=manager_users&action=index&error=save_failed');
+            }
+
+            if (!$userRepository->syncCasernes($id, $caserneIds)) {
+                $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
             }
 
             if ($password !== '') {
@@ -88,6 +115,11 @@ final class ManagerUserController
 
         if (!$ok) {
             $this->redirect('/index.php?controller=manager_users&action=index&error=create_failed');
+        }
+
+        $newUserId = $userRepository->findLastInsertId();
+        if ($newUserId <= 0 || !$userRepository->syncCasernes($newUserId, $caserneIds)) {
+            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
         }
 
         $this->redirect('/index.php?controller=manager_users&action=index&success=created');

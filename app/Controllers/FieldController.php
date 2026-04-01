@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
+use App\Repositories\CaserneRepository;
 
 final class FieldController
 {
@@ -13,9 +14,11 @@ final class FieldController
     {
         $configuredToken = $this->getFieldToken();
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
+        $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
 
         if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
             $_SESSION['field_access'] = true;
+            $this->storeFieldCaserneContext($caserneId);
             $this->redirect('/index.php?controller=home&action=index');
         }
 
@@ -44,5 +47,20 @@ final class FieldController
         }
 
         return trim((string) (Env::get('FIELD_QR_TOKEN', '') ?? ''));
+    }
+
+    private function storeFieldCaserneContext(int $caserneId): void
+    {
+        if ($caserneId > 0) {
+            $caserneRepository = new CaserneRepository();
+            $caserne = $caserneRepository->findById($caserneId);
+            if ($caserne !== null && (int) ($caserne['actif'] ?? 0) === 1) {
+                $_SESSION['field_caserne_id'] = (int) $caserne['id'];
+                $_SESSION['field_caserne_nom'] = (string) $caserne['nom'];
+                return;
+            }
+        }
+
+        unset($_SESSION['field_caserne_id'], $_SESSION['field_caserne_nom']);
     }
 }

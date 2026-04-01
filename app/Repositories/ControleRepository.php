@@ -13,7 +13,7 @@ final class ControleRepository
     private ?bool $isHierarchicalSchema = null;
     private ?bool $hasInputSchema = null;
 
-    public function findByPosteId(int $posteId): array
+    public function findByPosteId(int $posteId, ?int $caserneId = null): array
     {
         $connection = Database::getConnection();
 
@@ -21,6 +21,7 @@ final class ControleRepository
             SELECT
                 id,
                 libelle,
+                caserne_id,
                 ' . ($this->hasInputSchema() ? 'type_saisie,' : '\'statut\' AS type_saisie,') . '
                 ' . ($this->hasInputSchema() ? 'valeur_attendue,' : 'NULL AS valeur_attendue,') . '
                 ' . ($this->hasInputSchema() ? 'unite,' : 'NULL AS unite,') . '
@@ -31,22 +32,25 @@ final class ControleRepository
             FROM controles
             WHERE poste_id = :poste_id
               AND actif = 1
+              ' . ($caserneId !== null ? 'AND caserne_id = :caserne_id' : '') . '
             ORDER BY zone ASC, ordre ASC, libelle ASC
         ';
 
         $statement = $connection->prepare($sql);
+        $params = ['poste_id' => $posteId];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
 
-        $statement->execute([
-            'poste_id' => $posteId,
-        ]);
+        $statement->execute($params);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findByVehicleAndPosteId(int $vehicleId, int $posteId): array
+    public function findByVehicleAndPosteId(int $vehicleId, int $posteId, ?int $caserneId = null): array
     {
         if (!$this->hasHierarchicalSchema()) {
-            return $this->findByPosteId($posteId);
+            return $this->findByPosteId($posteId, $caserneId);
         }
 
         $connection = Database::getConnection();
@@ -54,6 +58,7 @@ final class ControleRepository
             SELECT
                 c.id,
                 c.libelle,
+                c.caserne_id,
                 c.zone_id,
                 ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
                 ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
@@ -67,19 +72,26 @@ final class ControleRepository
             WHERE c.vehicule_id = :vehicule_id
               AND c.poste_id = :poste_id
               AND c.actif = 1
+              ' . ($caserneId !== null ? 'AND c.caserne_id = :caserne_id' : '') . '
             ORDER BY z.nom ASC, c.ordre ASC, c.libelle ASC
         ';
 
         $statement = $connection->prepare($sql);
-        $statement->execute([
+
+        $params = [
             'vehicule_id' => $vehicleId,
             'poste_id' => $posteId,
-        ]);
+        ];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
+        $statement->execute($params);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findAllDetailed(): array
+    public function findAllDetailed(?int $caserneId = null): array
     {
         $connection = Database::getConnection();
 
@@ -88,6 +100,7 @@ final class ControleRepository
                 SELECT
                     c.id,
                     c.libelle,
+                    c.caserne_id,
                     ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
                     ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
                     ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
@@ -105,6 +118,7 @@ final class ControleRepository
                 INNER JOIN postes p ON p.id = c.poste_id
                 INNER JOIN vehicules v ON v.id = c.vehicule_id
                 INNER JOIN zones z ON z.id = c.zone_id
+                ' . ($caserneId !== null ? 'WHERE c.caserne_id = :caserne_id' : '') . '
                 ORDER BY v.nom ASC, p.nom ASC, z.nom ASC, c.ordre ASC, c.libelle ASC
             ';
         } else {
@@ -112,6 +126,7 @@ final class ControleRepository
                 SELECT
                     c.id,
                     c.libelle,
+                    c.caserne_id,
                     ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
                     ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
                     ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
@@ -127,15 +142,13 @@ final class ControleRepository
                     NULL AS vehicule_nom
                 FROM controles c
                 INNER JOIN postes p ON p.id = c.poste_id
+                ' . ($caserneId !== null ? 'WHERE c.caserne_id = :caserne_id' : '') . '
                 ORDER BY p.nom ASC, c.zone ASC, c.ordre ASC, c.libelle ASC
             ';
         }
 
-        $statement = $connection->query($sql);
-
-        if ($statement === false) {
-            return [];
-        }
+        $statement = $connection->prepare($sql);
+        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -146,6 +159,7 @@ final class ControleRepository
         string $zone,
         int $order,
         bool $active,
+        int $caserneId,
         ?int $vehicleId = null,
         ?int $zoneId = null,
         string $inputType = 'statut',
@@ -160,19 +174,20 @@ final class ControleRepository
         if ($this->hasHierarchicalSchema() && $vehicleId !== null && $zoneId !== null) {
             if ($hasInputSchema) {
                 $sql = '
-                    INSERT INTO controles (libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, vehicule_id, zone_id, zone, ordre, actif)
-                    VALUES (:libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
+                    INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, vehicule_id, zone_id, zone, ordre, actif)
+                    VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
                 ';
             } else {
                 $sql = '
-                    INSERT INTO controles (libelle, poste_id, vehicule_id, zone_id, zone, ordre, actif)
-                    VALUES (:libelle, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
+                    INSERT INTO controles (caserne_id, libelle, poste_id, vehicule_id, zone_id, zone, ordre, actif)
+                    VALUES (:caserne_id, :libelle, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
                 ';
             }
 
             $statement = $connection->prepare($sql);
 
             $params = [
+                'caserne_id' => $caserneId,
                 'libelle' => $label,
                 'poste_id' => $posteId,
                 'vehicule_id' => $vehicleId,
@@ -195,19 +210,20 @@ final class ControleRepository
 
         if ($hasInputSchema) {
             $sql = '
-                INSERT INTO controles (libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, zone, ordre, actif)
-                VALUES (:libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :zone, :ordre, :actif)
+                INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, zone, ordre, actif)
+                VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :zone, :ordre, :actif)
             ';
         } else {
             $sql = '
-                INSERT INTO controles (libelle, poste_id, zone, ordre, actif)
-                VALUES (:libelle, :poste_id, :zone, :ordre, :actif)
+                INSERT INTO controles (caserne_id, libelle, poste_id, zone, ordre, actif)
+                VALUES (:caserne_id, :libelle, :poste_id, :zone, :ordre, :actif)
             ';
         }
 
         $statement = $connection->prepare($sql);
 
         $params = [
+            'caserne_id' => $caserneId,
             'libelle' => $label,
             'poste_id' => $posteId,
             'zone' => $zone,
@@ -233,6 +249,7 @@ final class ControleRepository
         string $zone,
         int $order,
         bool $active,
+        int $caserneId,
         ?int $vehicleId = null,
         ?int $zoneId = null,
         string $inputType = 'statut',
@@ -261,6 +278,7 @@ final class ControleRepository
                         ordre = :ordre,
                         actif = :actif
                     WHERE id = :id
+                      AND caserne_id = :caserne_id
                 ';
             } else {
                 $sql = '
@@ -273,6 +291,7 @@ final class ControleRepository
                         ordre = :ordre,
                         actif = :actif
                     WHERE id = :id
+                      AND caserne_id = :caserne_id
                 ';
             }
 
@@ -280,6 +299,7 @@ final class ControleRepository
 
             $params = [
                 'id' => $id,
+                'caserne_id' => $caserneId,
                 'libelle' => $label,
                 'poste_id' => $posteId,
                 'vehicule_id' => $vehicleId,
@@ -314,6 +334,7 @@ final class ControleRepository
                     ordre = :ordre,
                     actif = :actif
                 WHERE id = :id
+                  AND caserne_id = :caserne_id
             ';
         } else {
             $sql = '
@@ -324,6 +345,7 @@ final class ControleRepository
                     ordre = :ordre,
                     actif = :actif
                 WHERE id = :id
+                  AND caserne_id = :caserne_id
             ';
         }
 
@@ -331,6 +353,7 @@ final class ControleRepository
 
         $params = [
             'id' => $id,
+            'caserne_id' => $caserneId,
             'libelle' => $label,
             'poste_id' => $posteId,
             'zone' => $zone,
@@ -349,12 +372,12 @@ final class ControleRepository
         return $statement->execute($params);
     }
 
-    public function delete(int $id): bool
+    public function delete(int $id, int $caserneId): bool
     {
         $connection = Database::getConnection();
-        $statement = $connection->prepare('DELETE FROM controles WHERE id = :id');
+        $statement = $connection->prepare('DELETE FROM controles WHERE id = :id AND caserne_id = :caserne_id');
 
-        return $statement->execute(['id' => $id]);
+        return $statement->execute(['id' => $id, 'caserne_id' => $caserneId]);
     }
 
     public function hasHierarchicalSchema(): bool

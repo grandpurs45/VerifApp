@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $appVersion = \App\Core\AppVersion::current();
 $fieldUser = $_SESSION['field_user'] ?? null;
+$fieldCaserneNom = isset($_SESSION['field_caserne_nom']) ? (string) $_SESSION['field_caserne_nom'] : '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -26,6 +27,9 @@ $fieldUser = $_SESSION['field_user'] ?? null;
                 <div>
                     <p class="text-xs uppercase tracking-[0.18em] text-amber-300">VerifApp Terrain</p>
                     <h1 class="mt-1 text-2xl font-extrabold text-white">Etape 1 - Choisir l'engin</h1>
+                    <?php if ($fieldCaserneNom !== ''): ?>
+                        <p class="mt-1 text-sm font-semibold text-amber-100"><?= htmlspecialchars($fieldCaserneNom, ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
                 </div>
                 <span class="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-bold text-slate-200">
                     v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?>

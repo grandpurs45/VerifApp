@@ -9,6 +9,26 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.12.0] - 2026-04-01
+
+### Added
+- Multi-caserne:
+  - migration `019_add_caserne_multitenant.sql` (tables `casernes`, `utilisateur_casernes`)
+  - selection de caserne obligatoire a la connexion gestionnaire pour les comptes lies a plusieurs casernes
+  - switch de caserne active depuis le shell backoffice
+- Authentification:
+  - nouvel ecran `manager_select_caserne.php`
+  - controle d acces verificateur sur la caserne du lien QR
+- Utilisateurs:
+  - affectation multi-caserne depuis le CRUD utilisateurs (selection multiple)
+
+### Changed
+- Isolation des donnees par caserne:
+  - scope `caserne_id` applique aux modules parc/materiel, verifications, anomalies et pharmacie
+  - liens invites (terrain + pharmacie) incluent la caserne active
+- Seed demo:
+  - `001_demo_data.sql` compatible schema multi-caserne
+
 ## [0.11.1] - 2026-03-30
 
 ### Added

@@ -59,8 +59,10 @@ $managerRoutes = [
     'manager/account',
     'manager/account_save',
     'manager/forbidden',
+    'manager_auth/switch_caserne',
     'manager_admin/menu',
     'manager_admin/settings',
+    'manager_admin/caserne_save',
     'manager_admin/regenerate_qr_token',
     'verifications/history',
     'verifications/show',
@@ -138,8 +140,10 @@ $managerRoutePermissions = [
     'manager/dashboard' => 'dashboard.view',
     'manager/account' => 'dashboard.view',
     'manager/account_save' => 'dashboard.view',
+    'manager_auth/switch_caserne' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
+    'manager_admin/caserne_save' => 'users.manage',
     'manager_admin/regenerate_qr_token' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/show' => 'verifications.history',
@@ -202,6 +206,18 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_auth' && $action === 'select_caserne_form') {
+        $controller = new AuthController();
+        $controller->selectCaserneForm();
+        return;
+    }
+
+    if ($controllerName === 'manager_auth' && $action === 'select_caserne') {
+        $controller = new AuthController();
+        $controller->selectCaserne();
+        return;
+    }
+
     if ($controllerName === 'manager_auth' && $action === 'change_password_form') {
         $controller = new AuthController();
         $controller->changePasswordForm();
@@ -217,6 +233,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_auth' && $action === 'logout') {
         $controller = new AuthController();
         $controller->logout();
+        return;
+    }
+
+    if ($controllerName === 'manager_auth' && $action === 'switch_caserne') {
+        $controller = new AuthController();
+        $controller->switchCaserne();
         return;
     }
 
@@ -285,6 +307,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'regenerate_qr_token') {
         $controller = new ManagerAdminController();
         $controller->regenerateQrToken();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'caserne_save') {
+        $controller = new ManagerAdminController();
+        $controller->caserneSave();
         return;
     }
 

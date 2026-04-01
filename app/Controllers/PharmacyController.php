@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
+use App\Repositories\CaserneRepository;
 use App\Repositories\PharmacyRepository;
 
 final class PharmacyController
@@ -14,9 +15,11 @@ final class PharmacyController
     {
         $configuredToken = $this->getPharmacyToken();
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
+        $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
 
         if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
             $_SESSION['pharmacy_access'] = true;
+            $this->storePharmacyCaserneContext($caserneId);
             $this->redirect('/index.php?controller=pharmacy&action=form');
         }
 
@@ -25,9 +28,14 @@ final class PharmacyController
 
     public function form(): void
     {
+        $caserneId = $this->resolvePharmacyCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
+        }
+
         $repository = new PharmacyRepository();
         $isAvailable = $repository->isAvailable();
-        $articles = $repository->findAllArticles(true);
+        $articles = $repository->findAllArticles($caserneId, true);
         $success = isset($_GET['success']) && (string) $_GET['success'] === '1';
         $successItems = isset($_GET['items']) && ctype_digit((string) $_GET['items']) ? (int) $_GET['items'] : 0;
         $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -73,7 +81,7 @@ final class PharmacyController
         }
 
         $repository = new PharmacyRepository();
-        $ok = $repository->recordOutputs($lines, $declarant);
+        $ok = $repository->recordOutputs($caserneId, $lines, $declarant);
 
         if (!$ok) {
             $this->redirect('/index.php?controller=pharmacy&action=form&error=stock');
@@ -105,4 +113,38 @@ final class PharmacyController
 
         return trim((string) (Env::get('PHARMACY_QR_TOKEN', '') ?? ''));
     }
+
+    private function storePharmacyCaserneContext(int $caserneId): void
+    {
+        if ($caserneId > 0) {
+            $caserneRepository = new CaserneRepository();
+            $caserne = $caserneRepository->findById($caserneId);
+            if ($caserne !== null && (int) ($caserne['actif'] ?? 0) === 1) {
+                $_SESSION['pharmacy_caserne_id'] = (int) $caserne['id'];
+                $_SESSION['pharmacy_caserne_nom'] = (string) $caserne['nom'];
+                return;
+            }
+        }
+
+        unset($_SESSION['pharmacy_caserne_id'], $_SESSION['pharmacy_caserne_nom']);
+    }
+
+    private function resolvePharmacyCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['pharmacy_caserne_id']) ? (int) $_SESSION['pharmacy_caserne_id'] : 0;
+        if ($caserneId > 0) {
+            return $caserneId;
+        }
+
+        $managerCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        if ($managerCaserneId > 0) {
+            return $managerCaserneId;
+        }
+
+        return null;
+    }
 }
+        $caserneId = $this->resolvePharmacyCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
+        }

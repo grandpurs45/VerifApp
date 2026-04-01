@@ -21,11 +21,16 @@ final class ManagerAssetController
 
     public function types(): void
     {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
         $posteRepository = new PosteRepository();
         $typeVehiculeRepository = new TypeVehiculeRepository();
 
-        $postes = $posteRepository->findAllDetailed();
-        $typesVehicules = $typeVehiculeRepository->findAll();
+        $postes = $posteRepository->findAllDetailed($caserneId);
+        $typesVehicules = $typeVehiculeRepository->findAll($caserneId);
         $managerUser = $_SESSION['manager_user'] ?? null;
         $flash = [
             'success' => isset($_GET['success']) ? (string) $_GET['success'] : '',
@@ -37,17 +42,22 @@ final class ManagerAssetController
 
     public function vehicles(): void
     {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
         $controleRepository = new ControleRepository();
         $typeVehiculeRepository = new TypeVehiculeRepository();
         $zoneRepository = new ZoneRepository();
 
-        $vehicles = $vehicleRepository->findAllDetailed();
-        $postes = $posteRepository->findAllDetailed();
-        $controles = $controleRepository->findAllDetailed();
-        $typesVehicules = $typeVehiculeRepository->findAll();
-        $zones = $zoneRepository->findAllDetailed();
+        $vehicles = $vehicleRepository->findAllDetailed($caserneId);
+        $postes = $posteRepository->findAllDetailed($caserneId);
+        $controles = $controleRepository->findAllDetailed($caserneId);
+        $typesVehicules = $typeVehiculeRepository->findAll($caserneId);
+        $zones = $zoneRepository->findAllDetailed($caserneId);
         $zonesAvailable = $zoneRepository->isAvailable();
         $hierarchyAvailable = $controleRepository->hasHierarchicalSchema();
         $managerUser = $_SESSION['manager_user'] ?? null;
@@ -73,14 +83,18 @@ final class ManagerAssetController
         }
 
         $typeRepository = new TypeVehiculeRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=type_save_failed');
+        }
 
         try {
             if ($id > 0) {
-                $typeRepository->update($id, $name);
+                $typeRepository->update($id, $name, $caserneId);
                 $this->redirect('/index.php?controller=manager_assets&action=types&success=type_updated');
             }
 
-            $typeRepository->create($name);
+            $typeRepository->create($name, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=type_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=types&error=type_save_failed');
@@ -100,9 +114,13 @@ final class ManagerAssetController
         }
 
         $typeRepository = new TypeVehiculeRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=type_delete_failed');
+        }
 
         try {
-            $typeRepository->delete($id);
+            $typeRepository->delete($id, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=type_deleted');
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -128,14 +146,18 @@ final class ManagerAssetController
         }
 
         $vehicleRepository = new VehicleRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
+        }
 
         try {
             if ($id > 0) {
-                $vehicleRepository->update($id, $name, $typeVehiculeId, $active);
+                $vehicleRepository->update($id, $name, $typeVehiculeId, $active, $caserneId);
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_updated');
             }
 
-            $vehicleRepository->create($name, $typeVehiculeId, $active);
+            $vehicleRepository->create($name, $typeVehiculeId, $active, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
@@ -155,9 +177,13 @@ final class ManagerAssetController
         }
 
         $vehicleRepository = new VehicleRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_delete_failed');
+        }
 
         try {
-            $vehicleRepository->delete($id);
+            $vehicleRepository->delete($id, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_deleted');
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -182,16 +208,20 @@ final class ManagerAssetController
         }
 
         $zoneRepository = new ZoneRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_save_failed');
+        }
         if (!$zoneRepository->isAvailable()) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zones_table_missing');
         }
 
-        if ($parentId > 0 && !$zoneRepository->belongsToVehicle($parentId, $vehicleId)) {
+        if ($parentId > 0 && !$zoneRepository->belongsToVehicle($parentId, $vehicleId, $caserneId)) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_zone');
         }
 
         try {
-            $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null);
+            $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_save_failed');
@@ -211,12 +241,16 @@ final class ManagerAssetController
         }
 
         $zoneRepository = new ZoneRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zone_delete_failed');
+        }
         if (!$zoneRepository->isAvailable()) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=zones_table_missing');
         }
 
         try {
-            $zoneRepository->delete($id);
+            $zoneRepository->delete($id, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=zone_deleted');
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -242,14 +276,18 @@ final class ManagerAssetController
         }
 
         $posteRepository = new PosteRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_save_failed');
+        }
 
         try {
             if ($id > 0) {
-                $posteRepository->update($id, $name, $code, $typeVehiculeId);
+                $posteRepository->update($id, $name, $code, $typeVehiculeId, $caserneId);
                 $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_updated');
             }
 
-            $posteRepository->create($name, $code, $typeVehiculeId);
+            $posteRepository->create($name, $code, $typeVehiculeId, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_save_failed');
@@ -269,9 +307,13 @@ final class ManagerAssetController
         }
 
         $posteRepository = new PosteRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=types&error=poste_delete_failed');
+        }
 
         try {
-            $posteRepository->delete($id);
+            $posteRepository->delete($id, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=types&success=poste_deleted');
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -339,17 +381,21 @@ final class ManagerAssetController
 
         $controleRepository = new ControleRepository();
         $zoneRepository = new ZoneRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_save_failed');
+        }
 
         if ($controleRepository->hasHierarchicalSchema()) {
             if ($vehicleId <= 0 || $zoneId <= 0) {
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
 
-            if (!$this->isPosteCompatibleWithVehicle($posteId, $vehicleId)) {
+            if (!$this->isPosteCompatibleWithVehicle($posteId, $vehicleId, $caserneId)) {
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
 
-            if (!$zoneRepository->belongsToVehicle($zoneId, $vehicleId)) {
+            if (!$zoneRepository->belongsToVehicle($zoneId, $vehicleId, $caserneId)) {
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
             }
         } else {
@@ -367,6 +413,7 @@ final class ManagerAssetController
                     $controleRepository->hasHierarchicalSchema() ? '' : $zoneName,
                     $order,
                     $active,
+                    $caserneId,
                     $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
                     $controleRepository->hasHierarchicalSchema() ? $zoneId : null,
                     $inputType,
@@ -384,6 +431,7 @@ final class ManagerAssetController
                 $controleRepository->hasHierarchicalSchema() ? '' : $zoneName,
                 $order,
                 $active,
+                $caserneId,
                 $controleRepository->hasHierarchicalSchema() ? $vehicleId : null,
                 $controleRepository->hasHierarchicalSchema() ? $zoneId : null,
                 $inputType,
@@ -411,9 +459,13 @@ final class ManagerAssetController
         }
 
         $controleRepository = new ControleRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_delete_failed');
+        }
 
         try {
-            $controleRepository->delete($id);
+            $controleRepository->delete($id, $caserneId);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_deleted');
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -423,13 +475,13 @@ final class ManagerAssetController
         }
     }
 
-    private function isPosteCompatibleWithVehicle(int $posteId, int $vehicleId): bool
+    private function isPosteCompatibleWithVehicle(int $posteId, int $vehicleId, int $caserneId): bool
     {
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
 
-        $vehicle = $vehicleRepository->findById($vehicleId);
-        $poste = $posteRepository->findById($posteId);
+        $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
+        $poste = $posteRepository->findById($posteId, $caserneId);
 
         if ($vehicle === null || $poste === null) {
             return false;
@@ -465,5 +517,12 @@ final class ManagerAssetController
         }
 
         return str_contains(strtolower($throwable->getMessage()), 'foreign key constraint fails');
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+
+        return $caserneId > 0 ? $caserneId : null;
     }
 }

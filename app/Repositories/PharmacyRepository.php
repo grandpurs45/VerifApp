@@ -19,7 +19,7 @@ final class PharmacyRepository
         return $this->hasArticlesTable() && $this->hasMovementsTable();
     }
 
-    public function findAllArticles(bool $activeOnly = false): array
+    public function findAllArticles(int $caserneId, bool $activeOnly = false): array
     {
         if (!$this->hasArticlesTable()) {
             return [];
@@ -29,22 +29,26 @@ final class PharmacyRepository
         $sql = '
             SELECT
                 id,
+                caserne_id,
                 nom,
                 unite,
                 stock_actuel,
                 seuil_alerte,
                 actif
             FROM pharmacie_articles
-            ' . ($activeOnly ? 'WHERE actif = 1' : '') . '
+            WHERE caserne_id = :caserne_id
+            ' . ($activeOnly ? 'AND actif = 1' : '') . '
             ORDER BY nom ASC
         ';
 
-        $statement = $connection->query($sql);
+        $statement = $connection->prepare($sql);
+        $statement->execute(['caserne_id' => $caserneId]);
 
-        return $statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function saveArticle(
+        int $caserneId,
         int $id,
         string $name,
         string $unit,
@@ -68,11 +72,13 @@ final class PharmacyRepository
                     seuil_alerte = :seuil_alerte,
                     actif = :actif
                 WHERE id = :id
+                  AND caserne_id = :caserne_id
             ';
             $statement = $connection->prepare($sql);
 
             return $statement->execute([
                 'id' => $id,
+                'caserne_id' => $caserneId,
                 'nom' => $name,
                 'unite' => $unit,
                 'stock_actuel' => $stock,
@@ -82,12 +88,13 @@ final class PharmacyRepository
         }
 
         $sql = '
-            INSERT INTO pharmacie_articles (nom, unite, stock_actuel, seuil_alerte, actif)
-            VALUES (:nom, :unite, :stock_actuel, :seuil_alerte, :actif)
+            INSERT INTO pharmacie_articles (caserne_id, nom, unite, stock_actuel, seuil_alerte, actif)
+            VALUES (:caserne_id, :nom, :unite, :stock_actuel, :seuil_alerte, :actif)
         ';
         $statement = $connection->prepare($sql);
 
         return $statement->execute([
+            'caserne_id' => $caserneId,
             'nom' => $name,
             'unite' => $unit,
             'stock_actuel' => $stock,
@@ -96,9 +103,9 @@ final class PharmacyRepository
         ]);
     }
 
-    public function recordOutput(int $articleId, float $quantity, string $declarant, ?string $comment): bool
+    public function recordOutput(int $caserneId, int $articleId, float $quantity, string $declarant, ?string $comment): bool
     {
-        return $this->recordOutputs([
+        return $this->recordOutputs($caserneId, [
             [
                 'article_id' => $articleId,
                 'quantite' => $quantity,
@@ -107,7 +114,7 @@ final class PharmacyRepository
         ], $declarant);
     }
 
-    public function recordOutputs(array $lines, string $declarant): bool
+    public function recordOutputs(int $caserneId, array $lines, string $declarant): bool
     {
         if (!$this->isAvailable()) {
             return false;
@@ -123,14 +130,14 @@ final class PharmacyRepository
             $connection->beginTransaction();
 
             $stockStatement = $connection->prepare(
-                'SELECT stock_actuel, actif FROM pharmacie_articles WHERE id = :id FOR UPDATE'
+                'SELECT stock_actuel, actif FROM pharmacie_articles WHERE id = :id AND caserne_id = :caserne_id FOR UPDATE'
             );
             $updateStatement = $connection->prepare(
-                'UPDATE pharmacie_articles SET stock_actuel = stock_actuel - :quantity WHERE id = :id'
+                'UPDATE pharmacie_articles SET stock_actuel = stock_actuel - :quantity WHERE id = :id AND caserne_id = :caserne_id'
             );
             $insertStatement = $connection->prepare(
-                'INSERT INTO pharmacie_mouvements (article_id, type, quantite, commentaire, declarant)
-                 VALUES (:article_id, \'sortie\', :quantite, :commentaire, :declarant)'
+                'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, quantite, commentaire, declarant)
+                 VALUES (:caserne_id, :article_id, \'sortie\', :quantite, :commentaire, :declarant)'
             );
 
             foreach ($lines as $line) {
@@ -143,7 +150,10 @@ final class PharmacyRepository
                     return false;
                 }
 
-                $stockStatement->execute(['id' => $articleId]);
+                $stockStatement->execute([
+                    'id' => $articleId,
+                    'caserne_id' => $caserneId,
+                ]);
                 $article = $stockStatement->fetch(PDO::FETCH_ASSOC);
 
                 if ($article === false || (int) ($article['actif'] ?? 0) !== 1) {
@@ -160,9 +170,11 @@ final class PharmacyRepository
                 $updateStatement->execute([
                     'quantity' => $quantity,
                     'id' => $articleId,
+                    'caserne_id' => $caserneId,
                 ]);
 
                 $insertStatement->execute([
+                    'caserne_id' => $caserneId,
                     'article_id' => $articleId,
                     'quantite' => $quantity,
                     'commentaire' => $comment === '' ? null : $comment,
@@ -181,7 +193,7 @@ final class PharmacyRepository
         }
     }
 
-    public function getStats(): array
+    public function getStats(int $caserneId): array
     {
         if (!$this->hasArticlesTable()) {
             return [
@@ -203,9 +215,11 @@ final class PharmacyRepository
                 ) AS alert_articles
             FROM pharmacie_articles
             WHERE actif = 1
+              AND caserne_id = :caserne_id
         ';
-        $statement = $connection->query($sql);
-        $row = $statement === false ? null : $statement->fetch(PDO::FETCH_ASSOC);
+        $statement = $connection->prepare($sql);
+        $statement->execute(['caserne_id' => $caserneId]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
 
         $outputsLast7Days = 0;
         if ($this->hasMovementsTable()) {
@@ -213,10 +227,12 @@ final class PharmacyRepository
                 SELECT COUNT(*) AS total
                 FROM pharmacie_mouvements
                 WHERE type = \'sortie\'
+                  AND caserne_id = :caserne_id
                   AND cree_le >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             ';
-            $movementStatement = $connection->query($movementSql);
-            $movementRow = $movementStatement === false ? null : $movementStatement->fetch(PDO::FETCH_ASSOC);
+            $movementStatement = $connection->prepare($movementSql);
+            $movementStatement->execute(['caserne_id' => $caserneId]);
+            $movementRow = $movementStatement->fetch(PDO::FETCH_ASSOC);
             $outputsLast7Days = (int) ($movementRow['total'] ?? 0);
         }
 
@@ -227,7 +243,7 @@ final class PharmacyRepository
         ];
     }
 
-    public function findLastMovements(int $limit = 100): array
+    public function findLastMovements(int $caserneId, int $limit = 100): array
     {
         if (!$this->hasMovementsTable()) {
             return [];
@@ -239,6 +255,7 @@ final class PharmacyRepository
             SELECT
                 m.id,
                 m.article_id,
+                m.caserne_id,
                 m.type,
                 m.quantite,
                 m.commentaire,
@@ -248,12 +265,14 @@ final class PharmacyRepository
                 a.unite AS article_unite
             FROM pharmacie_mouvements m
             INNER JOIN pharmacie_articles a ON a.id = m.article_id
+            WHERE m.caserne_id = :caserne_id
             ORDER BY m.cree_le DESC, m.id DESC
             LIMIT ' . $limit;
 
-        $statement = $connection->query($sql);
+        $statement = $connection->prepare($sql);
+        $statement->execute(['caserne_id' => $caserneId]);
 
-        return $statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     private function hasArticlesTable(): bool

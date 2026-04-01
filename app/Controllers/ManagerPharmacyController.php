@@ -10,10 +10,15 @@ final class ManagerPharmacyController
 {
     public function index(): void
     {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
         $repository = new PharmacyRepository();
-        $articles = $repository->findAllArticles();
-        $movements = $repository->findLastMovements(80);
-        $stats = $repository->getStats();
+        $articles = $repository->findAllArticles($caserneId);
+        $movements = $repository->findLastMovements($caserneId, 80);
+        $stats = $repository->getStats($caserneId);
         $isAvailable = $repository->isAvailable();
         $managerUser = $_SESSION['manager_user'] ?? null;
 
@@ -46,7 +51,12 @@ final class ManagerPharmacyController
         }
 
         $repository = new PharmacyRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
+        }
         $ok = $repository->saveArticle(
+            $caserneId,
             $id,
             $name,
             $unit,
@@ -66,5 +76,12 @@ final class ManagerPharmacyController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+
+        return $caserneId > 0 ? $caserneId : null;
     }
 }

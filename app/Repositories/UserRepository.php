@@ -11,6 +11,7 @@ final class UserRepository
 {
     private ?bool $mustChangePasswordColumnExists = null;
     private ?bool $tableExists = null;
+    private ?bool $membershipTableExists = null;
 
     public function isAvailable(): bool
     {
@@ -135,7 +136,7 @@ final class UserRepository
         ]);
     }
 
-    public function findAllActiveByRoles(array $roles): array
+    public function findAllActiveByRoles(array $roles, ?int $caserneId = null): array
     {
         if ($roles === []) {
             return [];
@@ -154,15 +155,20 @@ final class UserRepository
 
         $sql = '
             SELECT
-                id,
-                nom,
-                email,
-                role
-            FROM utilisateurs
-            WHERE actif = 1
-              AND role IN (' . implode(', ', $placeholders) . ')
-            ORDER BY nom ASC
+                u.id,
+                u.nom,
+                u.email,
+                u.role
+            FROM utilisateurs u
+            ' . ($caserneId !== null ? 'INNER JOIN utilisateur_casernes uc ON uc.utilisateur_id = u.id AND uc.caserne_id = :caserne_id' : '') . '
+            WHERE u.actif = 1
+              AND u.role IN (' . implode(', ', $placeholders) . ')
+            ORDER BY u.nom ASC
         ';
+
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
 
         $statement = $connection->prepare($sql);
         $statement->execute($params);
@@ -290,6 +296,74 @@ final class UserRepository
         ]);
     }
 
+    public function findCaserneIdsByUserId(int $userId): array
+    {
+        if (!$this->hasMembershipTable()) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $statement = $connection->prepare('
+            SELECT caserne_id
+            FROM utilisateur_casernes
+            WHERE utilisateur_id = :utilisateur_id
+            ORDER BY is_default DESC, caserne_id ASC
+        ');
+        $statement->execute(['utilisateur_id' => $userId]);
+        $rows = $statement->fetchAll(PDO::FETCH_COLUMN);
+
+        return array_values(array_map('intval', $rows));
+    }
+
+    public function syncCasernes(int $userId, array $caserneIds): bool
+    {
+        if (!$this->hasMembershipTable()) {
+            return false;
+        }
+
+        $caserneIds = array_values(array_unique(array_filter(array_map('intval', $caserneIds), static fn (int $id): bool => $id > 0)));
+        if ($caserneIds === []) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $connection->beginTransaction();
+
+            $delete = $connection->prepare('DELETE FROM utilisateur_casernes WHERE utilisateur_id = :utilisateur_id');
+            $delete->execute(['utilisateur_id' => $userId]);
+
+            $insert = $connection->prepare('
+                INSERT INTO utilisateur_casernes (utilisateur_id, caserne_id, is_default)
+                VALUES (:utilisateur_id, :caserne_id, :is_default)
+            ');
+
+            foreach (array_values($caserneIds) as $index => $caserneId) {
+                $insert->execute([
+                    'utilisateur_id' => $userId,
+                    'caserne_id' => $caserneId,
+                    'is_default' => $index === 0 ? 1 : 0,
+                ]);
+            }
+
+            $connection->commit();
+            return true;
+        } catch (\Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+
+            return false;
+        }
+    }
+
+    public function findLastInsertId(): int
+    {
+        $connection = Database::getConnection();
+        return (int) $connection->lastInsertId();
+    }
+
     private function hasTable(): bool
     {
         if ($this->tableExists !== null) {
@@ -324,5 +398,23 @@ final class UserRepository
         }
 
         return $this->mustChangePasswordColumnExists;
+    }
+
+    private function hasMembershipTable(): bool
+    {
+        if ($this->membershipTableExists !== null) {
+            return $this->membershipTableExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW TABLES LIKE 'utilisateur_casernes'");
+            $this->membershipTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (\Throwable $throwable) {
+            $this->membershipTableExists = false;
+        }
+
+        return $this->membershipTableExists;
     }
 }

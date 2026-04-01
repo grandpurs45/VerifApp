@@ -8,6 +8,8 @@ if ($error === 'missing_fields') {
     $errorMessage = 'Email et mot de passe obligatoires.';
 } elseif ($error === 'invalid_credentials') {
     $errorMessage = 'Identifiants invalides ou role non autorise.';
+} elseif ($error === 'caserne_forbidden') {
+    $errorMessage = 'Compte non autorise sur cette caserne.';
 }
 ?>
 <!DOCTYPE html>

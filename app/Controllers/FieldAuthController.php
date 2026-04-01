@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repositories\CaserneRepository;
 use App\Repositories\UserRepository;
 
 final class FieldAuthController
@@ -45,6 +46,15 @@ final class FieldAuthController
 
         if ((int) ($user['must_change_password'] ?? 0) === 1) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=password_change_required');
+        }
+
+        $caserneId = isset($_SESSION['field_caserne_id']) ? (int) $_SESSION['field_caserne_id'] : 0;
+        if ($caserneId > 0) {
+            $caserneRepository = new CaserneRepository();
+            $membership = $caserneRepository->findByIdForUser($caserneId, (int) $user['id']);
+            if ($membership === null) {
+                $this->redirect('/index.php?controller=field_auth&action=login_form&error=caserne_forbidden');
+            }
         }
 
         $_SESSION['field_user'] = [

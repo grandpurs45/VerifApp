@@ -30,6 +30,30 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Cible de regeneration invalide.
     </section>
+<?php elseif ($success === 'caserne_created'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Caserne creee.
+    </section>
+<?php elseif ($success === 'caserne_updated'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Caserne mise a jour.
+    </section>
+<?php elseif ($error === 'caserne_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Nom et code caserne obligatoires.
+    </section>
+<?php elseif ($error === 'caserne_duplicate'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Code caserne deja utilise.
+    </section>
+<?php elseif ($error === 'caserne_last_active'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Impossible de desactiver la derniere caserne active.
+    </section>
+<?php elseif ($error === 'caserne_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement caserne impossible.
+    </section>
 <?php endif; ?>
 
 <section class="rounded-2xl bg-white shadow p-5">
@@ -40,6 +64,39 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <p class="text-xs text-slate-500 mt-2">
         Source actuelle: <?= $settingsStorage === 'database' ? 'base de donnees (app_settings)' : 'fichier d environnement (.env)' ?>.
     </p>
+</section>
+
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Casernes</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Configuration multi-caserne de la plateforme.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2">
+        <input type="hidden" name="id" value="0">
+        <input type="text" name="nom" required placeholder="Nom caserne (ex: Caserne Nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+        <input type="text" name="code" required placeholder="Code (ex: caserne_nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+            <option value="1">Active</option>
+            <option value="0">Inactive</option>
+        </select>
+        <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Ajouter</button>
+    </form>
+
+    <div class="mt-4 space-y-2">
+        <?php foreach ($casernes as $caserne): ?>
+            <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center rounded-xl border border-slate-200 p-3">
+                <input type="hidden" name="id" value="<?= (int) ($caserne['id'] ?? 0) ?>">
+                <input type="text" name="nom" required value="<?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+                <input type="text" name="code" required value="<?= htmlspecialchars((string) ($caserne['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+                <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+                    <option value="1" <?= (int) ($caserne['actif'] ?? 0) === 1 ? 'selected' : '' ?>>Active</option>
+                    <option value="0" <?= (int) ($caserne['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactive</option>
+                </select>
+                <button type="submit" class="rounded-xl bg-slate-800 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Enregistrer</button>
+            </form>
+        <?php endforeach; ?>
+    </div>
 </section>
 
 <section class="rounded-2xl bg-white shadow p-5">

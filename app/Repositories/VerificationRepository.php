@@ -17,6 +17,7 @@ final class VerificationRepository
     private ?bool $valeurSaisieColumnExists = null;
 
     public function createWithLines(
+        int $caserneId,
         int $vehicleId,
         int $posteId,
         ?int $utilisateurId,
@@ -42,12 +43,13 @@ final class VerificationRepository
             if ($this->hasUtilisateurColumn()) {
                 $verificationStatement = $connection->prepare(
                     '
-                    INSERT INTO verifications (vehicule_id, poste_id, utilisateur_id, agent, date_heure, statut_global, commentaire_global)
-                    VALUES (:vehicule_id, :poste_id, :utilisateur_id, :agent, NOW(), :statut_global, :commentaire_global)
+                    INSERT INTO verifications (caserne_id, vehicule_id, poste_id, utilisateur_id, agent, date_heure, statut_global, commentaire_global)
+                    VALUES (:caserne_id, :vehicule_id, :poste_id, :utilisateur_id, :agent, NOW(), :statut_global, :commentaire_global)
                     '
                 );
 
                 $verificationStatement->execute([
+                    'caserne_id' => $caserneId,
                     'vehicule_id' => $vehicleId,
                     'poste_id' => $posteId,
                     'utilisateur_id' => $utilisateurId,
@@ -58,12 +60,13 @@ final class VerificationRepository
             } else {
                 $verificationStatement = $connection->prepare(
                     '
-                    INSERT INTO verifications (vehicule_id, poste_id, agent, date_heure, statut_global, commentaire_global)
-                    VALUES (:vehicule_id, :poste_id, :agent, NOW(), :statut_global, :commentaire_global)
+                    INSERT INTO verifications (caserne_id, vehicule_id, poste_id, agent, date_heure, statut_global, commentaire_global)
+                    VALUES (:caserne_id, :vehicule_id, :poste_id, :agent, NOW(), :statut_global, :commentaire_global)
                     '
                 );
 
                 $verificationStatement->execute([
+                    'caserne_id' => $caserneId,
                     'vehicule_id' => $vehicleId,
                     'poste_id' => $posteId,
                     'agent' => $agent,
@@ -138,7 +141,7 @@ final class VerificationRepository
         }
     }
 
-    public function findHistory(array $filters): array
+    public function findHistory(array $filters, ?int $caserneId = null): array
     {
         $connection = Database::getConnection();
         $hasAnomalies = $this->hasAnomaliesTable();
@@ -146,6 +149,11 @@ final class VerificationRepository
 
         $where = [];
         $params = [];
+
+        if ($caserneId !== null) {
+            $where[] = 'v.caserne_id = :caserne_id';
+            $params['caserne_id'] = $caserneId;
+        }
 
         if (($filters['vehicule_id'] ?? '') !== '') {
             $where[] = 'v.vehicule_id = :vehicule_id';
@@ -241,7 +249,7 @@ final class VerificationRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findById(int $verificationId): ?array
+    public function findById(int $verificationId, ?int $caserneId = null): ?array
     {
         $connection = Database::getConnection();
         $withUser = $this->hasUtilisateurColumn() && $this->hasUsersTable();
@@ -252,6 +260,7 @@ final class VerificationRepository
         $sql = '
             SELECT
                 v.id,
+                v.caserne_id,
                 v.vehicule_id,
                 v.poste_id
                 ' . $userSelect . ',
@@ -266,10 +275,15 @@ final class VerificationRepository
             INNER JOIN postes p ON p.id = v.poste_id
             ' . $userJoin . '
             WHERE v.id = :id
+              ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
         ';
 
         $statement = $connection->prepare($sql);
-        $statement->execute(['id' => $verificationId]);
+        $params = ['id' => $verificationId];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+        $statement->execute($params);
 
         $verification = $statement->fetch(PDO::FETCH_ASSOC);
 
@@ -280,7 +294,7 @@ final class VerificationRepository
         return $verification;
     }
 
-    public function getDashboardStats(): array
+    public function getDashboardStats(?int $caserneId = null): array
     {
         $connection = Database::getConnection();
 
@@ -291,18 +305,11 @@ final class VerificationRepository
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes_today,
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes_today
             FROM verifications
+            ' . ($caserneId !== null ? 'WHERE caserne_id = :caserne_id' : '') . '
         ';
 
-        $statement = $connection->query($sql);
-
-        if ($statement === false) {
-            return [
-                'total_all' => 0,
-                'total_today' => 0,
-                'conformes_today' => 0,
-                'non_conformes_today' => 0,
-            ];
-        }
+        $statement = $connection->prepare($sql);
+        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
 
         $row = $statement->fetch(PDO::FETCH_ASSOC);
 
@@ -323,7 +330,7 @@ final class VerificationRepository
         ];
     }
 
-    public function findLinesByVerificationId(int $verificationId): array
+    public function findLinesByVerificationId(int $verificationId, ?int $caserneId = null): array
     {
         $connection = Database::getConnection();
         $hasAnomalies = $this->hasAnomaliesTable();
@@ -365,14 +372,20 @@ final class VerificationRepository
                 ' . ($this->hasControleInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
                 ' . $anomalySelect . '
             FROM verification_lignes vl
+            INNER JOIN verifications v ON v.id = vl.verification_id
             INNER JOIN controles c ON c.id = vl.controle_id
             ' . $anomalyJoin . '
             WHERE vl.verification_id = :verification_id
+              ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
             ORDER BY c.zone ASC, c.ordre ASC, c.libelle ASC
         ';
 
         $statement = $connection->prepare($sql);
-        $statement->execute(['verification_id' => $verificationId]);
+        $params = ['verification_id' => $verificationId];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+        $statement->execute($params);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }

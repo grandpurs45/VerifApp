@@ -11,8 +11,24 @@ final class HomeController
     public function index(): void
     {
         $vehicleRepository = new VehicleRepository();
-        $vehicles = $vehicleRepository->findAllActive();
+        $caserneId = $this->resolveActiveCaserneId();
+        $vehicles = $vehicleRepository->findAllActive($caserneId);
 
         require dirname(__DIR__, 2) . '/public/views/home.php';
+    }
+
+    private function resolveActiveCaserneId(): ?int
+    {
+        $fieldCaserneId = isset($_SESSION['field_caserne_id']) ? (int) $_SESSION['field_caserne_id'] : 0;
+        if ($fieldCaserneId > 0) {
+            return $fieldCaserneId;
+        }
+
+        $managerCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        if ($managerCaserneId > 0) {
+            return $managerCaserneId;
+        }
+
+        return null;
     }
 }

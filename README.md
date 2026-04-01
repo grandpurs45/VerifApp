@@ -26,6 +26,14 @@ Commande PowerShell:
 Commande serveur:
 `php scripts/migrate.php`
 
+## Multi-caserne (v0.12.0)
+- L application gere plusieurs casernes dans une meme base.
+- Un utilisateur peut etre rattache a plusieurs casernes.
+- Au login gestionnaire:
+  - 1 seule caserne: selection automatique
+  - plusieurs casernes: ecran de choix
+- Les modules backoffice (parc, verifs, anomalies, pharmacie) sont filtres sur la caserne active.
+
 ## Compte admin par defaut
 - Sur installation vierge, un compte gestionnaire est cree automatiquement:
   - identifiant: `admin` (ou `admin@verifapp.local`)

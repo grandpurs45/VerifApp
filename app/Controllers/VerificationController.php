@@ -37,9 +37,13 @@ final class VerificationController
         $posteRepository = new PosteRepository();
         $controleRepository = new ControleRepository();
         $verificationRepository = new VerificationRepository();
+        $caserneId = $this->resolveActiveCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=home&action=index');
+        }
 
-        $vehicle = $vehicleRepository->findById($vehicleId);
-        $poste = $posteRepository->findByIdForVehicle($posteId, $vehicleId);
+        $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
+        $poste = $posteRepository->findByIdForVehicle($posteId, $vehicleId, $caserneId);
 
         if ($vehicle === null || $poste === null) {
             $this->redirect('/index.php?controller=home&action=index');
@@ -51,7 +55,7 @@ final class VerificationController
             );
         }
 
-        $controles = $controleRepository->findByVehicleAndPosteId($vehicleId, $posteId);
+        $controles = $controleRepository->findByVehicleAndPosteId($vehicleId, $posteId, $caserneId);
         $resultats = is_array($_POST['resultats'] ?? null) ? $_POST['resultats'] : [];
         $values = is_array($_POST['valeurs'] ?? null) ? $_POST['valeurs'] : [];
         $commentaires = is_array($_POST['commentaires'] ?? null) ? $_POST['commentaires'] : [];
@@ -110,6 +114,7 @@ final class VerificationController
         }
 
         $verificationId = $verificationRepository->createWithLines(
+            $caserneId,
             $vehicleId,
             $posteId,
             $utilisateurId,
@@ -126,6 +131,7 @@ final class VerificationController
         $verificationRepository = new VerificationRepository();
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
+        $caserneId = $this->resolveManagerCaserneId();
 
         $filters = [
             'vehicule_id' => isset($_GET['vehicule_id']) ? (string) $_GET['vehicule_id'] : '',
@@ -136,9 +142,9 @@ final class VerificationController
             'with_anomalies' => isset($_GET['with_anomalies']) ? (string) $_GET['with_anomalies'] : '',
         ];
 
-        $history = $verificationRepository->findHistory($filters);
-        $vehicles = $vehicleRepository->findAllActive();
-        $postes = $posteRepository->findAll();
+        $history = $verificationRepository->findHistory($filters, $caserneId);
+        $vehicles = $vehicleRepository->findAllActive($caserneId);
+        $postes = $posteRepository->findAll($caserneId);
 
         require dirname(__DIR__, 2) . '/public/views/history.php';
     }
@@ -146,9 +152,10 @@ final class VerificationController
     public function show(int $verificationId): void
     {
         $verificationRepository = new VerificationRepository();
+        $caserneId = $this->resolveManagerCaserneId();
 
-        $verification = $verificationRepository->findById($verificationId);
-        $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId);
+        $verification = $verificationRepository->findById($verificationId, $caserneId);
+        $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId, $caserneId);
         if ($verification !== null) {
             $lines = $this->applyZonePaths((int) $verification['vehicule_id'], $lines);
         }
@@ -159,9 +166,10 @@ final class VerificationController
     public function export(int $verificationId): void
     {
         $verificationRepository = new VerificationRepository();
+        $caserneId = $this->resolveManagerCaserneId();
 
-        $verification = $verificationRepository->findById($verificationId);
-        $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId);
+        $verification = $verificationRepository->findById($verificationId, $caserneId);
+        $lines = $verification === null ? [] : $verificationRepository->findLinesByVerificationId($verificationId, $caserneId);
         if ($verification !== null) {
             $lines = $this->applyZonePaths((int) $verification['vehicule_id'], $lines);
         }
@@ -172,7 +180,7 @@ final class VerificationController
     public function saved(int $verificationId): void
     {
         $verificationRepository = new VerificationRepository();
-        $verification = $verificationRepository->findById($verificationId);
+        $verification = $verificationRepository->findById($verificationId, $this->resolveActiveCaserneId());
 
         require dirname(__DIR__, 2) . '/public/views/verification_saved.php';
     }
@@ -223,7 +231,7 @@ final class VerificationController
         $zoneRepository = new ZoneRepository();
         $zoneMap = [];
 
-        foreach ($zoneRepository->findByVehicleId($vehicleId) as $zone) {
+        foreach ($zoneRepository->findByVehicleId($vehicleId, $this->resolveActiveCaserneId()) as $zone) {
             $zoneMap[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom']);
         }
 
@@ -252,5 +260,21 @@ final class VerificationController
         }
 
         return true;
+    }
+
+    private function resolveManagerCaserneId(): ?int
+    {
+        $managerCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        return $managerCaserneId > 0 ? $managerCaserneId : null;
+    }
+
+    private function resolveActiveCaserneId(): ?int
+    {
+        $fieldCaserneId = isset($_SESSION['field_caserne_id']) ? (int) $_SESSION['field_caserne_id'] : 0;
+        if ($fieldCaserneId > 0) {
+            return $fieldCaserneId;
+        }
+
+        return $this->resolveManagerCaserneId();
     }
 }
