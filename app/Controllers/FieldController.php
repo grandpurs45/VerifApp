@@ -7,19 +7,36 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\VehicleRepository;
 
 final class FieldController
 {
     public function access(): void
     {
         $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
-        $configuredToken = $this->getFieldToken($caserneId > 0 ? $caserneId : null);
+        $vehicleId = isset($_GET['vehicle_id']) ? (int) $_GET['vehicle_id'] : 0;
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
+        $vehicleToken = $this->getVehicleToken($caserneId, $vehicleId);
+        $configuredToken = $this->getFieldToken($caserneId > 0 ? $caserneId : null);
+
+        if ($vehicleToken !== '') {
+            if ($caserneId <= 0) {
+                $this->redirect('/index.php?controller=field&action=denied');
+            }
+
+            if (hash_equals($vehicleToken, $providedToken)) {
+                $_SESSION['field_access'] = true;
+                $this->storeFieldCaserneContext($caserneId);
+                $this->redirectFieldEntry($caserneId, $vehicleId);
+            }
+
+            $this->redirect('/index.php?controller=field&action=denied');
+        }
 
         if ($configuredToken === '') {
             $_SESSION['field_access'] = true;
             $this->storeFieldCaserneContext($caserneId);
-            $this->redirect('/index.php?controller=home&action=index');
+            $this->redirectFieldEntry($caserneId, $vehicleId);
         }
 
         if ($caserneId <= 0) {
@@ -29,7 +46,7 @@ final class FieldController
         if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['field_access'] = true;
             $this->storeFieldCaserneContext($caserneId);
-            $this->redirect('/index.php?controller=home&action=index');
+            $this->redirectFieldEntry($caserneId, $vehicleId);
         }
 
         $this->redirect('/index.php?controller=field&action=denied');
@@ -79,5 +96,37 @@ final class FieldController
         }
 
         unset($_SESSION['field_caserne_id'], $_SESSION['field_caserne_nom']);
+    }
+
+    private function getVehicleToken(int $caserneId, int $vehicleId): string
+    {
+        if ($caserneId <= 0 || $vehicleId <= 0) {
+            return '';
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            return '';
+        }
+
+        $value = $repository->get('field_vehicle_qr_token_caserne_' . $caserneId . '_vehicle_' . $vehicleId);
+        if ($value === null || trim($value) === '') {
+            return '';
+        }
+
+        return trim($value);
+    }
+
+    private function redirectFieldEntry(int $caserneId, int $vehicleId): void
+    {
+        if ($vehicleId > 0 && $caserneId > 0) {
+            $vehicleRepository = new VehicleRepository();
+            $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
+            if ($vehicle !== null && (int) ($vehicle['actif'] ?? 0) === 1) {
+                $this->redirect('/index.php?controller=postes&action=list&vehicle_id=' . $vehicleId);
+            }
+        }
+
+        $this->redirect('/index.php?controller=home&action=index');
     }
 }

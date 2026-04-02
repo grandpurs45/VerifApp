@@ -9,6 +9,43 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.13.0] - 2026-04-02
+
+### Added
+- Parc vehicules:
+  - fiche vehicule dediee (resume + QR engin)
+  - ecran zones dedie par vehicule
+  - duplication vehicule avec 3 niveaux:
+    - vehicule seul
+    - vehicule + zones
+    - vehicule + zones + materiel
+- QR terrain:
+  - QR engin individuel (token par vehicule/caserne) avec actions:
+    - generer / regenerer
+    - supprimer
+    - copier lien
+    - ouvrir lien
+    - imprimer QR (format A6)
+- UI gestion parc:
+  - tableau vehicules avec selection et actions de masse guidees
+  - badges d etat QR engin (`Genere` / `Non genere`)
+
+### Changed
+- Vehicules:
+  - creation/edition basees sur `type + indicatif` (construction nom automatique)
+  - ouverture de la fiche vehicule en cliquant sur le nom
+- Codes postes:
+  - normalisation/validation stricte (majuscules, sans espaces, max 10 caracteres) front + back
+
+### Fixed
+- Suppression vehicule:
+  - ajout du mode `Supprimer tout` (vehicule + zones + materiel + historique) en transaction
+  - correction de suppression des hierarchies de zones (suppression feuilles -> parents)
+  - garde-fou: `Supprimer tout` interdit si vehicule actif
+- UX suppression:
+  - split button (`Supprimer` direct + menu `Supprimer tout`)
+  - confirmation danger dediee pour `Supprimer tout` (sans popup navigateur en doublon)
+
 ## [0.12.0] - 2026-04-01
 
 ### Added

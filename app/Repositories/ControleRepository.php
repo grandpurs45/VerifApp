@@ -153,6 +153,45 @@ final class ControleRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function findByVehicleIdDetailed(int $vehicleId, ?int $caserneId = null): array
+    {
+        if (!$this->hasHierarchicalSchema()) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $sql = '
+            SELECT
+                c.id,
+                c.libelle,
+                c.caserne_id,
+                ' . ($this->hasInputSchema() ? 'c.type_saisie,' : '\'statut\' AS type_saisie,') . '
+                ' . ($this->hasInputSchema() ? 'c.valeur_attendue,' : 'NULL AS valeur_attendue,') . '
+                ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
+                ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
+                ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
+                c.poste_id,
+                c.vehicule_id,
+                c.zone_id,
+                c.zone,
+                c.ordre,
+                c.actif
+            FROM controles c
+            WHERE c.vehicule_id = :vehicule_id
+              ' . ($caserneId !== null ? 'AND c.caserne_id = :caserne_id' : '') . '
+            ORDER BY c.ordre ASC, c.id ASC
+        ';
+
+        $statement = $connection->prepare($sql);
+        $params = ['vehicule_id' => $vehicleId];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function create(
         string $label,
         int $posteId,

@@ -84,6 +84,25 @@ final class AppSettingRepository
         }
     }
 
+    public function delete(string $key): bool
+    {
+        if (!$this->hasTable()) {
+            return false;
+        }
+
+        try {
+            $connection = Database::getConnection();
+            $statement = $connection->prepare('
+                DELETE FROM app_settings
+                WHERE setting_key = :setting_key
+            ');
+
+            return $statement->execute(['setting_key' => $key]);
+        } catch (\Throwable $throwable) {
+            return false;
+        }
+    }
+
     private function hasTable(): bool
     {
         if ($this->tableExists !== null) {

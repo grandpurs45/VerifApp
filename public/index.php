@@ -79,10 +79,15 @@ $managerRoutes = [
     'anomalies/update',
     'manager_assets/index',
     'manager_assets/types',
+    'manager_assets/type_detail',
     'manager_assets/vehicles',
+    'manager_assets/vehicle_detail',
+    'manager_assets/vehicle_zones',
     'manager_assets/type_save',
     'manager_assets/type_delete',
     'manager_assets/vehicle_save',
+    'manager_assets/vehicle_duplicate',
+    'manager_assets/vehicle_qr_save',
     'manager_assets/vehicle_delete',
     'manager_assets/zone_save',
     'manager_assets/zone_delete',
@@ -160,10 +165,15 @@ $managerRoutePermissions = [
     'anomalies/update' => 'anomalies.manage',
     'manager_assets/index' => 'assets.manage',
     'manager_assets/types' => 'assets.manage',
+    'manager_assets/type_detail' => 'assets.manage',
     'manager_assets/vehicles' => 'assets.manage',
+    'manager_assets/vehicle_detail' => 'assets.manage',
+    'manager_assets/vehicle_zones' => 'assets.manage',
     'manager_assets/type_save' => 'assets.manage',
     'manager_assets/type_delete' => 'assets.manage',
     'manager_assets/vehicle_save' => 'assets.manage',
+    'manager_assets/vehicle_duplicate' => 'assets.manage',
+    'manager_assets/vehicle_qr_save' => 'assets.manage',
     'manager_assets/vehicle_delete' => 'assets.manage',
     'manager_assets/zone_save' => 'assets.manage',
     'manager_assets/zone_delete' => 'assets.manage',
@@ -336,9 +346,27 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_assets' && $action === 'type_detail' && isset($_GET['type_id'])) {
+        $controller = new ManagerAssetController();
+        $controller->typeDetail((int) $_GET['type_id']);
+        return;
+    }
+
     if ($controllerName === 'manager_assets' && $action === 'vehicles') {
         $controller = new ManagerAssetController();
         $controller->vehicles();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicle_detail' && isset($_GET['id'])) {
+        $controller = new ManagerAssetController();
+        $controller->vehicleDetail((int) $_GET['id']);
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicle_zones' && isset($_GET['id'])) {
+        $controller = new ManagerAssetController();
+        $controller->vehicleZones((int) $_GET['id']);
         return;
     }
 
@@ -357,6 +385,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_assets' && $action === 'vehicle_save') {
         $controller = new ManagerAssetController();
         $controller->vehicleSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicle_duplicate') {
+        $controller = new ManagerAssetController();
+        $controller->vehicleDuplicate();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicle_qr_save') {
+        $controller = new ManagerAssetController();
+        $controller->vehicleQrSave();
         return;
     }
 

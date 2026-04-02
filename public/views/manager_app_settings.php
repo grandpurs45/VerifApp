@@ -97,6 +97,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </form>
         <?php endforeach; ?>
     </div>
+
 </section>
 
 <section class="rounded-2xl bg-white shadow p-5">
@@ -180,6 +181,78 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 } catch (error) {
                     window.prompt('Copiez ce lien:', value);
                 }
+            });
+        });
+
+        const printButtons = document.querySelectorAll('button[data-print-vehicle-qr]');
+        printButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const vehicleName = button.getAttribute('data-print-name') || 'Vehicule';
+                const vehicleUrl = button.getAttribute('data-print-url') || '';
+                if (!vehicleUrl) {
+                    return;
+                }
+
+                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(vehicleUrl);
+                const printWindow = window.open('', '_blank', 'width=900,height=700');
+                if (!printWindow) {
+                    window.alert('Autorisez les popups pour imprimer le QR code.');
+                    return;
+                }
+
+                const safeName = vehicleName
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+                const safeUrl = vehicleUrl
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+
+                const html = `
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>QR ${safeName}</title>
+<style>
+@page { size: A6 portrait; margin: 8mm; }
+html, body { margin:0; padding:0; font-family: Arial, sans-serif; color:#0f172a; }
+.card {
+    width: 100%;
+    border: 2px solid #0f172a;
+    border-radius: 12px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+.title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color:#475569; margin:0 0 6px; }
+.vehicle { font-size: 22px; font-weight: 800; margin:0 0 10px; line-height: 1.2; }
+.qr-wrap { display:flex; justify-content:center; margin: 6px 0 10px; }
+.qr { width: 90mm; max-width: 100%; height: auto; border:1px solid #cbd5e1; border-radius:8px; padding:8px; box-sizing:border-box; background:white; }
+.hint { margin:0 0 4px; font-size: 11px; font-weight: 700; color:#1e293b; }
+.url { margin:0; font-size: 9px; color:#334155; word-break: break-all; }
+</style>
+</head>
+<body>
+    <main class="card">
+        <p class="title">VerifApp - QR vehicule</p>
+        <p class="vehicle">${safeName}</p>
+        <div class="qr-wrap"><img class="qr" src="${qrUrl}" alt="QR ${safeName}"></div>
+        <p class="hint">Scan direct vers la verification du vehicule</p>
+        <p class="url">${safeUrl}</p>
+    </main>
+</body>
+</html>`;
+
+                printWindow.document.open();
+                printWindow.document.write(html);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                    printWindow.print();
+                }, 300);
             });
         });
     })();
