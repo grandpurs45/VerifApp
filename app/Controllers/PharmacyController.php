@@ -13,11 +13,21 @@ final class PharmacyController
 {
     public function access(): void
     {
-        $configuredToken = $this->getPharmacyToken();
-        $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
         $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
+        $configuredToken = $this->getPharmacyToken($caserneId > 0 ? $caserneId : null);
+        $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
 
-        if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
+        if ($configuredToken === '') {
+            $_SESSION['pharmacy_access'] = true;
+            $this->storePharmacyCaserneContext($caserneId);
+            $this->redirect('/index.php?controller=pharmacy&action=form');
+        }
+
+        if ($caserneId <= 0) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
+        }
+
+        if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['pharmacy_access'] = true;
             $this->storePharmacyCaserneContext($caserneId);
             $this->redirect('/index.php?controller=pharmacy&action=form');
@@ -47,6 +57,11 @@ final class PharmacyController
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/index.php?controller=pharmacy&action=form');
+        }
+
+        $caserneId = $this->resolvePharmacyCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
         }
 
         $articleIds = is_array($_POST['article_id'] ?? null) ? $_POST['article_id'] : [];
@@ -101,13 +116,20 @@ final class PharmacyController
         exit;
     }
 
-    private function getPharmacyToken(): string
+    private function getPharmacyToken(?int $caserneId): string
     {
         $repository = new AppSettingRepository();
         if ($repository->isAvailable()) {
-            $token = $repository->get('pharmacy_qr_token');
-            if ($token !== null && trim($token) !== '') {
-                return trim($token);
+            if ($caserneId !== null && $caserneId > 0) {
+                $scoped = $repository->get('pharmacy_qr_token_caserne_' . $caserneId);
+                if ($scoped !== null && trim($scoped) !== '') {
+                    return trim($scoped);
+                }
+            }
+
+            $global = $repository->get('pharmacy_qr_token');
+            if ($global !== null && trim($global) !== '') {
+                return trim($global);
             }
         }
 
@@ -144,7 +166,3 @@ final class PharmacyController
         return null;
     }
 }
-        $caserneId = $this->resolvePharmacyCaserneId();
-        if ($caserneId === null) {
-            $this->redirect('/index.php?controller=pharmacy&action=denied');
-        }

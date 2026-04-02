@@ -26,8 +26,8 @@ final class ManagerController
             $caserneId
         );
         $appUrl = $this->resolvePublicBaseUrl();
-        $fieldToken = $this->getSettingValue('field_qr_token', 'FIELD_QR_TOKEN', '');
-        $pharmacyToken = $this->getSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', '');
+        $fieldToken = $this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, '');
+        $pharmacyToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
         $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
         $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '') . $caserneParam;
@@ -136,6 +136,18 @@ final class ManagerController
         }
 
         return trim((string) (Env::get($envKey, $default) ?? $default));
+    }
+
+    private function getScopedSettingValue(string $settingKey, string $envKey, ?int $caserneId, string $default): string
+    {
+        if ($caserneId !== null && $caserneId > 0) {
+            $scoped = $this->getSettingValue($settingKey . '_caserne_' . $caserneId, $envKey, '');
+            if ($scoped !== '') {
+                return $scoped;
+            }
+        }
+
+        return $this->getSettingValue($settingKey, $envKey, $default);
     }
 
     private function resolveManagerCaserneId(): ?int

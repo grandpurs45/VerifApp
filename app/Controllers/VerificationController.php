@@ -93,12 +93,6 @@ final class VerificationController
 
                 $valueInput = (float) ((int) $valueString);
 
-                if ($inputType === 'mesure' && !$this->isValueWithinMeasureThresholds($controle, $valueInput)) {
-                    $this->redirect(
-                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=out_of_range'
-                    );
-                }
-
                 $result = $this->computeResultForNumericControl($controle, $valueInput);
             }
 
@@ -244,22 +238,6 @@ final class VerificationController
         unset($line);
 
         return $lines;
-    }
-
-    private function isValueWithinMeasureThresholds(array $controle, float $value): bool
-    {
-        $min = $controle['seuil_min'] !== null ? (float) $controle['seuil_min'] : null;
-        $max = $controle['seuil_max'] !== null ? (float) $controle['seuil_max'] : null;
-
-        if ($min !== null && $value < $min) {
-            return false;
-        }
-
-        if ($max !== null && $value > $max) {
-            return false;
-        }
-
-        return true;
     }
 
     private function resolveManagerCaserneId(): ?int

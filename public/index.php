@@ -46,13 +46,21 @@ $readSetting = static function (string $settingKey, string $envKey, string $defa
 
     return trim((string) (Env::get($envKey, $default) ?? $default));
 };
+$isFeatureProtected = static function (string $settingPrefix, string $envKey) use ($appSettings): bool {
+    if ($appSettings->isAvailable() && $appSettings->hasAnyWithPrefix($settingPrefix)) {
+        return true;
+    }
+
+    $envValue = trim((string) (Env::get($envKey, '') ?? ''));
+    return $envValue !== '';
+};
 
 $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION['manager_user']);
 $isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
-$fieldToken = $readSetting('field_qr_token', 'FIELD_QR_TOKEN', '');
-$hasFieldAccess = $fieldToken === '' || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
-$pharmacyToken = $readSetting('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', '');
-$hasPharmacyAccess = $pharmacyToken === '' || (isset($_SESSION['pharmacy_access']) && $_SESSION['pharmacy_access'] === true);
+$fieldProtected = $isFeatureProtected('field_qr_token', 'FIELD_QR_TOKEN');
+$hasFieldAccess = !$fieldProtected || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
+$pharmacyProtected = $isFeatureProtected('pharmacy_qr_token', 'PHARMACY_QR_TOKEN');
+$hasPharmacyAccess = !$pharmacyProtected || (isset($_SESSION['pharmacy_access']) && $_SESSION['pharmacy_access'] === true);
 
 $managerRoutes = [
     'manager/dashboard',

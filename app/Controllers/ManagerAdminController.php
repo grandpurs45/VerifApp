@@ -26,8 +26,8 @@ final class ManagerAdminController
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
         $appUrl = $this->resolvePublicBaseUrl();
-        $fieldToken = trim($this->getSettingValue('field_qr_token', 'FIELD_QR_TOKEN', ''));
-        $pharmacyToken = trim($this->getSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', ''));
+        $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
+        $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
         $settingsStorage = $this->getSettingsStorageMode();
         $caserneRepository = new CaserneRepository();
         $casernes = $caserneRepository->findAll();
@@ -115,8 +115,13 @@ final class ManagerAdminController
             $this->redirect('/index.php?controller=manager_admin&action=settings&error=invalid_target');
         }
 
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=invalid_target');
+        }
+
         $token = $this->generateToken();
-        $settingKey = $allowedTargets[$target];
+        $settingKey = $allowedTargets[$target] . '_caserne_' . $caserneId;
         $settingRepository = new AppSettingRepository();
         if (!$settingRepository->isAvailable()) {
             $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
@@ -167,6 +172,18 @@ final class ManagerAdminController
         }
 
         return trim((string) (Env::get($envKey, $default) ?? $default));
+    }
+
+    private function getScopedSettingValue(string $settingKey, string $envKey, ?int $caserneId, string $default): string
+    {
+        if ($caserneId !== null && $caserneId > 0) {
+            $scoped = $this->getSettingValue($settingKey . '_caserne_' . $caserneId, $envKey, '');
+            if ($scoped !== '') {
+                return $scoped;
+            }
+        }
+
+        return $this->getSettingValue($settingKey, $envKey, $default);
     }
 
     private function getSettingsStorageMode(): string

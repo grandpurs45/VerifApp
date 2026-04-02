@@ -12,11 +12,21 @@ final class FieldController
 {
     public function access(): void
     {
-        $configuredToken = $this->getFieldToken();
-        $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
         $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
+        $configuredToken = $this->getFieldToken($caserneId > 0 ? $caserneId : null);
+        $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
 
-        if ($configuredToken === '' || hash_equals($configuredToken, $providedToken)) {
+        if ($configuredToken === '') {
+            $_SESSION['field_access'] = true;
+            $this->storeFieldCaserneContext($caserneId);
+            $this->redirect('/index.php?controller=home&action=index');
+        }
+
+        if ($caserneId <= 0) {
+            $this->redirect('/index.php?controller=field&action=denied');
+        }
+
+        if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['field_access'] = true;
             $this->storeFieldCaserneContext($caserneId);
             $this->redirect('/index.php?controller=home&action=index');
@@ -36,13 +46,20 @@ final class FieldController
         exit;
     }
 
-    private function getFieldToken(): string
+    private function getFieldToken(?int $caserneId): string
     {
         $repository = new AppSettingRepository();
         if ($repository->isAvailable()) {
-            $token = $repository->get('field_qr_token');
-            if ($token !== null && trim($token) !== '') {
-                return trim($token);
+            if ($caserneId !== null && $caserneId > 0) {
+                $scoped = $repository->get('field_qr_token_caserne_' . $caserneId);
+                if ($scoped !== null && trim($scoped) !== '') {
+                    return trim($scoped);
+                }
+            }
+
+            $global = $repository->get('field_qr_token');
+            if ($global !== null && trim($global) !== '') {
+                return trim($global);
             }
         }
 

@@ -62,6 +62,28 @@ final class AppSettingRepository
         }
     }
 
+    public function hasAnyWithPrefix(string $prefix): bool
+    {
+        if (!$this->hasTable()) {
+            return false;
+        }
+
+        try {
+            $connection = Database::getConnection();
+            $statement = $connection->prepare('
+                SELECT 1
+                FROM app_settings
+                WHERE setting_key LIKE :prefix
+                LIMIT 1
+            ');
+            $statement->execute(['prefix' => $prefix . '%']);
+
+            return $statement->fetchColumn() !== false;
+        } catch (\Throwable $throwable) {
+            return false;
+        }
+    }
+
     private function hasTable(): bool
     {
         if ($this->tableExists !== null) {
