@@ -1,71 +1,202 @@
 # VerifApp
 
-Application web de verification operationnelle des moyens.
+Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
+
+Version courante: `v0.14.0` (voir fichier `VERSION`).
+
+## Sommaire
+- Objectif
+- Fonctionnalites principales
+- Architecture technique
+- Prerequis
+- Installation rapide (Docker)
+- Installation locale (XAMPP / PHP)
+- Acces et profils
+- Flux QR terrain
+- Multi-caserne
+- Configuration administration
+- Vue mensuelle des verifications
+- Scripts utiles
+- Deploiement et release
+- Depannage
+- Documentation associee
 
 ## Objectif
-Permettre aux agents de realiser des verifications sur smartphone
-et aux gestionnaires de consulter les anomalies et l'historique.
+VerifApp permet de:
+- Realiser des verifications d engins rapidement depuis smartphone.
+- Tracer qui a verifie, quand, et avec quel resultat.
+- Ouvrir automatiquement des anomalies sur les points non conformes.
+- Piloter le parc (types, vehicules, zones, materiel) via backoffice.
 
-## Statut
-Projet en cours de developpement.
+## Fonctionnalites principales
+- Verification terrain mobile:
+  - selection engin + poste
+  - checklist adaptee a l engin
+  - saisies supportees:
+    - choix `fonctionnel / non fonctionnel`
+    - check `present / absent`
+    - valeur mesuree avec seuils min/max
+- Anomalies:
+  - creation automatique en cas de `nok`
+  - assignation et suivi
+- Historique:
+  - filtres multi-criteres
+  - detail verification
+  - export PDF
+- Vue mensuelle matin/soir:
+  - lecture calendrier rapide
+  - indicateurs de couverture et conformite
+- Backoffice parc materiel:
+  - types et postes
+  - vehicules, zones, sous-zones
+  - materiel configure par engin
+- Module pharmacie invite (QR) pour sorties de stock.
+- Roles et acces configurables.
+- Multi-caserne dans une seule instance.
 
-## Documentation projet
+## Architecture technique
+- Stack: PHP (MVC leger), MySQL/MariaDB, Apache.
+- Routing: `index.php?controller=X&action=Y`.
+- Dossiers:
+  - `app/Controllers`
+  - `app/Repositories`
+  - `public/views`
+  - `database/migrations`
+
+## Prerequis
+- PHP `8.2+`
+- Extensions PHP: `pdo`, `pdo_mysql`
+- MySQL ou MariaDB
+- Serveur web (Apache recommande)
+
+## Installation rapide (Docker)
+1. Copier la configuration:
+   - `cp .env.docker.example .env.docker`
+2. Lancer les conteneurs:
+   - `docker compose up -d --build`
+3. Appliquer les migrations:
+   - `docker compose exec web php scripts/migrate.php`
+4. Ouvrir l application:
+   - `http://localhost:8080`
+
+Important:
+- Laisser `APP_VERSION` vide pour utiliser automatiquement le fichier `VERSION`.
+
+## Installation locale (XAMPP / PHP)
+1. Configurer la base dans `.env`.
+2. Appliquer les migrations:
+   - `php scripts/migrate.php`
+3. Ouvrir:
+   - `http://localhost/VerifApp/public/index.php`
+
+## Acces et profils
+### Gestionnaire
+- Connexion:
+  - `/index.php?controller=manager_auth&action=login_form`
+- Backoffice:
+  - `/index.php?controller=manager&action=dashboard`
+
+### Verificateur terrain
+- Acces via lien/QR invite:
+  - `/index.php?controller=field&action=access`
+
+### Compte admin par defaut (installation vierge)
+- Identifiant: `admin` ou `admin@verifapp.local`
+- Mot de passe: `admin`
+- Changement de mot de passe force a la premiere connexion.
+
+## Flux QR terrain
+### QR global caserne (verification)
+Genere depuis:
+- `Administration -> Parametres application`
+
+### QR engin (verification ciblee)
+Genere depuis:
+- `Parc & materiel -> Fiche vehicule`
+- Actions disponibles:
+  - generer / regenerer
+  - supprimer
+  - copier lien
+  - ouvrir lien
+  - imprimer QR
+
+### QR pharmacie
+Genere depuis:
+- `Administration -> Parametres application`
+
+Note:
+- Depuis `v0.11.0`, les tokens QR sont stockes en base dans `app_settings`.
+
+## Multi-caserne
+- Une base peut contenir plusieurs casernes.
+- Un utilisateur peut appartenir a plusieurs casernes.
+- Si l utilisateur a plusieurs casernes:
+  - ecran de choix apres login.
+- Tous les modules backoffice sont scopes sur la caserne active.
+
+## Configuration administration
+Menu:
+- `/index.php?controller=manager_admin&action=menu`
+
+Parametres application:
+- `/index.php?controller=manager_admin&action=settings`
+
+Reglages notables:
+- expiration session gestionnaire
+- generation QR invites
+- seuil horaire matin/soir des verifications mensuelles par caserne
+
+## Vue mensuelle des verifications
+URL:
+- `/index.php?controller=verifications&action=monthly`
+
+Comportement:
+- `matin` = avant l heure de bascule configuree
+- `soir` = a partir de l heure de bascule configuree
+- valeur par defaut: `18h00`
+
+## Scripts utiles
+- Migrations:
+  - `php scripts/migrate.php`
+- Reset admin dev:
+  - `php scripts/reset-admin-dev.php`
+- Release PowerShell:
+  - `./scripts/release.ps1 -Version 0.14.0`
+- Packaging release:
+  - `./scripts/package-release.ps1`
+
+## Deploiement et release
+### Push release
+- `git push origin main --tags`
+
+### Mise a jour serveur
+- `git pull origin main --tags`
+- `docker compose up -d --build`
+- `docker compose exec web php scripts/migrate.php`
+
+### Verification post-deploiement
+- page login gestionnaire
+- dashboard
+- vue mensuelle
+- page parametres application
+- acces QR verification + pharmacie
+
+## Depannage
+### Echec generation QR
+1. Verifier migrations:
+   - `docker compose exec web php scripts/migrate.php`
+2. Verifier table `app_settings` (migration `018_create_app_settings.sql`).
+3. Verifier droits SQL sur `app_settings` (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
+
+### Erreurs de migration
+- Si environnement deja initialise, verifier table `schema_migrations` avant de rejouer.
+- Eviter de supprimer manuellement des tables referencees par des FK.
+
+### Version affichee incorrecte
+- Verifier contenu `VERSION`.
+- Verifier absence de surcharge `APP_VERSION` dans `.env` / `.env.docker`.
+
+## Documentation associee
 - Changelog: `CHANGELOG.md`
 - Politique de versionning: `VERSIONING.md`
 - Guide de deploiement: `DEPLOYMENT.md`
-
-## Release rapide
-Commande PowerShell:
-`./scripts/release.ps1 -Version 0.1.1`
-
-## Package production
-Commande PowerShell:
-`./scripts/package-release.ps1`
-
-## Migration production
-Commande serveur:
-`php scripts/migrate.php`
-
-## Multi-caserne (v0.12.0)
-- L application gere plusieurs casernes dans une meme base.
-- Un utilisateur peut etre rattache a plusieurs casernes.
-- Au login gestionnaire:
-  - 1 seule caserne: selection automatique
-  - plusieurs casernes: ecran de choix
-- Les modules backoffice (parc, verifs, anomalies, pharmacie) sont filtres sur la caserne active.
-
-## Compte admin par defaut
-- Sur installation vierge, un compte gestionnaire est cree automatiquement:
-  - identifiant: `admin` (ou `admin@verifapp.local`)
-  - mot de passe: `admin`
-- Le changement de mot de passe est obligatoire a la premiere connexion.
-
-## Gestion des roles et acces
-- Interface: `/index.php?controller=manager_roles&action=index`
-- Les permissions manager sont pilotables par role (migration `017`).
-- Le role `admin` est systeme et non supprimable.
-
-## Docker local/serveur
-1. Copier `.env.docker.example` vers `.env.docker`
-   (laisser `APP_VERSION` non defini pour version automatique via le fichier `VERSION`)
-2. Lancer:
-`docker compose up -d --build`
-3. Appliquer les migrations:
-`docker compose exec web php scripts/migrate.php`
-
-## Depannage QR
-Depuis `0.11.0`, les tokens QR sont stockes en base (`app_settings`) et ne necessitent plus d'ecriture de `.env`.
-
-Si la regeneration echoue en administration:
-1. Verifier que les migrations sont a jour:
-`docker compose exec web php scripts/migrate.php`
-2. Verifier que la table `app_settings` existe (migration `018_create_app_settings.sql`).
-3. Verifier les droits SQL de l'utilisateur applicatif (SELECT/INSERT/UPDATE sur `app_settings`).
-
-## Module pharmacie (QR)
-- Token configurable depuis l'administration (`Parametres application`), stocke en base.
-- Fallback possible via `PHARMACY_QR_TOKEN` dans `.env` (ou `.env.docker`) si `app_settings` indisponible.
-- Lien QR terrain:
-`/index.php?controller=pharmacy&action=access&token=VOTRE_TOKEN`
-- Backoffice gestionnaire:
-`/index.php?controller=manager_pharmacy&action=index`
