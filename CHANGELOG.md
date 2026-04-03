@@ -9,6 +9,37 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.14.0] - 2026-04-03
+
+### Added
+- Verifications:
+  - nouvelle vue mensuelle matin/soir (`verifications/monthly`) avec:
+    - calendrier mensuel lisible
+    - indicateurs globaux (volume, couverture, conformite)
+    - detail journalier matin/soir
+- Parametres application:
+  - reglage par caserne de l heure de bascule matin/soir
+    (`verification_evening_hour_caserne_{id}`)
+  - valeur par defaut: `18h00`
+
+### Changed
+- Regle temporelle verifications:
+  - `matin` = avant l heure configuree
+  - `soir` = a partir de l heure configuree
+- Flux QR vehicule terrain:
+  - ecran postes simplifie (sans code poste, vehicule plus visible)
+  - suppression de l etape numerotee et du retour vehicules en contexte QR engin
+  - wording harmonise en `verification` (au lieu de `checklist`)
+- Parc & materiel:
+  - gestion du materiel recentree au niveau de l engin (zones + materiel sur la page engin)
+  - suppression de la section globale `Materiel (controles)` de la page liste vehicules
+  - libelles d action clarifies (`Configurer engin`, `Configurer zones & materiel`)
+
+### Fixed
+- Actions materiel:
+  - redirections post-action (ajout/modification/suppression) maintenues sur la page de l engin cible
+    pour eviter les allers-retours vers la page globale.
+
 ## [0.13.0] - 2026-04-02
 
 ### Added

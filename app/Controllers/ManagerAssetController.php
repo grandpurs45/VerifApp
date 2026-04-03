@@ -222,6 +222,19 @@ final class ManagerAssetController
 
         $zonesAvailable = $zoneRepository->isAvailable();
         $zones = $zonesAvailable ? $zoneRepository->findByVehicleId($vehicleId, $caserneId) : [];
+        $posteRepository = new PosteRepository();
+        $controleRepository = new ControleRepository();
+        $postes = $posteRepository->findByTypeIdDetailed((int) ($vehicle['type_vehicule_id'] ?? 0), $caserneId);
+        $controles = $controleRepository->findByVehicleIdDetailed($vehicleId, $caserneId);
+        $hierarchyAvailable = $controleRepository->hasHierarchicalSchema();
+        $inputSchemaAvailable = $controleRepository->hasInputSchema();
+        $nextOrder = 1;
+        foreach ($controles as $controle) {
+            $currentOrder = (int) ($controle['ordre'] ?? 0);
+            if ($currentOrder >= $nextOrder) {
+                $nextOrder = $currentOrder + 1;
+            }
+        }
         $managerUser = $_SESSION['manager_user'] ?? null;
         $flash = [
             'success' => isset($_GET['success']) ? (string) $_GET['success'] : '',
@@ -651,6 +664,7 @@ final class ManagerAssetController
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $returnVehicleId = isset($_POST['return_vehicle_id']) ? (int) $_POST['return_vehicle_id'] : 0;
         $label = trim((string) ($_POST['libelle'] ?? ''));
         $posteId = isset($_POST['poste_id']) ? (int) $_POST['poste_id'] : 0;
         $vehicleId = isset($_POST['vehicule_id']) ? (int) $_POST['vehicule_id'] : 0;
@@ -672,15 +686,16 @@ final class ManagerAssetController
         $minThreshold = $this->parseIntegerOrNull($minThresholdRaw);
         $maxThreshold = $this->parseIntegerOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
+        $targetVehicleId = $returnVehicleId > 0 ? $returnVehicleId : $vehicleId;
 
         if ($label === '' || $posteId <= 0 || $order < 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
         }
 
         if (($minThresholdRaw !== '' && $minThreshold === null)
             || ($maxThresholdRaw !== '' && $maxThreshold === null)
         ) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
         }
 
         if ($inputType === 'statut') {
@@ -696,7 +711,7 @@ final class ManagerAssetController
         } elseif ($inputType === 'mesure') {
             $expectedValue = null;
             if ($unit === null || ($minThreshold === null && $maxThreshold === null)) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
             }
         }
 
@@ -704,24 +719,24 @@ final class ManagerAssetController
         $zoneRepository = new ZoneRepository();
         $caserneId = $this->resolveManagerCaserneId();
         if ($caserneId === null) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_save_failed');
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'controle_save_failed'));
         }
 
         if ($controleRepository->hasHierarchicalSchema()) {
             if ($vehicleId <= 0 || $zoneId <= 0) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle_link'));
             }
 
             if (!$this->isPosteCompatibleWithVehicle($posteId, $vehicleId, $caserneId)) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle_link'));
             }
 
             if (!$zoneRepository->belongsToVehicle($zoneId, $vehicleId, $caserneId)) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle_link');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle_link'));
             }
         } else {
             if ($zoneName === '') {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
             }
         }
 
@@ -743,7 +758,7 @@ final class ManagerAssetController
                     $minThreshold,
                     $maxThreshold
                 );
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_updated');
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, '', 'controle_updated'));
             }
 
             $controleRepository->create(
@@ -761,9 +776,9 @@ final class ManagerAssetController
                 $minThreshold,
                 $maxThreshold
             );
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_created');
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, '', 'controle_created'));
         } catch (Throwable $throwable) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_save_failed');
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'controle_save_failed'));
         }
     }
 
@@ -774,25 +789,26 @@ final class ManagerAssetController
         }
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $returnVehicleId = isset($_POST['return_vehicle_id']) ? (int) $_POST['return_vehicle_id'] : 0;
 
         if ($id <= 0) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_controle');
+            $this->redirect($this->vehicleRedirectPath($returnVehicleId, 'invalid_controle'));
         }
 
         $controleRepository = new ControleRepository();
         $caserneId = $this->resolveManagerCaserneId();
         if ($caserneId === null) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_delete_failed');
+            $this->redirect($this->vehicleRedirectPath($returnVehicleId, 'controle_delete_failed'));
         }
 
         try {
             $controleRepository->delete($id, $caserneId);
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=controle_deleted');
+            $this->redirect($this->vehicleRedirectPath($returnVehicleId, '', 'controle_deleted'));
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
-                $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_in_use');
+                $this->redirect($this->vehicleRedirectPath($returnVehicleId, 'controle_in_use'));
             }
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=controle_delete_failed');
+            $this->redirect($this->vehicleRedirectPath($returnVehicleId, 'controle_delete_failed'));
         }
     }
 
