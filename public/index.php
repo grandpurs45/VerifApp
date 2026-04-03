@@ -70,9 +70,11 @@ $managerRoutes = [
     'manager_auth/switch_caserne',
     'manager_admin/menu',
     'manager_admin/settings',
+    'manager_admin/verification_timing_save',
     'manager_admin/caserne_save',
     'manager_admin/regenerate_qr_token',
     'verifications/history',
+    'verifications/monthly',
     'verifications/show',
     'verifications/export',
     'anomalies/index',
@@ -156,9 +158,11 @@ $managerRoutePermissions = [
     'manager_auth/switch_caserne' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
+    'manager_admin/verification_timing_save' => 'users.manage',
     'manager_admin/caserne_save' => 'users.manage',
     'manager_admin/regenerate_qr_token' => 'users.manage',
     'verifications/history' => 'verifications.history',
+    'verifications/monthly' => 'verifications.history',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',
     'anomalies/index' => 'anomalies.manage',
@@ -331,6 +335,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'caserne_save') {
         $controller = new ManagerAdminController();
         $controller->caserneSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'verification_timing_save') {
+        $controller = new ManagerAdminController();
+        $controller->verificationTimingSave();
         return;
     }
 
@@ -571,6 +581,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'verifications' && $action === 'history') {
         $controller = new VerificationController();
         $controller->history();
+        return;
+    }
+
+    if ($controllerName === 'verifications' && $action === 'monthly') {
+        $controller = new VerificationController();
+        $controller->monthly();
         return;
     }
 

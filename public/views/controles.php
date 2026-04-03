@@ -39,7 +39,9 @@ $totalControles = count($controles);
     <main class="mx-auto w-full max-w-md px-4 pb-32 pt-5">
         <header class="mb-5 rounded-3xl border border-slate-700/80 bg-slate-800/85 p-4 shadow-lg">
             <?php if ($vehicle !== null): ?>
-                <a href="/index.php?controller=postes&action=list&vehicle_id=<?= (int) $vehicle['id'] ?>" class="inline-flex rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">
+                <?php $postesBackLink = '/index.php?controller=postes&action=list&vehicle_id=' . (int) $vehicle['id']; ?>
+                <?php if (!empty($fromVehicleQr)) { $postesBackLink .= '&from_vehicle_qr=1'; } ?>
+                <a href="<?= htmlspecialchars($postesBackLink, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">
                     <- Retour postes
                 </a>
             <?php else: ?>
@@ -49,7 +51,7 @@ $totalControles = count($controles);
             <?php endif; ?>
 
             <p class="mt-4 text-xs uppercase tracking-[0.18em] text-amber-300">Etape 3</p>
-            <h1 class="mt-1 text-2xl font-extrabold text-white">Checklist du poste</h1>
+            <h1 class="mt-1 text-2xl font-extrabold text-white">Verification du poste</h1>
 
             <?php if ($vehicle !== null && $poste !== null): ?>
                 <p class="mt-2 text-sm text-slate-300">
@@ -92,6 +94,9 @@ $totalControles = count($controles);
             <form method="post" action="/index.php?controller=verifications&action=store" class="space-y-4" id="checklistForm">
                 <input type="hidden" name="vehicle_id" value="<?= (int) $vehicle['id'] ?>">
                 <input type="hidden" name="poste_id" value="<?= (int) $poste['id'] ?>">
+                <?php if (!empty($fromVehicleQr)): ?>
+                    <input type="hidden" name="from_vehicle_qr" value="1">
+                <?php endif; ?>
 
                 <section class="rounded-3xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg space-y-4">
                     <?php if (is_array($fieldUser) && isset($fieldUser['nom'])): ?>

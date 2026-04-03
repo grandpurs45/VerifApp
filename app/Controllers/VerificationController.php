@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Env;
+use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\VehicleRepository;
@@ -32,6 +34,8 @@ final class VerificationController
             $agent = trim((string) ($_POST['agent'] ?? ''));
         }
         $globalComment = trim((string) ($_POST['commentaire_global'] ?? ''));
+        $fromVehicleQr = isset($_POST['from_vehicle_qr']) && (string) $_POST['from_vehicle_qr'] === '1';
+        $contextSuffix = $fromVehicleQr ? '&from_vehicle_qr=1' : '';
 
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
@@ -51,7 +55,7 @@ final class VerificationController
 
         if ($agent === '') {
             $this->redirect(
-                '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=agent_required'
+                '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=agent_required' . $contextSuffix
             );
         }
 
@@ -78,7 +82,7 @@ final class VerificationController
 
                 if (!in_array($result, $allowedStatuses, true)) {
                     $this->redirect(
-                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
+                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete' . $contextSuffix
                     );
                 }
             } else {
@@ -87,7 +91,7 @@ final class VerificationController
 
                 if ($valueString === '' || filter_var($valueString, FILTER_VALIDATE_INT) === false) {
                     $this->redirect(
-                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete'
+                        '/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=incomplete' . $contextSuffix
                     );
                 }
 
@@ -141,6 +145,112 @@ final class VerificationController
         $postes = $posteRepository->findAll($caserneId);
 
         require dirname(__DIR__, 2) . '/public/views/history.php';
+    }
+
+    public function monthly(): void
+    {
+        $verificationRepository = new VerificationRepository();
+        $vehicleRepository = new VehicleRepository();
+        $caserneId = $this->resolveManagerCaserneId();
+        $eveningStartHour = (int) $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
+        if ($eveningStartHour < 0 || $eveningStartHour > 23) {
+            $eveningStartHour = 18;
+        }
+
+        $monthInput = isset($_GET['month']) ? trim((string) $_GET['month']) : '';
+        $selectedVehicleId = isset($_GET['vehicule_id']) ? (int) $_GET['vehicule_id'] : 0;
+        $today = new \DateTimeImmutable('today');
+
+        if (preg_match('/^\d{4}-\d{2}$/', $monthInput) === 1) {
+            [$yearString, $monthString] = explode('-', $monthInput, 2);
+            $year = (int) $yearString;
+            $month = (int) $monthString;
+            if ($year < 2000 || $year > 2100 || $month < 1 || $month > 12) {
+                $year = (int) $today->format('Y');
+                $month = (int) $today->format('m');
+            }
+        } else {
+            $year = (int) $today->format('Y');
+            $month = (int) $today->format('m');
+        }
+
+        $vehicles = $vehicleRepository->findAllActive($caserneId);
+        $statsRows = $verificationRepository->findMonthlyDaySlotStats(
+            $year,
+            $month,
+            $eveningStartHour,
+            $caserneId,
+            $selectedVehicleId > 0 ? $selectedVehicleId : null
+        );
+
+        $daysInMonth = (int) cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $slotsByDay = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
+            $slotsByDay[$date] = [
+                'matin' => ['total' => 0, 'conformes' => 0, 'non_conformes' => 0],
+                'soir' => ['total' => 0, 'conformes' => 0, 'non_conformes' => 0],
+            ];
+        }
+
+        $totals = [
+            'total_verifs' => 0,
+            'conformes' => 0,
+            'non_conformes' => 0,
+            'slots_couverts' => 0,
+            'jours_couverts' => 0,
+        ];
+
+        foreach ($statsRows as $row) {
+            $date = (string) ($row['jour'] ?? '');
+            $slot = (string) ($row['creneau'] ?? '');
+            if (!isset($slotsByDay[$date], $slotsByDay[$date][$slot])) {
+                continue;
+            }
+
+            $total = (int) ($row['total_verifs'] ?? 0);
+            $conformes = (int) ($row['conformes'] ?? 0);
+            $nonConformes = (int) ($row['non_conformes'] ?? 0);
+
+            $slotsByDay[$date][$slot]['total'] = $total;
+            $slotsByDay[$date][$slot]['conformes'] = $conformes;
+            $slotsByDay[$date][$slot]['non_conformes'] = $nonConformes;
+
+            $totals['total_verifs'] += $total;
+            $totals['conformes'] += $conformes;
+            $totals['non_conformes'] += $nonConformes;
+            if ($total > 0) {
+                $totals['slots_couverts']++;
+            }
+        }
+
+        foreach ($slotsByDay as $slots) {
+            if (($slots['matin']['total'] ?? 0) > 0 && ($slots['soir']['total'] ?? 0) > 0) {
+                $totals['jours_couverts']++;
+            }
+        }
+
+        $totalSlots = $daysInMonth * 2;
+        $coverageRate = $totalSlots > 0 ? (int) round(($totals['slots_couverts'] / $totalSlots) * 100) : 0;
+        $conformityRate = $totals['total_verifs'] > 0 ? (int) round(($totals['conformes'] / $totals['total_verifs']) * 100) : 0;
+        $monthValue = sprintf('%04d-%02d', $year, $month);
+        $monthNames = [
+            1 => 'janvier',
+            2 => 'fevrier',
+            3 => 'mars',
+            4 => 'avril',
+            5 => 'mai',
+            6 => 'juin',
+            7 => 'juillet',
+            8 => 'aout',
+            9 => 'septembre',
+            10 => 'octobre',
+            11 => 'novembre',
+            12 => 'decembre',
+        ];
+        $monthLabel = ($monthNames[$month] ?? (string) $month) . ' ' . $year;
+
+        require dirname(__DIR__, 2) . '/public/views/verifications_monthly.php';
     }
 
     public function show(int $verificationId): void
@@ -254,5 +364,25 @@ final class VerificationController
         }
 
         return $this->resolveManagerCaserneId();
+    }
+
+    private function getScopedSettingValue(string $settingKey, string $envKey, ?int $caserneId, string $default): string
+    {
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable() && $caserneId !== null && $caserneId > 0) {
+            $scoped = $repository->get($settingKey . '_caserne_' . $caserneId);
+            if ($scoped !== null && trim($scoped) !== '') {
+                return trim($scoped);
+            }
+        }
+
+        if ($repository->isAvailable()) {
+            $global = $repository->get($settingKey);
+            if ($global !== null && trim($global) !== '') {
+                return trim($global);
+            }
+        }
+
+        return trim((string) (Env::get($envKey, $default) ?? $default));
     }
 }

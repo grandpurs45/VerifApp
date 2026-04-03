@@ -25,6 +25,7 @@ final class ManagerAdminController
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
+        $verificationEveningHour = $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
@@ -40,6 +41,41 @@ final class ManagerAdminController
         $pharmacyGuestUrl = $appUrl !== '' ? $appUrl . $pharmacyGuestPath : $pharmacyGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
+    }
+
+    public function verificationTimingSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timing_save_failed');
+        }
+
+        $hourRaw = trim((string) ($_POST['verification_evening_hour'] ?? ''));
+        if ($hourRaw === '' || ctype_digit($hourRaw) === false) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timing_invalid');
+        }
+
+        $hour = (int) $hourRaw;
+        if ($hour < 0 || $hour > 23) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timing_invalid');
+        }
+
+        $settingRepository = new AppSettingRepository();
+        if (!$settingRepository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $key = 'verification_evening_hour_caserne_' . $caserneId;
+        $saved = $settingRepository->set($key, (string) $hour);
+        if (!$saved) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timing_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=timing_saved');
     }
 
     public function caserneSave(): void

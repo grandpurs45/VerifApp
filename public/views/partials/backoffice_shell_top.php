@@ -113,7 +113,12 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                 <?php endif; ?>
                 <nav class="mt-5 space-y-2">
                     <?php foreach ($visibleModules as $module): ?>
-                        <?php $active = $currentRoute === $module['route_key']; ?>
+                        <?php
+                        $active = $currentRoute === $module['route_key'];
+                        if (!$active && $module['route_key'] === 'verifications/history' && str_starts_with($currentRoute, 'verifications/')) {
+                            $active = true;
+                        }
+                        ?>
                         <a
                             href="<?= htmlspecialchars($module['route'], ENT_QUOTES, 'UTF-8') ?>"
                             class="block rounded-xl px-3 py-2 text-sm font-semibold <?= $active ? 'bg-white text-slate-900' : 'text-slate-100 hover:bg-white/10' ?>"

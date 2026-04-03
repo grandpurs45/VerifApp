@@ -14,6 +14,7 @@ final class PosteController
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
         $caserneId = $this->resolveActiveCaserneId();
+        $fromVehicleQr = isset($_GET['from_vehicle_qr']) && (string) $_GET['from_vehicle_qr'] === '1';
 
         $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
         $postes = [];

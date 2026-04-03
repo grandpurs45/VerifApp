@@ -38,6 +38,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Caserne mise a jour.
     </section>
+<?php elseif ($success === 'timing_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Reglage matin/soir enregistre pour cette caserne.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -54,6 +58,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement caserne impossible.
     </section>
+<?php elseif ($error === 'timing_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Heure invalide. Saisir une valeur entre 0 et 23.
+    </section>
+<?php elseif ($error === 'timing_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement du reglage matin/soir impossible.
+    </section>
 <?php endif; ?>
 
 <section class="rounded-2xl bg-white shadow p-5">
@@ -64,6 +76,34 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <p class="text-xs text-slate-500 mt-2">
         Source actuelle: <?= $settingsStorage === 'database' ? 'base de donnees (app_settings)' : 'fichier d environnement (.env)' ?>.
     </p>
+</section>
+
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Decoupage des verifications</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Regle de la vue mensuelle pour cette caserne.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=verification_timing_save" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+        <div>
+            <label for="verification_evening_hour" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Heure debut "soir"</label>
+            <input
+                id="verification_evening_hour"
+                type="number"
+                min="0"
+                max="23"
+                name="verification_evening_hour"
+                value="<?= htmlspecialchars((string) $verificationEveningHour, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+            <p class="mt-1 text-xs text-slate-500">
+                Matin: avant cette heure. Soir: a partir de cette heure.
+            </p>
+        </div>
+        <div class="md:col-span-2">
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Enregistrer</button>
+        </div>
+    </form>
 </section>
 
 <section class="rounded-2xl bg-white shadow p-5">

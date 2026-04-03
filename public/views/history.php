@@ -12,6 +12,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
 <section class="bg-white rounded-2xl shadow p-4 md:p-6">
+    <div class="mb-3 flex justify-end">
+        <a href="/index.php?controller=verifications&action=monthly" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Vue mensuelle matin/soir
+        </a>
+    </div>
+
     <form method="get" action="/index.php" class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <input type="hidden" name="controller" value="verifications">
         <input type="hidden" name="action" value="history">

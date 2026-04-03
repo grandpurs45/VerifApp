@@ -330,6 +330,59 @@ final class VerificationRepository
         ];
     }
 
+    public function findMonthlyDaySlotStats(
+        int $year,
+        int $month,
+        int $eveningStartHour = 18,
+        ?int $caserneId = null,
+        ?int $vehicleId = null
+    ): array
+    {
+        $connection = Database::getConnection();
+
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = date('Y-m-d', strtotime($start . ' +1 month'));
+
+        $where = [
+            'v.date_heure >= :start_date',
+            'v.date_heure < :end_date',
+        ];
+        $params = [
+            'start_date' => $start . ' 00:00:00',
+            'end_date' => $end . ' 00:00:00',
+            'evening_start_hour_a' => $eveningStartHour,
+            'evening_start_hour_b' => $eveningStartHour,
+        ];
+
+        if ($caserneId !== null) {
+            $where[] = 'v.caserne_id = :caserne_id';
+            $params['caserne_id'] = $caserneId;
+        }
+
+        if ($vehicleId !== null && $vehicleId > 0) {
+            $where[] = 'v.vehicule_id = :vehicule_id';
+            $params['vehicule_id'] = $vehicleId;
+        }
+
+        $sql = '
+            SELECT
+                DATE(v.date_heure) AS jour,
+                CASE WHEN HOUR(v.date_heure) < :evening_start_hour_a THEN \'matin\' ELSE \'soir\' END AS creneau,
+                COUNT(*) AS total_verifs,
+                SUM(CASE WHEN v.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
+                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes
+            FROM verifications v
+            WHERE ' . implode(' AND ', $where) . '
+            GROUP BY DATE(v.date_heure), CASE WHEN HOUR(v.date_heure) < :evening_start_hour_b THEN \'matin\' ELSE \'soir\' END
+            ORDER BY jour ASC, creneau ASC
+        ';
+
+        $statement = $connection->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findLinesByVerificationId(int $verificationId, ?int $caserneId = null): array
     {
         $connection = Database::getConnection();

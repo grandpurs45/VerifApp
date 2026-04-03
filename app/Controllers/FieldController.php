@@ -123,7 +123,7 @@ final class FieldController
             $vehicleRepository = new VehicleRepository();
             $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
             if ($vehicle !== null && (int) ($vehicle['actif'] ?? 0) === 1) {
-                $this->redirect('/index.php?controller=postes&action=list&vehicle_id=' . $vehicleId);
+                $this->redirect('/index.php?controller=postes&action=list&vehicle_id=' . $vehicleId . '&from_vehicle_qr=1');
             }
         }
 
