@@ -68,6 +68,9 @@ final class PharmacyController
         $quantities = is_array($_POST['quantite'] ?? null) ? $_POST['quantite'] : [];
         $comments = is_array($_POST['commentaire_ligne'] ?? null) ? $_POST['commentaire_ligne'] : [];
         $declarant = trim((string) ($_POST['declarant'] ?? ''));
+        if ($declarant === '') {
+            $this->redirect('/index.php?controller=pharmacy&action=form&error=declarant_required');
+        }
         $lines = [];
 
         $maxRows = max(count($articleIds), count($quantities), count($comments));
@@ -80,13 +83,14 @@ final class PharmacyController
                 continue;
             }
 
-            if (!ctype_digit($articleRaw) || $quantityRaw === '' || !is_numeric($quantityRaw) || (float) $quantityRaw <= 0) {
+            $quantityValue = $this->parsePositiveInteger($quantityRaw);
+            if (!ctype_digit($articleRaw) || $quantityValue === null) {
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
 
             $lines[] = [
                 'article_id' => (int) $articleRaw,
-                'quantite' => (float) $quantityRaw,
+                'quantite' => (float) $quantityValue,
                 'commentaire' => $comment === '' ? null : $comment,
             ];
         }
@@ -164,5 +168,19 @@ final class PharmacyController
         }
 
         return null;
+    }
+
+    private function parsePositiveInteger(string $raw): ?int
+    {
+        if ($raw === '' || !preg_match('/^\d+$/', $raw)) {
+            return null;
+        }
+
+        $value = (int) $raw;
+        if ($value <= 0) {
+            return null;
+        }
+
+        return $value;
     }
 }

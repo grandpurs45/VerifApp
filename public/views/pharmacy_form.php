@@ -7,6 +7,8 @@ if ($errorCode === 'invalid') {
     $errorMessage = 'Saisie invalide. Verifie article et quantite.';
 } elseif ($errorCode === 'stock') {
     $errorMessage = 'Stock insuffisant ou article inactif.';
+} elseif ($errorCode === 'declarant_required') {
+    $errorMessage = 'Nom du declarant obligatoire.';
 }
 ?>
 <!DOCTYPE html>
@@ -64,8 +66,8 @@ if ($errorCode === 'invalid') {
                     </button>
 
                     <div>
-                        <label for="declarant" class="text-sm font-semibold text-slate-200">Nom (optionnel)</label>
-                        <input id="declarant" name="declarant" type="text" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Nom et prenom">
+                        <label for="declarant" class="text-sm font-semibold text-slate-200">Nom du declarant</label>
+                        <input id="declarant" name="declarant" type="text" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Nom et prenom">
                     </div>
 
                     <button type="submit" class="w-full rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">
@@ -94,7 +96,7 @@ if ($errorCode === 'invalid') {
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-slate-200">Quantite sortie</label>
-                    <input name="quantite[]" type="number" min="0.01" step="0.01" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2">
+                    <input name="quantite[]" type="number" min="1" step="1" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2">
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-slate-200">Commentaire (optionnel)</label>

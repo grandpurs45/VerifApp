@@ -9,6 +9,32 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.14.1] - 2026-04-03
+
+### Added
+- Pharmacie:
+  - nouvelle migration `021_group_pharmacy_outputs.sql` pour ajouter `sortie_ref` sur les mouvements
+  - historique des sorties regroupe par session de sortie (plusieurs articles en un enregistrement)
+  - nouvelle page historique dediee avec filtres (`manager_pharmacy/outputs`)
+
+### Changed
+- Pharmacie:
+  - tableau des articles aligne par colonnes fixes (`Nom`, `Unite`, `Quantite`, `Seuil`, `Etat`, `Action`)
+  - libelles clarifies (`Stock` -> `Quantite`) et saisie admin en nombres entiers
+  - bloc "Dernieres sorties" limite aux 10 dernieres sorties groupees + lien "Voir tout + filtres"
+  - declarant obligatoire sur le formulaire terrain de sortie stock
+  - menu sidebar: suppression du doublon "Mon compte" (garde uniquement le bouton bas)
+  - activation du menu "Pharmacie" sur toutes les routes `manager_pharmacy/*`
+
+### Fixed
+- Pharmacie:
+  - logique des alertes stock corrigee:
+    - ignore les articles inactifs
+    - ignore les seuils nuls/non renseignes
+    - alerte uniquement si `quantite < seuil`
+  - validation serveur entiers uniquement (admin + terrain) pour eviter les incoherences `0.5`
+  - normalisation de saisie (`15,00` / `15.00`) acceptee si la valeur correspond a un entier
+
 ## [0.14.0] - 2026-04-03
 
 ### Added

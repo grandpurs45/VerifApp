@@ -98,6 +98,7 @@ $managerRoutes = [
     'manager_assets/controle_save',
     'manager_assets/controle_delete',
     'manager_pharmacy/index',
+    'manager_pharmacy/outputs',
     'manager_pharmacy/article_save',
     'manager_roles/index',
     'manager_roles/role_save',
@@ -186,6 +187,7 @@ $managerRoutePermissions = [
     'manager_assets/controle_save' => 'assets.manage',
     'manager_assets/controle_delete' => 'assets.manage',
     'manager_pharmacy/index' => 'pharmacy.manage',
+    'manager_pharmacy/outputs' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
     'manager_roles/index' => 'users.manage',
     'manager_roles/role_save' => 'users.manage',
@@ -455,6 +457,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'index') {
         $controller = new ManagerPharmacyController();
         $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'outputs') {
+        $controller = new ManagerPharmacyController();
+        $controller->outputs();
         return;
     }
 

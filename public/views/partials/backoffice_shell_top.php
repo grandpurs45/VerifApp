@@ -47,12 +47,6 @@ $allModules = [
         'permission' => 'pharmacy.manage',
     ],
     [
-        'label' => 'Mon compte',
-        'route' => '/index.php?controller=manager&action=account',
-        'route_key' => 'manager/account',
-        'permission' => 'dashboard.view',
-    ],
-    [
         'label' => 'Administration',
         'route' => '/index.php?controller=manager_admin&action=menu',
         'route_key' => 'manager_admin/menu',
@@ -116,6 +110,9 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         <?php
                         $active = $currentRoute === $module['route_key'];
                         if (!$active && $module['route_key'] === 'verifications/history' && str_starts_with($currentRoute, 'verifications/')) {
+                            $active = true;
+                        }
+                        if (!$active && $module['route_key'] === 'manager_pharmacy/index' && str_starts_with($currentRoute, 'manager_pharmacy/')) {
                             $active = true;
                         }
                         ?>

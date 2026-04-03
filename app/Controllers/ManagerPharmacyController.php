@@ -17,12 +17,33 @@ final class ManagerPharmacyController
 
         $repository = new PharmacyRepository();
         $articles = $repository->findAllArticles($caserneId);
-        $movements = $repository->findLastMovements($caserneId, 80);
+        $movementGroups = $repository->findLastOutputGroups($caserneId, 10);
         $stats = $repository->getStats($caserneId);
         $isAvailable = $repository->isAvailable();
         $managerUser = $_SESSION['manager_user'] ?? null;
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy.php';
+    }
+
+    public function outputs(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $filters = [
+            'date_from' => isset($_GET['date_from']) ? (string) $_GET['date_from'] : '',
+            'date_to' => isset($_GET['date_to']) ? (string) $_GET['date_to'] : '',
+            'article' => isset($_GET['article']) ? trim((string) $_GET['article']) : '',
+            'declarant' => isset($_GET['declarant']) ? trim((string) $_GET['declarant']) : '',
+        ];
+        $movementGroups = $repository->findOutputGroups($caserneId, $filters, 120);
+        $managerUser = $_SESSION['manager_user'] ?? null;
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
     }
 
     public function articleSave(): void
@@ -34,20 +55,25 @@ final class ManagerPharmacyController
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         $name = trim((string) ($_POST['nom'] ?? ''));
         $unit = trim((string) ($_POST['unite'] ?? 'u'));
-        $stockRaw = trim((string) ($_POST['stock_actuel'] ?? '0'));
-        $alertRaw = trim((string) ($_POST['seuil_alerte'] ?? ''));
+        $stockRaw = str_replace(',', '.', trim((string) ($_POST['stock_actuel'] ?? '0')));
+        $alertRaw = str_replace(',', '.', trim((string) ($_POST['seuil_alerte'] ?? '')));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
 
-        if ($name === '' || $unit === '' || !is_numeric($stockRaw) || (float) $stockRaw < 0) {
+        $stockValue = $this->parseNonNegativeInteger($stockRaw);
+        if ($name === '' || $unit === '' || $stockValue === null) {
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=invalid_article');
         }
 
         $alertThreshold = null;
         if ($alertRaw !== '') {
-            if (!is_numeric($alertRaw) || (float) $alertRaw < 0) {
+            $alertValue = $this->parseNonNegativeInteger($alertRaw);
+            if ($alertValue === null) {
                 $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=invalid_article');
             }
-            $alertThreshold = (float) $alertRaw;
+            $alertThreshold = (float) $alertValue;
+            if ($alertThreshold <= 0) {
+                $alertThreshold = null;
+            }
         }
 
         $repository = new PharmacyRepository();
@@ -60,7 +86,7 @@ final class ManagerPharmacyController
             $id,
             $name,
             $unit,
-            (float) $stockRaw,
+            (float) $stockValue,
             $alertThreshold,
             $active
         );
@@ -83,5 +109,28 @@ final class ManagerPharmacyController
         $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
 
         return $caserneId > 0 ? $caserneId : null;
+    }
+
+    private function parseNonNegativeInteger(string $raw): ?int
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', trim($raw));
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        $value = (float) $normalized;
+        if ($value < 0) {
+            return null;
+        }
+
+        if (abs($value - round($value)) > 0.00001) {
+            return null;
+        }
+
+        return (int) round($value);
     }
 }
