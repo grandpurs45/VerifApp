@@ -10,14 +10,14 @@ final class ManagerAccess
 {
     public static function hasPermission(string $roleCode, string $permissionCode): bool
     {
-        $roleCode = trim($roleCode);
+        $roleCode = self::normalizeRoleCode($roleCode);
         $permissionCode = trim($permissionCode);
 
         if ($roleCode === '' || $permissionCode === '') {
             return false;
         }
 
-        if ($roleCode === 'admin') {
+        if (in_array($roleCode, ['admin', 'administrateur'], true)) {
             return true;
         }
 
@@ -28,11 +28,46 @@ final class ManagerAccess
         $repository = new RoleRepository();
 
         if (!$repository->isAvailable()) {
-            return in_array($roleCode, ['admin', 'responsable_materiel'], true);
+            return self::hasLegacyPermission($roleCode, $permissionCode);
         }
 
         $permissions = $repository->findPermissionCodesByRoleCode($roleCode);
+        if ($permissions === []) {
+            return self::hasLegacyPermission($roleCode, $permissionCode);
+        }
 
         return in_array($permissionCode, $permissions, true);
+    }
+
+    private static function normalizeRoleCode(string $roleCode): string
+    {
+        return strtolower(trim($roleCode));
+    }
+
+    private static function hasLegacyPermission(string $roleCode, string $permissionCode): bool
+    {
+        $legacyMap = [
+            'responsable_materiel' => [
+                'dashboard.view',
+                'verifications.history',
+                'anomalies.manage',
+                'assets.manage',
+                'pharmacy.manage',
+                'users.manage',
+            ],
+            'resp_pharma' => [
+                'dashboard.view',
+                'pharmacy.manage',
+            ],
+            'responsable_pharmacie' => [
+                'dashboard.view',
+                'pharmacy.manage',
+            ],
+            'verificateur' => [
+                'dashboard.view',
+            ],
+        ];
+
+        return in_array($permissionCode, $legacyMap[$roleCode] ?? [], true);
     }
 }

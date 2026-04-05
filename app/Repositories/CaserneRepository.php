@@ -165,6 +165,13 @@ final class CaserneRepository
         ]);
     }
 
+    public function findLastInsertId(): int
+    {
+        $connection = Database::getConnection();
+
+        return (int) $connection->lastInsertId();
+    }
+
     public function countActive(): int
     {
         if (!$this->hasCasernesTable()) {

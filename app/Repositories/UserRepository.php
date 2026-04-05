@@ -364,6 +364,53 @@ final class UserRepository
         return (int) $connection->lastInsertId();
     }
 
+    public function attachCaserneToAdmins(int $caserneId): bool
+    {
+        if (!$this->hasMembershipTable() || !$this->hasTable() || $caserneId <= 0) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $connection->beginTransaction();
+
+            $insert = $connection->prepare('
+                INSERT IGNORE INTO utilisateur_casernes (utilisateur_id, caserne_id, is_default)
+                SELECT u.id, :caserne_id, 0
+                FROM utilisateurs u
+                WHERE u.role = :role_admin
+            ');
+            $insert->execute([
+                'caserne_id' => $caserneId,
+                'role_admin' => 'admin',
+            ]);
+
+            $defaultFix = $connection->prepare('
+                UPDATE utilisateur_casernes uc
+                INNER JOIN (
+                    SELECT utilisateur_id, MIN(caserne_id) AS first_caserne_id
+                    FROM utilisateur_casernes
+                    GROUP BY utilisateur_id
+                ) first_link ON first_link.utilisateur_id = uc.utilisateur_id
+                SET uc.is_default = CASE WHEN uc.caserne_id = first_link.first_caserne_id THEN 1 ELSE 0 END
+                WHERE uc.utilisateur_id IN (
+                    SELECT id FROM utilisateurs WHERE role = :role_admin
+                )
+            ');
+            $defaultFix->execute(['role_admin' => 'admin']);
+
+            $connection->commit();
+            return true;
+        } catch (\Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+
+            return false;
+        }
+    }
+
     private function hasTable(): bool
     {
         if ($this->tableExists !== null) {

@@ -56,6 +56,19 @@ final class ManagerUserController
         $caserneIds = is_array($_POST['caserne_ids'] ?? null) ? array_map('intval', $_POST['caserne_ids']) : [];
         $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
         $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        $normalizedRole = strtolower($role);
+
+        $caserneRepository = new CaserneRepository();
+        $allActiveCaserneIds = array_values(array_map(
+            static fn (array $caserne): int => (int) ($caserne['id'] ?? 0),
+            $caserneRepository->findAllActive()
+        ));
+        $allActiveCaserneIds = array_values(array_filter($allActiveCaserneIds, static fn (int $id): bool => $id > 0));
+
+        if ($normalizedRole === 'admin' || $normalizedRole === 'administrateur') {
+            $caserneIds = $allActiveCaserneIds;
+        }
+
         if ($id > 0 && $id === $currentUserId && $currentCaserneId > 0 && !in_array($currentCaserneId, $caserneIds, true)) {
             $caserneIds[] = $currentCaserneId;
         }

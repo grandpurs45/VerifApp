@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\UserRepository;
 use Throwable;
 
 final class ManagerAdminController
@@ -123,6 +124,12 @@ final class ManagerAdminController
             $ok = $repository->create($nom, $code, $active);
             if (!$ok) {
                 $this->redirect('/index.php?controller=manager_admin&action=settings&error=caserne_save_failed');
+            }
+
+            $newCaserneId = $repository->findLastInsertId();
+            if ($newCaserneId > 0) {
+                $userRepository = new UserRepository();
+                $userRepository->attachCaserneToAdmins($newCaserneId);
             }
 
             $this->redirect('/index.php?controller=manager_admin&action=settings&success=caserne_created');
