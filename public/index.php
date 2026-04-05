@@ -105,7 +105,10 @@ $managerRoutes = [
     'manager_roles/role_delete',
     'manager_roles/permissions_save',
     'manager_users/index',
+    'manager_users/show',
     'manager_users/save',
+    'manager_users/bulk_status',
+    'manager_users/bulk_password',
     'manager_users/delete',
 ];
 
@@ -194,7 +197,10 @@ $managerRoutePermissions = [
     'manager_roles/role_delete' => 'users.manage',
     'manager_roles/permissions_save' => 'users.manage',
     'manager_users/index' => 'users.manage',
+    'manager_users/show' => 'users.manage',
     'manager_users/save' => 'users.manage',
+    'manager_users/bulk_status' => 'users.manage',
+    'manager_users/bulk_password' => 'users.manage',
     'manager_users/delete' => 'users.manage',
 ];
 
@@ -502,9 +508,27 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_users' && $action === 'show' && isset($_GET['id'])) {
+        $controller = new ManagerUserController();
+        $controller->show((int) $_GET['id']);
+        return;
+    }
+
     if ($controllerName === 'manager_users' && $action === 'save') {
         $controller = new ManagerUserController();
         $controller->save();
+        return;
+    }
+
+    if ($controllerName === 'manager_users' && $action === 'bulk_status') {
+        $controller = new ManagerUserController();
+        $controller->bulkStatus();
+        return;
+    }
+
+    if ($controllerName === 'manager_users' && $action === 'bulk_password') {
+        $controller = new ManagerUserController();
+        $controller->bulkPassword();
         return;
     }
 

@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.14.1` (voir fichier `VERSION`).
+Version courante: `v0.15.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -161,7 +161,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 0.14.0`
+  - `./scripts/release.ps1 -Version 0.15.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 

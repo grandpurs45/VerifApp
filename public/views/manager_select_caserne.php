@@ -40,7 +40,7 @@ if ($error === 'missing_caserne') {
                     <select id="caserne_id" name="caserne_id" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                         <option value="">Selectionner...</option>
                         <?php foreach ($casernes as $caserne): ?>
-                            <option value="<?= (int) ($caserne['id'] ?? 0) ?>">
+                            <option value="<?= (int) ($caserne['id'] ?? 0) ?>" <?= (int) ($caserne['is_default'] ?? 0) === 1 ? 'selected' : '' ?>>
                                 <?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>

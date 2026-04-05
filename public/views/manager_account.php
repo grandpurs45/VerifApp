@@ -11,6 +11,7 @@ $pageBackLabel = '';
 $userName = is_array($managerUser) ? (string) ($managerUser['nom'] ?? '') : '';
 $userEmail = is_array($managerUser) ? (string) ($managerUser['email'] ?? '') : '';
 $userRole = is_array($managerUser) ? (string) ($managerUser['role'] ?? '') : '';
+$currentCaserneId = is_array($managerUser) ? (int) ($managerUser['caserne_id'] ?? 0) : 0;
 $startEditing = $error !== '';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
@@ -33,6 +34,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Impossible de mettre a jour le profil.
+    </section>
+<?php elseif ($error === 'default_caserne_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Caserne par defaut invalide.
     </section>
 <?php elseif ($error === 'password'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -79,6 +84,28 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <p class="text-sm text-slate-500">Role</p>
                 <p class="text-sm font-semibold text-slate-900"><?= htmlspecialchars($userRole !== '' ? $userRole : '-', ENT_QUOTES, 'UTF-8') ?></p>
             </div>
+            <?php if (isset($caserneOptions) && is_array($caserneOptions) && $caserneOptions !== []): ?>
+                <div>
+                    <label for="default_caserne_id" class="text-sm font-medium text-slate-700">Caserne prioritaire</label>
+                    <select
+                        id="default_caserne_id"
+                        name="default_caserne_id"
+                        class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm bg-slate-50"
+                        disabled
+                        data-account-field-select
+                    >
+                        <?php foreach ($caserneOptions as $caserne): ?>
+                            <?php
+                            $caserneId = (int) ($caserne['id'] ?? 0);
+                            $isDefault = (int) ($caserne['is_default'] ?? 0) === 1 || $currentCaserneId === $caserneId;
+                            ?>
+                            <option value="<?= $caserneId ?>" <?= $isDefault ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
             <div class="hidden items-center gap-2" id="account-actions">
                 <button type="submit" class="inline-flex rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold">
                     Enregistrer le profil
@@ -108,6 +135,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         const cancelButton = document.getElementById('account-cancel-btn');
         const actions = document.getElementById('account-actions');
         const fields = Array.from(document.querySelectorAll('[data-account-field]'));
+        const selectFields = Array.from(document.querySelectorAll('[data-account-field-select]'));
         if (!form || !editButton || !actions || fields.length === 0) {
             return;
         }
@@ -120,6 +148,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         function setEditing(editing) {
             fields.forEach((field) => {
                 field.readOnly = !editing;
+                field.classList.toggle('bg-slate-50', !editing);
+                field.classList.toggle('bg-white', editing);
+            });
+            selectFields.forEach((field) => {
+                field.disabled = !editing;
                 field.classList.toggle('bg-slate-50', !editing);
                 field.classList.toggle('bg-white', editing);
             });

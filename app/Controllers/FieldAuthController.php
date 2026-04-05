@@ -38,7 +38,6 @@ final class FieldAuthController
         if (
             $user === null ||
             (int) $user['actif'] !== 1 ||
-            !in_array((string) $user['role'], ['verificateur', 'admin'], true) ||
             !password_verify($password, (string) $user['mot_de_passe'])
         ) {
             $this->redirect('/index.php?controller=field_auth&action=login_form&error=invalid_credentials');
@@ -48,6 +47,7 @@ final class FieldAuthController
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=password_change_required');
         }
 
+        $resolvedRole = (string) $user['role'];
         $caserneId = isset($_SESSION['field_caserne_id']) ? (int) $_SESSION['field_caserne_id'] : 0;
         if ($caserneId > 0) {
             $caserneRepository = new CaserneRepository();
@@ -55,13 +55,21 @@ final class FieldAuthController
             if ($membership === null) {
                 $this->redirect('/index.php?controller=field_auth&action=login_form&error=caserne_forbidden');
             }
+            $memberRole = trim((string) ($membership['role_code'] ?? ''));
+            if ($memberRole !== '') {
+                $resolvedRole = $memberRole;
+            }
+        }
+
+        if (!in_array($resolvedRole, ['verificateur', 'admin'], true)) {
+            $this->redirect('/index.php?controller=field_auth&action=login_form&error=invalid_credentials');
         }
 
         $_SESSION['field_user'] = [
             'id' => (int) $user['id'],
             'nom' => (string) $user['nom'],
             'email' => (string) $user['email'],
-            'role' => (string) $user['role'],
+            'role' => $resolvedRole,
         ];
 
         $this->redirect('/index.php?controller=home&action=index');

@@ -9,6 +9,46 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.15.0] - 2026-04-05
+
+### Added
+- Utilisateurs:
+  - nouvelle page dediee `Fiche utilisateur` (`manager_users/show`) pour l edition complete d un compte
+  - actions groupees sur la liste des comptes:
+    - activation en masse
+    - desactivation en masse
+    - changement de mot de passe en masse via modal
+  - recherche rapide `nom / email` sur la liste comptes
+  - confirmation forte de suppression definitive (modal + saisie `SUPPRIMER`)
+- Multi-caserne / roles:
+  - role local par caserne stocke dans `utilisateur_casernes.role_code`
+  - support du role effectif par caserne en session manager et acces terrain
+  - gestion de caserne prioritaire utilisateur (selection par defaut a la connexion)
+- Base de donnees:
+  - migration `023_add_role_to_user_caserne_membership.sql`
+
+### Changed
+- Gestion des comptes:
+  - separation explicite entre:
+    - role plateforme
+    - role local par caserne
+  - compte `admin` plateforme verrouille en edition (role systeme)
+  - suppression utilisateur rendue definitive (au lieu de simple desactivation)
+- Navigation utilisateurs:
+  - la liste reste compacte; la fiche d edition n est plus affichee sous le tableau
+  - ouverture fiche via clic ligne ou bouton `Ouvrir fiche`
+- Securite perimetre caserne:
+  - un administrateur de caserne ne voit et ne gere que les comptes de sa caserne active
+  - les comptes admin plateforme sont masques pour les admins caserne
+  - creation/edition limitees a la caserne active pour les admins caserne
+
+### Fixed
+- Suppression compte:
+  - gestion robuste des references historiques (`verifications.utilisateur_id`, `anomalies.assigne_a`)
+    pour eviter les erreurs de contrainte selon les schemas
+- Auth multi-caserne:
+  - coherences de role/session renforcees entre connexion, selection caserne et controles d acces
+
 ## [0.14.1] - 2026-04-03
 
 ### Added

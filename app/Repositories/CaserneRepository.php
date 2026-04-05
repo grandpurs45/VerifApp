@@ -12,6 +12,7 @@ final class CaserneRepository
 {
     private ?bool $casernesTableExists = null;
     private ?bool $membershipTableExists = null;
+    private ?bool $membershipRoleColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -77,13 +78,15 @@ final class CaserneRepository
         }
 
         $connection = Database::getConnection();
+        $selectRole = $this->hasMembershipRoleColumn() ? 'uc.role_code' : 'NULL AS role_code';
         $statement = $connection->prepare('
             SELECT
                 c.id,
                 c.nom,
                 c.code,
                 c.actif,
-                uc.is_default
+                uc.is_default,
+                ' . $selectRole . '
             FROM utilisateur_casernes uc
             INNER JOIN casernes c ON c.id = uc.caserne_id
             WHERE uc.utilisateur_id = :utilisateur_id
@@ -102,13 +105,15 @@ final class CaserneRepository
         }
 
         $connection = Database::getConnection();
+        $selectRole = $this->hasMembershipRoleColumn() ? 'uc.role_code' : 'NULL AS role_code';
         $statement = $connection->prepare('
             SELECT
                 c.id,
                 c.nom,
                 c.code,
                 c.actif,
-                uc.is_default
+                uc.is_default,
+                ' . $selectRole . '
             FROM utilisateur_casernes uc
             INNER JOIN casernes c ON c.id = uc.caserne_id
             WHERE uc.utilisateur_id = :utilisateur_id
@@ -219,5 +224,28 @@ final class CaserneRepository
         }
 
         return $this->membershipTableExists;
+    }
+
+    private function hasMembershipRoleColumn(): bool
+    {
+        if ($this->membershipRoleColumnExists !== null) {
+            return $this->membershipRoleColumnExists;
+        }
+
+        if (!$this->hasMembershipTable()) {
+            $this->membershipRoleColumnExists = false;
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM utilisateur_casernes LIKE 'role_code'");
+            $this->membershipRoleColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->membershipRoleColumnExists = false;
+        }
+
+        return $this->membershipRoleColumnExists;
     }
 }

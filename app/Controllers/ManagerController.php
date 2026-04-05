@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\AnomalyRepository;
+use App\Repositories\CaserneRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VerificationRepository;
 
@@ -45,6 +46,11 @@ final class ManagerController
     public function account(): void
     {
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $caserneOptions = [];
+        if (is_array($managerUser) && isset($managerUser['id'])) {
+            $caserneRepository = new CaserneRepository();
+            $caserneOptions = $caserneRepository->findByUserId((int) $managerUser['id']);
+        }
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $updated = isset($_GET['updated']) ? (string) $_GET['updated'] : '';
         require dirname(__DIR__, 2) . '/public/views/manager_account.php';
@@ -63,6 +69,7 @@ final class ManagerController
 
         $name = trim((string) ($_POST['nom'] ?? ''));
         $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $defaultCaserneId = isset($_POST['default_caserne_id']) ? (int) $_POST['default_caserne_id'] : 0;
 
         if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->redirect('/index.php?controller=manager&action=account&error=invalid_profile');
@@ -91,11 +98,30 @@ final class ManagerController
             $this->redirect('/index.php?controller=manager&action=account&error=save_failed');
         }
 
+        if ($defaultCaserneId > 0) {
+            if (!$userRepository->setDefaultCaserneForUser($managerUserId, $defaultCaserneId)) {
+                $this->redirect('/index.php?controller=manager&action=account&error=default_caserne_invalid');
+            }
+
+            $caserneRepository = new CaserneRepository();
+            $defaultCaserne = $caserneRepository->findByIdForUser($defaultCaserneId, $managerUserId);
+            if ($defaultCaserne !== null) {
+                $_SESSION['manager_user']['caserne_id'] = (int) ($defaultCaserne['id'] ?? 0);
+                $_SESSION['manager_user']['caserne_nom'] = (string) ($defaultCaserne['nom'] ?? '');
+                $roleCode = trim((string) ($defaultCaserne['role_code'] ?? ''));
+                if ($roleCode !== '') {
+                    $_SESSION['manager_user']['role'] = $roleCode;
+                }
+            }
+        }
+
         $_SESSION['manager_user'] = [
             'id' => $managerUserId,
             'nom' => $name,
             'email' => $email,
-            'role' => (string) $currentUser['role'],
+            'role' => (string) ($_SESSION['manager_user']['role'] ?? $currentUser['role']),
+            'global_role' => (string) ($_SESSION['manager_user']['global_role'] ?? $currentUser['role']),
+            'is_platform_admin' => (int) ($_SESSION['manager_user']['is_platform_admin'] ?? (strtolower((string) $currentUser['role']) === 'admin' ? 1 : 0)),
             'caserne_id' => isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0,
             'caserne_nom' => isset($_SESSION['manager_user']['caserne_nom']) ? (string) $_SESSION['manager_user']['caserne_nom'] : '',
         ];

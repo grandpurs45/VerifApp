@@ -45,7 +45,6 @@ final class AuthController
         if (
             $user === null ||
             (int) $user['actif'] !== 1 ||
-            !ManagerAccess::hasPermission((string) $user['role'], 'dashboard.view') ||
             !password_verify($password, (string) $user['mot_de_passe'])
         ) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
@@ -172,12 +171,13 @@ final class AuthController
             $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form&error=invalid_caserne');
         }
 
-        $this->createAuthenticatedSession([
+        $sessionUser = [
             'id' => (int) $pending['user_id'],
             'nom' => (string) ($pending['nom'] ?? ''),
             'email' => (string) ($pending['email'] ?? ''),
             'role' => (string) ($pending['role'] ?? ''),
-        ], $selectedCaserne);
+        ];
+        $this->createAuthenticatedSession($sessionUser, $selectedCaserne);
 
         $afterPasswordChange = ((int) ($pending['after_password_change'] ?? 0) === 1);
         unset($_SESSION['manager_caserne_pending']);
@@ -207,8 +207,14 @@ final class AuthController
             $this->redirect('/index.php?controller=manager&action=dashboard');
         }
 
+        $resolvedRole = $this->resolveRoleForCaserne($managerUser, $caserne);
+        if (!ManagerAccess::hasPermission($resolvedRole, 'dashboard.view')) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
         $_SESSION['manager_user']['caserne_id'] = (int) $caserne['id'];
         $_SESSION['manager_user']['caserne_nom'] = (string) $caserne['nom'];
+        $_SESSION['manager_user']['role'] = $resolvedRole;
         $_SESSION['manager_last_activity'] = time();
 
         $this->redirect('/index.php?controller=manager&action=dashboard');
@@ -240,8 +246,21 @@ final class AuthController
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=no_caserne');
         }
 
-        if (count($casernes) === 1) {
-            $this->createAuthenticatedSession($user, $casernes[0]);
+        $accessibleCasernes = [];
+        foreach ($casernes as $caserne) {
+            $resolvedRole = $this->resolveRoleForCaserne($user, $caserne);
+            if (ManagerAccess::hasPermission($resolvedRole, 'dashboard.view')) {
+                $caserne['resolved_role'] = $resolvedRole;
+                $accessibleCasernes[] = $caserne;
+            }
+        }
+
+        if ($accessibleCasernes === []) {
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
+        }
+
+        if (count($accessibleCasernes) === 1) {
+            $this->createAuthenticatedSession($user, $accessibleCasernes[0]);
             $this->redirect('/index.php?controller=manager&action=dashboard' . ($afterPasswordChange ? '&password_changed=1' : ''));
         }
 
@@ -250,7 +269,7 @@ final class AuthController
             'nom' => (string) $user['nom'],
             'email' => (string) $user['email'],
             'role' => (string) $user['role'],
-            'casernes' => $casernes,
+            'casernes' => $accessibleCasernes,
             'after_password_change' => $afterPasswordChange ? 1 : 0,
         ];
 
@@ -259,16 +278,27 @@ final class AuthController
 
     private function createAuthenticatedSession(array $user, array $caserne): void
     {
+        $resolvedRole = $this->resolveRoleForCaserne($user, $caserne);
+        $globalRole = trim((string) ($user['role'] ?? ''));
+        $isPlatformAdmin = strtolower($globalRole) === 'admin' || (int) ($user['id'] ?? 0) === 1;
         $_SESSION['manager_user'] = [
             'id' => (int) ($user['id'] ?? 0),
             'nom' => (string) ($user['nom'] ?? ''),
             'email' => (string) ($user['email'] ?? ''),
-            'role' => (string) ($user['role'] ?? ''),
+            'role' => $resolvedRole,
+            'global_role' => $globalRole,
+            'is_platform_admin' => $isPlatformAdmin ? 1 : 0,
             'caserne_id' => (int) ($caserne['id'] ?? 0),
             'caserne_nom' => (string) ($caserne['nom'] ?? ''),
         ];
         $_SESSION['manager_last_activity'] = time();
         unset($_SESSION['manager_password_reset_user']);
         unset($_SESSION['manager_caserne_pending']);
+    }
+
+    private function resolveRoleForCaserne(array $user, array $caserne): string
+    {
+        $role = trim((string) ($caserne['resolved_role'] ?? $caserne['role_code'] ?? $user['role'] ?? ''));
+        return $role;
     }
 }
