@@ -9,6 +9,24 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.15.1] - 2026-04-05
+
+### Changed
+- Compte / securite:
+  - changement du mot de passe depuis `Mon compte` via modal (plus ergonomique)
+  - flux connecte: l ecran dedie `change_password_form` redirige vers `Mon compte`
+  - gestion des erreurs/succes de changement de mot de passe integree a `Mon compte`
+- Navigation caserne:
+  - selecteur de caserne masque quand une seule caserne est accessible
+  - affichage sidebar simplifie en mode mono-caserne
+
+### Fixed
+- Modal mot de passe:
+  - les messages d erreur sont maintenant visibles directement dans la modal
+- Isolation caserne:
+  - un admin caserne ne voit plus les comptes `admin` plateforme
+  - controle d acces renforce sur la fiche utilisateur `manager_users/show`
+
 ## [0.15.0] - 2026-04-05
 
 ### Added

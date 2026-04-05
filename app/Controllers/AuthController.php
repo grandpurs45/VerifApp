@@ -75,6 +75,9 @@ final class AuthController
         if (!$isForcedChange && !$this->isAuthenticated()) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form');
         }
+        if (!$isForcedChange && $this->isAuthenticated()) {
+            $this->redirect('/index.php?controller=manager&action=account');
+        }
 
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
@@ -88,6 +91,7 @@ final class AuthController
         }
 
         $pendingUserId = (int) ($_SESSION['manager_password_reset_user']['id'] ?? 0);
+        $isForcedChange = $pendingUserId > 0;
         $managerUserId = (int) ($_SESSION['manager_user']['id'] ?? 0);
         $targetUserId = $pendingUserId > 0 ? $pendingUserId : $managerUserId;
         if ($targetUserId <= 0) {
@@ -99,22 +103,38 @@ final class AuthController
         $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
 
         if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
-            $this->redirect('/index.php?controller=manager_auth&action=change_password_form&error=missing_fields');
+            $this->redirect(
+                $isForcedChange
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=missing_fields'
+                    : '/index.php?controller=manager&action=account&password_error=missing_fields'
+            );
         }
 
         if (strlen($newPassword) < 8) {
-            $this->redirect('/index.php?controller=manager_auth&action=change_password_form&error=password_too_short');
+            $this->redirect(
+                $isForcedChange
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=password_too_short'
+                    : '/index.php?controller=manager&action=account&password_error=password_too_short'
+            );
         }
 
         if ($newPassword !== $confirmPassword) {
-            $this->redirect('/index.php?controller=manager_auth&action=change_password_form&error=password_mismatch');
+            $this->redirect(
+                $isForcedChange
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=password_mismatch'
+                    : '/index.php?controller=manager&action=account&password_error=password_mismatch'
+            );
         }
 
         $userRepository = new UserRepository();
         $user = $userRepository->findById($targetUserId);
 
         if ($user === null || !password_verify($currentPassword, (string) $user['mot_de_passe'])) {
-            $this->redirect('/index.php?controller=manager_auth&action=change_password_form&error=invalid_current_password');
+            $this->redirect(
+                $isForcedChange
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=invalid_current_password'
+                    : '/index.php?controller=manager&action=account&password_error=invalid_current_password'
+            );
         }
 
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);

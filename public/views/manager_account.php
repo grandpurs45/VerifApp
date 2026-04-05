@@ -13,6 +13,8 @@ $userEmail = is_array($managerUser) ? (string) ($managerUser['email'] ?? '') : '
 $userRole = is_array($managerUser) ? (string) ($managerUser['role'] ?? '') : '';
 $currentCaserneId = is_array($managerUser) ? (int) ($managerUser['caserne_id'] ?? 0) : 0;
 $startEditing = $error !== '';
+$passwordError = isset($passwordError) ? (string) $passwordError : '';
+$passwordChanged = isset($passwordChanged) ? (string) $passwordChanged : '';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
@@ -20,6 +22,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php if ($updated === '1'): ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Profil mis a jour.
+    </section>
+<?php endif; ?>
+<?php if ($passwordChanged === '1'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Mot de passe modifie.
     </section>
 <?php endif; ?>
 
@@ -42,6 +49,24 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'password'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Impossible de modifier le mot de passe.
+    </section>
+<?php endif; ?>
+
+<?php if ($passwordError === 'missing_fields'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Tous les champs mot de passe sont obligatoires.
+    </section>
+<?php elseif ($passwordError === 'password_too_short'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Le nouveau mot de passe doit contenir au moins 8 caracteres.
+    </section>
+<?php elseif ($passwordError === 'password_mismatch'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        La confirmation ne correspond pas au nouveau mot de passe.
+    </section>
+<?php elseif ($passwordError === 'invalid_current_password'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Mot de passe actuel invalide.
     </section>
 <?php endif; ?>
 
@@ -84,7 +109,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <p class="text-sm text-slate-500">Role</p>
                 <p class="text-sm font-semibold text-slate-900"><?= htmlspecialchars($userRole !== '' ? $userRole : '-', ENT_QUOTES, 'UTF-8') ?></p>
             </div>
-            <?php if (isset($caserneOptions) && is_array($caserneOptions) && $caserneOptions !== []): ?>
+            <?php if (isset($caserneOptions) && is_array($caserneOptions) && count($caserneOptions) > 1): ?>
                 <div>
                     <label for="default_caserne_id" class="text-sm font-medium text-slate-700">Caserne prioritaire</label>
                     <select
@@ -105,6 +130,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+            <?php elseif (isset($caserneOptions) && is_array($caserneOptions) && count($caserneOptions) === 1): ?>
+                <div>
+                    <p class="text-sm text-slate-500">Caserne</p>
+                    <p class="text-sm font-semibold text-slate-900"><?= htmlspecialchars((string) ($caserneOptions[0]['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                    <input type="hidden" name="default_caserne_id" value="<?= (int) ($caserneOptions[0]['id'] ?? 0) ?>">
+                </div>
             <?php endif; ?>
             <div class="hidden items-center gap-2" id="account-actions">
                 <button type="submit" class="inline-flex rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold">
@@ -121,12 +152,58 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <h2 class="text-lg font-bold">Securite</h2>
         <p class="text-sm text-slate-600 mt-2">Mets a jour ton mot de passe regulierement pour securiser ton acces.</p>
         <div class="mt-4">
-            <a href="/index.php?controller=manager_auth&action=change_password_form" class="inline-flex rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold">
+            <button type="button" id="open-password-modal-btn" class="inline-flex rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold">
                 Changer mon mot de passe
-            </a>
+            </button>
         </div>
     </article>
 </section>
+
+<div id="account-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4">
+    <div class="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl">
+        <h3 class="text-xl font-bold text-slate-900">Changer le mot de passe</h3>
+        <p class="mt-1 text-sm text-slate-600">Saisie securisee du mot de passe.</p>
+        <?php if ($passwordError === 'missing_fields'): ?>
+            <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
+                Tous les champs mot de passe sont obligatoires.
+            </section>
+        <?php elseif ($passwordError === 'password_too_short'): ?>
+            <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
+                Le nouveau mot de passe doit contenir au moins 8 caracteres.
+            </section>
+        <?php elseif ($passwordError === 'password_mismatch'): ?>
+            <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
+                La confirmation ne correspond pas au nouveau mot de passe.
+            </section>
+        <?php elseif ($passwordError === 'invalid_current_password'): ?>
+            <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
+                Mot de passe actuel invalide.
+            </section>
+        <?php endif; ?>
+        <form method="post" action="/index.php?controller=manager_auth&action=change_password" class="mt-4 space-y-3">
+            <div>
+                <label for="modal_current_password" class="text-sm font-medium text-slate-700">Mot de passe actuel</label>
+                <input id="modal_current_password" name="current_password" type="password" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+            </div>
+            <div>
+                <label for="modal_new_password" class="text-sm font-medium text-slate-700">Nouveau mot de passe</label>
+                <input id="modal_new_password" name="new_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+            </div>
+            <div>
+                <label for="modal_confirm_password" class="text-sm font-medium text-slate-700">Confirmation</label>
+                <input id="modal_confirm_password" name="confirm_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+            </div>
+            <div class="flex items-center justify-end gap-2">
+                <button type="button" id="close-password-modal-btn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+                    Annuler
+                </button>
+                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
+                    Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
     (function () {
@@ -175,6 +252,32 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         }
 
         setEditing(form.dataset.startEditing === '1');
+
+        const openPasswordModalBtn = document.getElementById('open-password-modal-btn');
+        const closePasswordModalBtn = document.getElementById('close-password-modal-btn');
+        const passwordModal = document.getElementById('account-password-modal');
+        const modalCurrentPassword = document.getElementById('modal_current_password');
+        const shouldOpenPasswordModal = <?= ($passwordError !== '' ? 'true' : 'false') ?>;
+
+        if (openPasswordModalBtn && closePasswordModalBtn && passwordModal) {
+            const openPasswordModal = function () {
+                passwordModal.classList.remove('hidden');
+                passwordModal.classList.add('flex');
+                if (modalCurrentPassword) {
+                    modalCurrentPassword.focus();
+                }
+            };
+            const closePasswordModal = function () {
+                passwordModal.classList.add('hidden');
+                passwordModal.classList.remove('flex');
+            };
+
+            openPasswordModalBtn.addEventListener('click', openPasswordModal);
+            closePasswordModalBtn.addEventListener('click', closePasswordModal);
+            if (shouldOpenPasswordModal) {
+                openPasswordModal();
+            }
+        }
     })();
 </script>
 

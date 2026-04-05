@@ -53,6 +53,8 @@ final class ManagerController
         }
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $updated = isset($_GET['updated']) ? (string) $_GET['updated'] : '';
+        $passwordError = isset($_GET['password_error']) ? (string) $_GET['password_error'] : '';
+        $passwordChanged = isset($_GET['password_changed']) ? (string) $_GET['password_changed'] : '';
         require dirname(__DIR__, 2) . '/public/views/manager_account.php';
     }
 

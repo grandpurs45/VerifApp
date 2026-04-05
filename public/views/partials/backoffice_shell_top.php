@@ -90,7 +90,7 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         <?= htmlspecialchars($managerCaserneNom, ENT_QUOTES, 'UTF-8') ?>
                     </p>
                 <?php endif; ?>
-                <?php if (count($caserneOptions) > 0): ?>
+                <?php if (count($caserneOptions) > 1): ?>
                     <form method="post" action="/index.php?controller=manager_auth&action=switch_caserne" class="mt-3">
                         <select name="caserne_id" onchange="this.form.submit()" class="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-2 text-xs text-white">
                             <?php foreach ($caserneOptions as $caserne): ?>
