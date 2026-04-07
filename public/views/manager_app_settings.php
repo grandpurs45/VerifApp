@@ -42,6 +42,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Reglage matin/soir enregistre pour cette caserne.
     </section>
+<?php elseif ($success === 'terrain_ux_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Reglages UX mobile terrain enregistres pour cette caserne.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -65,6 +69,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'timing_save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement du reglage matin/soir impossible.
+    </section>
+<?php elseif ($error === 'terrain_ux_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Parametres UX invalides (densite ou duree brouillon).
+    </section>
+<?php elseif ($error === 'terrain_ux_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement des parametres UX mobile impossible.
     </section>
 <?php endif; ?>
 
@@ -102,6 +114,65 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </div>
         <div class="md:col-span-2">
             <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Enregistrer</button>
+        </div>
+    </form>
+</section>
+
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">UX mobile terrain V2</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Reglages de saisie mobile rapides, lisibles et adaptes a cette caserne.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=terrain_ux_save" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+            <label for="terrain_mobile_density" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Densite d affichage mobile</label>
+            <select id="terrain_mobile_density" name="terrain_mobile_density" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <option value="normal" <?= $terrainMobileDensity === 'normal' ? 'selected' : '' ?>>Normal (lisible)</option>
+                <option value="compact" <?= $terrainMobileDensity === 'compact' ? 'selected' : '' ?>>Compact (plus dense)</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="terrain_draft_ttl_hours" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Conservation brouillon (heures)</label>
+            <input
+                id="terrain_draft_ttl_hours"
+                type="number"
+                min="1"
+                max="48"
+                name="terrain_draft_ttl_hours"
+                value="<?= htmlspecialchars((string) $terrainDraftTtlHours, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+            <p class="mt-1 text-xs text-slate-500">Reprise autorisee uniquement sur le meme creneau (matin/soir) de la journee.</p>
+        </div>
+
+        <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+            <input type="checkbox" name="terrain_sticky_progress_enabled" value="1" <?= $terrainStickyProgressEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+            <span>
+                <span class="block text-sm font-semibold text-slate-800">Barre de progression fixe</span>
+                <span class="block text-xs text-slate-500">Affiche la progression en permanence pendant le scroll.</span>
+            </span>
+        </label>
+
+        <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+            <input type="checkbox" name="terrain_draft_enabled" value="1" <?= $terrainDraftEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+            <span>
+                <span class="block text-sm font-semibold text-slate-800">Brouillon automatique</span>
+                <span class="block text-xs text-slate-500">Sauvegarde locale auto et reprise apres interruption.</span>
+            </span>
+        </label>
+
+        <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3 md:col-span-2">
+            <input type="checkbox" name="terrain_scroll_missing_enabled" value="1" <?= $terrainScrollMissingEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+            <span>
+                <span class="block text-sm font-semibold text-slate-800">Aide champs manquants</span>
+                <span class="block text-xs text-slate-500">Au submit, scroll automatique vers le premier controle incomplet + surlignage clair.</span>
+            </span>
+        </label>
+
+        <div class="md:col-span-2">
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Enregistrer UX terrain</button>
         </div>
     </form>
 </section>

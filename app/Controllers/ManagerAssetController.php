@@ -555,6 +555,9 @@ final class ManagerAssetController
             $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
             $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, '', 'zone_created'));
         } catch (Throwable $throwable) {
+            if ($this->isConstraintViolation($throwable)) {
+                $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, 'zone_duplicate'));
+            }
             $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, 'zone_save_failed'));
         }
     }
@@ -674,6 +677,7 @@ final class ManagerAssetController
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
         $inputType = strtolower(trim((string) ($_POST['type_saisie'] ?? 'statut')));
         $unitRaw = trim((string) ($_POST['unite'] ?? ''));
+        $expectedValueRaw = trim((string) ($_POST['valeur_attendue'] ?? ''));
         $minThresholdRaw = trim((string) ($_POST['seuil_min'] ?? ''));
         $maxThresholdRaw = trim((string) ($_POST['seuil_max'] ?? ''));
 
@@ -682,7 +686,7 @@ final class ManagerAssetController
             $inputType = 'statut';
         }
 
-        $expectedValue = null;
+        $expectedValue = $this->parseIntegerOrNull($expectedValueRaw);
         $minThreshold = $this->parseIntegerOrNull($minThresholdRaw);
         $maxThreshold = $this->parseIntegerOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
@@ -694,6 +698,7 @@ final class ManagerAssetController
 
         if (($minThresholdRaw !== '' && $minThreshold === null)
             || ($maxThresholdRaw !== '' && $maxThreshold === null)
+            || ($expectedValueRaw !== '' && $expectedValue === null)
         ) {
             $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
         }
@@ -704,7 +709,9 @@ final class ManagerAssetController
             $maxThreshold = null;
             $unit = null;
         } elseif ($inputType === 'quantite') {
-            $expectedValue = null;
+            if ($expectedValue === null || $expectedValue <= 0) {
+                $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
+            }
             $minThreshold = null;
             $maxThreshold = null;
             $unit = null;

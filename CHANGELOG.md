@@ -9,6 +9,41 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.0] - 2026-04-07
+
+### Added
+- UX mobile terrain V2 (par caserne):
+  - nouveaux parametres `manager_admin/settings`:
+    - densite mobile (`normal` / `compact`)
+    - barre de progression fixe
+    - brouillon automatique
+    - duree de conservation du brouillon (heures)
+    - aide champs manquants (scroll + surlignage)
+- Brouillon terrain intelligent:
+  - sauvegarde locale auto (`localStorage`) et reprise dans le meme creneau (matin/soir)
+  - isolation par contexte: caserne + vehicule + poste + verificateur (compte ou nom saisi)
+  - affichage du temps restant avant expiration du brouillon
+- Zones:
+  - migration `024_allow_same_zone_name_in_different_branches.sql` pour autoriser les memes noms de zone sur des branches differentes de l arbre.
+
+### Changed
+- Terrain:
+  - mode `Presence` simplifie en reponse forcee `Present / Manquant`
+  - quantite attendue re-affichee dans le libelle (ex: `2 Biseptine`)
+  - commentaire global deplace en fin de formulaire
+  - passe visuelle mobile (cartes allegees, progression plus lisible, etats repondu/manquant plus clairs)
+- Configuration engin:
+  - `Presence (check)` accepte de nouveau une quantite attendue (entier > 0)
+  - aide explicite sur la hierarchie de zones (`Cellule > Sac PS > Sacoche rouge`)
+
+### Fixed
+- Zones:
+  - correction du blocage sur les sous-zones homonymes (ancienne contrainte unique trop stricte)
+  - message d erreur plus explicite en cas de doublon au meme niveau
+- Validation terrain:
+  - suppression du faux positif de non-reponse en mode presence
+  - detection des controles incomplets plus fiable avant enregistrement
+
 ## [0.15.1] - 2026-04-05
 
 ### Changed

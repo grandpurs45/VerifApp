@@ -15,6 +15,7 @@ $errorMap = [
     'invalid_zone' => 'Donnees zone invalides.',
     'zones_table_missing' => 'Migration zones non appliquee.',
     'zone_save_failed' => 'Impossible d enregistrer la zone.',
+    'zone_duplicate' => 'Cette zone existe deja au meme niveau. Utilise un autre nom ou un autre parent.',
     'zone_delete_failed' => 'Suppression zone impossible.',
     'zone_in_use' => 'Suppression impossible: cette zone est utilisee par du materiel ou contient des sous-zones.',
     'invalid_controle' => 'Donnees materiel invalides.',
@@ -99,14 +100,19 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <select name="parent_id" class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-4">
             <option value="">Zone parent (optionnel)</option>
             <?php foreach ($zones as $zone): ?>
+                <?php
+                $zoneLevel = isset($zone['niveau']) ? max(1, (int) $zone['niveau']) : 1;
+                $zonePrefix = $zoneLevel > 1 ? str_repeat('- ', $zoneLevel - 1) : '';
+                ?>
                 <option value="<?= (int) $zone['id'] ?>">
-                    <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                    <?= htmlspecialchars($zonePrefix . (string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
                 </option>
             <?php endforeach; ?>
         </select>
         <input type="text" name="nom" placeholder="Nom zone / sous-zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-6">
         <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter zone</button>
     </form>
+    <p class="mb-3 text-xs text-slate-500">Sous-zones illimitees: ex. Cellule &gt; Sac PS &gt; Sacoche rouge.</p>
 
     <div class="space-y-2">
         <?php foreach ($zones as $zone): ?>
@@ -169,6 +175,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <input type="number" step="1" name="seuil_min" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
                 <input type="number" step="1" name="seuil_max" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="quantity-fields">
+                <input type="number" step="1" min="1" name="valeur_attendue" placeholder="Quantite attendue (ex: 2)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                <div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Exemple: 2 Biseptine. Terrain: Present/Manquant (pas de saisie numerique).
+                </div>
+            </div>
             <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Ajouter materiel</button>
         </form>
     <?php endif; ?>
@@ -211,6 +223,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Unite" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
                     <input type="number" step="1" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
                     <input type="number" step="1" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 <?= $controlType === 'quantite' ? '' : 'hidden' ?>" data-wrap="quantity-fields">
+                    <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Quantite attendue" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                    <div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
+                    </div>
                 </div>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-xs text-slate-500">
@@ -261,14 +279,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         function syncControlForm(form) {
             const inputType = form.querySelector('select[name="type_saisie"]');
             const measureWrap = form.querySelector('[data-wrap="measure-fields"]');
+            const quantityWrap = form.querySelector('[data-wrap="quantity-fields"]');
             const unitInput = form.querySelector('[data-field="unit"]');
+            const expectedInput = form.querySelector('[data-field="expected"]');
             if (!inputType || !measureWrap) {
                 return;
             }
             const isMeasure = inputType.value === 'mesure';
+            const isQuantity = inputType.value === 'quantite';
             measureWrap.classList.toggle('hidden', !isMeasure);
+            if (quantityWrap) {
+                quantityWrap.classList.toggle('hidden', !isQuantity);
+            }
             if (unitInput) {
                 unitInput.required = isMeasure;
+            }
+            if (expectedInput) {
+                expectedInput.required = isQuantity;
             }
         }
 

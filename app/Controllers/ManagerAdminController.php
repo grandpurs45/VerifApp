@@ -27,6 +27,17 @@ final class ManagerAdminController
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
         $verificationEveningHour = $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
+        $terrainMobileDensity = $this->getScopedSettingValue('terrain_mobile_density', 'TERRAIN_MOBILE_DENSITY', $caserneId, 'normal');
+        if (!in_array($terrainMobileDensity, ['compact', 'normal'], true)) {
+            $terrainMobileDensity = 'normal';
+        }
+        $terrainStickyProgressEnabled = $this->getScopedSettingValue('terrain_sticky_progress_enabled', 'TERRAIN_STICKY_PROGRESS_ENABLED', $caserneId, '1') !== '0';
+        $terrainDraftEnabled = $this->getScopedSettingValue('terrain_draft_enabled', 'TERRAIN_DRAFT_ENABLED', $caserneId, '1') !== '0';
+        $terrainDraftTtlHours = (int) $this->getScopedSettingValue('terrain_draft_ttl_hours', 'TERRAIN_DRAFT_TTL_HOURS', $caserneId, '12');
+        if ($terrainDraftTtlHours < 1 || $terrainDraftTtlHours > 48) {
+            $terrainDraftTtlHours = 12;
+        }
+        $terrainScrollMissingEnabled = $this->getScopedSettingValue('terrain_scroll_missing_enabled', 'TERRAIN_SCROLL_MISSING_ENABLED', $caserneId, '1') !== '0';
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
@@ -77,6 +88,58 @@ final class ManagerAdminController
         }
 
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=timing_saved');
+    }
+
+    public function terrainUxSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=terrain_ux_save_failed');
+        }
+
+        $density = strtolower(trim((string) ($_POST['terrain_mobile_density'] ?? 'normal')));
+        if (!in_array($density, ['compact', 'normal'], true)) {
+            $density = 'normal';
+        }
+
+        $stickyEnabled = isset($_POST['terrain_sticky_progress_enabled']) && (string) $_POST['terrain_sticky_progress_enabled'] === '1' ? '1' : '0';
+        $draftEnabled = isset($_POST['terrain_draft_enabled']) && (string) $_POST['terrain_draft_enabled'] === '1' ? '1' : '0';
+        $scrollMissingEnabled = isset($_POST['terrain_scroll_missing_enabled']) && (string) $_POST['terrain_scroll_missing_enabled'] === '1' ? '1' : '0';
+
+        $ttlRaw = trim((string) ($_POST['terrain_draft_ttl_hours'] ?? '12'));
+        if ($ttlRaw === '' || ctype_digit($ttlRaw) === false) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=terrain_ux_invalid');
+        }
+
+        $ttl = (int) $ttlRaw;
+        if ($ttl < 1 || $ttl > 48) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=terrain_ux_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $saveMap = [
+            'terrain_mobile_density_caserne_' . $caserneId => $density,
+            'terrain_sticky_progress_enabled_caserne_' . $caserneId => $stickyEnabled,
+            'terrain_draft_enabled_caserne_' . $caserneId => $draftEnabled,
+            'terrain_draft_ttl_hours_caserne_' . $caserneId => (string) $ttl,
+            'terrain_scroll_missing_enabled_caserne_' . $caserneId => $scrollMissingEnabled,
+        ];
+
+        foreach ($saveMap as $key => $value) {
+            if (!$repository->set($key, $value)) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=terrain_ux_save_failed');
+            }
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=terrain_ux_saved');
     }
 
     public function caserneSave(): void
