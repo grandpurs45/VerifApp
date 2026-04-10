@@ -294,22 +294,40 @@ final class VerificationRepository
         return $verification;
     }
 
-    public function getDashboardStats(?int $caserneId = null): array
+    public function getDashboardStats(?int $caserneId = null, int $eveningStartHour = 18): array
     {
         $connection = Database::getConnection();
+
+        if ($eveningStartHour < 0 || $eveningStartHour > 23) {
+            $eveningStartHour = 18;
+        }
 
         $sql = '
             SELECT
                 COUNT(*) AS total_all,
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() THEN 1 ELSE 0 END) AS total_today,
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes_today,
-                SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes_today
+                SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes_today,
+                COUNT(DISTINCT CASE
+                    WHEN DATE(date_heure) >= DATE_FORMAT(CURDATE(), \'%Y-%m-01\')
+                     AND DATE(date_heure) < CURDATE()
+                    THEN CONCAT(
+                        DATE(date_heure),
+                        \'|\',
+                        CASE WHEN HOUR(date_heure) < :evening_start_hour THEN \'matin\' ELSE \'soir\' END
+                    )
+                    ELSE NULL
+                END) AS month_slots_done
             FROM verifications
             ' . ($caserneId !== null ? 'WHERE caserne_id = :caserne_id' : '') . '
         ';
 
         $statement = $connection->prepare($sql);
-        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
+        $params = ['evening_start_hour' => $eveningStartHour];
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+        $statement->execute($params);
 
         $row = $statement->fetch(PDO::FETCH_ASSOC);
 
@@ -319,14 +337,29 @@ final class VerificationRepository
                 'total_today' => 0,
                 'conformes_today' => 0,
                 'non_conformes_today' => 0,
+                'month_slots_done' => 0,
+                'month_slots_expected' => 0,
+                'month_coverage_rate' => 0,
             ];
         }
+
+        $monthStart = new \DateTimeImmutable('first day of this month');
+        $today = new \DateTimeImmutable('today');
+        $daysElapsed = (int) $monthStart->diff($today)->days;
+        $monthSlotsExpected = max(0, $daysElapsed * 2);
+        $monthSlotsDone = (int) ($row['month_slots_done'] ?? 0);
+        $monthCoverageRate = $monthSlotsExpected > 0
+            ? (int) round(($monthSlotsDone / $monthSlotsExpected) * 100)
+            : 0;
 
         return [
             'total_all' => (int) ($row['total_all'] ?? 0),
             'total_today' => (int) ($row['total_today'] ?? 0),
             'conformes_today' => (int) ($row['conformes_today'] ?? 0),
             'non_conformes_today' => (int) ($row['non_conformes_today'] ?? 0),
+            'month_slots_done' => $monthSlotsDone,
+            'month_slots_expected' => $monthSlotsExpected,
+            'month_coverage_rate' => $monthCoverageRate,
         ];
     }
 

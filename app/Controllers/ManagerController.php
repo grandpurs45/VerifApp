@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Core\ManagerAccess;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\AnomalyRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\PharmacyRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VerificationRepository;
 
@@ -16,19 +18,45 @@ final class ManagerController
     public function dashboard(): void
     {
         $caserneId = $this->resolveManagerCaserneId();
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $managerRole = is_array($managerUser) ? (string) ($managerUser['role'] ?? '') : '';
+        $canAnomalies = ManagerAccess::hasPermission($managerRole, 'anomalies.manage');
+        $canHistory = ManagerAccess::hasPermission($managerRole, 'verifications.history');
+        $canAssets = ManagerAccess::hasPermission($managerRole, 'assets.manage');
+        $canPharmacy = ManagerAccess::hasPermission($managerRole, 'pharmacy.manage');
+        $canUsers = ManagerAccess::hasPermission($managerRole, 'users.manage');
+        $canVerificationDashboard = $canHistory;
+        $verificationEveningHour = (int) $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
+        if ($verificationEveningHour < 0 || $verificationEveningHour > 23) {
+            $verificationEveningHour = 18;
+        }
+
         $verificationRepository = new VerificationRepository();
         $anomalyRepository = new AnomalyRepository();
 
-        $stats = $verificationRepository->getDashboardStats($caserneId);
-        $anomalyStats = $anomalyRepository->getStatusStats($caserneId);
-        $managerUser = $_SESSION['manager_user'] ?? null;
-        $assignmentStats = $anomalyRepository->getAssignmentStats(
-            is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null,
-            $caserneId
-        );
+        $stats = $canVerificationDashboard ? $verificationRepository->getDashboardStats($caserneId, $verificationEveningHour) : [
+            'total_today' => 0,
+            'conformes_today' => 0,
+            'non_conformes_today' => 0,
+            'total_all' => 0,
+            'month_slots_done' => 0,
+            'month_slots_expected' => 0,
+            'month_coverage_rate' => 0,
+        ];
+        $anomalyStats = $canAnomalies ? $anomalyRepository->getStatusStats($caserneId) : [];
+        $assignmentStats = $canAnomalies
+            ? $anomalyRepository->getAssignmentStats(
+                is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null,
+                $caserneId
+            )
+            : ['mes_anomalies' => 0, 'non_assignees' => 0];
+        $pharmacyStats = $canPharmacy
+            ? (new PharmacyRepository())->getStats($caserneId ?? 0)
+            : ['total_articles' => 0, 'alert_articles' => 0, 'outputs_last_7_days' => 0];
+
         $appUrl = $this->resolvePublicBaseUrl();
-        $fieldToken = $this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, '');
-        $pharmacyToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
+        $fieldToken = $canVerificationDashboard ? $this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, '') : '';
+        $pharmacyToken = $canPharmacy ? $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '') : '';
         $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
         $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '') . $caserneParam;

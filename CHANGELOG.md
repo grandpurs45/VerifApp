@@ -9,6 +9,23 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.6] - 2026-04-10
+
+### Added
+- Dashboard gestionnaire (module verifications):
+  - nouvel indicateur `Taux de verification du mois (jusqu a hier)`
+  - calcul de couverture des creneaux `matin/soir` du 1er du mois a J-1 (jour en cours exclu)
+  - affichage detaille `creneaux couverts / attendus`
+
+### Changed
+- Dashboard:
+  - regroupement visuel des KPIs par module (`Anomalies`, `Verifications`, `Pharmacie`) pour une lecture plus claire
+
+### Fixed
+- Couleur des cartes d alerte:
+  - passage en vert automatique quand la valeur est a `0` (anomalies ouvertes, non conformes, alertes stock)
+  - maintien en rouge uniquement lorsqu une alerte est presente
+
 ## [0.16.5] - 2026-04-10
 
 ### Added

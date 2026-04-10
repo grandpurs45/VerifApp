@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.16.5` (voir fichier `VERSION`).
+Version courante: `v0.16.6` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -46,6 +46,9 @@ VerifApp permet de:
 - Vue mensuelle matin/soir:
   - lecture calendrier rapide
   - indicateurs de couverture et conformite
+- Dashboard par module:
+  - indicateurs regroupes par categorie (`Anomalies`, `Verifications`, `Pharmacie`)
+  - taux de verification du mois jusqu a J-1 (jour en cours exclu)
 - Backoffice parc materiel:
   - types et postes
   - vehicules, zones, sous-zones
@@ -169,7 +172,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 0.16.5`
+  - `./scripts/release.ps1 -Version 0.16.6`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
