@@ -46,6 +46,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Reglages UX mobile terrain enregistres pour cette caserne.
     </section>
+<?php elseif ($success === 'dashboard_config_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Configuration du dashboard enregistree pour cette caserne.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -78,7 +82,67 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement des parametres UX mobile impossible.
     </section>
+<?php elseif ($error === 'dashboard_config_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Parametres dashboard invalides.
+    </section>
+<?php elseif ($error === 'dashboard_config_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement de la configuration dashboard impossible.
+    </section>
 <?php endif; ?>
+
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Dashboard configurable</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Active/desactive les blocs d indicateurs et definit l ordre d affichage pour cette caserne.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=dashboard_config_save" class="mt-4 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="dashboard_anomalies_enabled" value="1" <?= $dashboardAnomaliesEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span>
+                    <span class="block text-sm font-semibold text-slate-800">Bloc Anomalies</span>
+                    <span class="block text-xs text-slate-500">Suivi ouvertes, assignees et non assignees.</span>
+                </span>
+            </label>
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="dashboard_verifications_enabled" value="1" <?= $dashboardVerificationsEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span>
+                    <span class="block text-sm font-semibold text-slate-800">Bloc Verifications</span>
+                    <span class="block text-xs text-slate-500">Activite jour + taux mensuel.</span>
+                </span>
+            </label>
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="dashboard_pharmacy_enabled" value="1" <?= $dashboardPharmacyEnabled ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span>
+                    <span class="block text-sm font-semibold text-slate-800">Bloc Pharmacie</span>
+                    <span class="block text-xs text-slate-500">Stock, alertes et sorties recentes.</span>
+                </span>
+            </label>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+                <label for="dashboard_anomalies_order" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre Anomalies</label>
+                <input id="dashboard_anomalies_order" type="number" min="1" max="999" name="dashboard_anomalies_order" value="<?= (int) $dashboardAnomaliesOrder ?>" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label for="dashboard_verifications_order" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre Verifications</label>
+                <input id="dashboard_verifications_order" type="number" min="1" max="999" name="dashboard_verifications_order" value="<?= (int) $dashboardVerificationsOrder ?>" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label for="dashboard_pharmacy_order" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre Pharmacie</label>
+                <input id="dashboard_pharmacy_order" type="number" min="1" max="999" name="dashboard_pharmacy_order" value="<?= (int) $dashboardPharmacyOrder ?>" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            </div>
+        </div>
+
+        <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
+            Enregistrer dashboard
+        </button>
+    </form>
+</section>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Securite session</h2>

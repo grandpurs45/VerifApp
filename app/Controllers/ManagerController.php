@@ -26,6 +26,10 @@ final class ManagerController
         $canPharmacy = ManagerAccess::hasPermission($managerRole, 'pharmacy.manage');
         $canUsers = ManagerAccess::hasPermission($managerRole, 'users.manage');
         $canVerificationDashboard = $canHistory;
+        $dashboardConfig = $this->resolveDashboardConfig($caserneId);
+        $canAnomaliesDashboard = $canAnomalies && $dashboardConfig['anomalies']['enabled'];
+        $canVerificationDashboard = $canVerificationDashboard && $dashboardConfig['verifications']['enabled'];
+        $canPharmacyDashboard = $canPharmacy && $dashboardConfig['pharmacy']['enabled'];
         $verificationEveningHour = (int) $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
         if ($verificationEveningHour < 0 || $verificationEveningHour > 23) {
             $verificationEveningHour = 18;
@@ -43,16 +47,28 @@ final class ManagerController
             'month_slots_expected' => 0,
             'month_coverage_rate' => 0,
         ];
-        $anomalyStats = $canAnomalies ? $anomalyRepository->getStatusStats($caserneId) : [];
-        $assignmentStats = $canAnomalies
+        $anomalyStats = $canAnomaliesDashboard ? $anomalyRepository->getStatusStats($caserneId) : [];
+        $assignmentStats = $canAnomaliesDashboard
             ? $anomalyRepository->getAssignmentStats(
                 is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null,
                 $caserneId
             )
             : ['mes_anomalies' => 0, 'non_assignees' => 0];
-        $pharmacyStats = $canPharmacy
+        $pharmacyStats = $canPharmacyDashboard
             ? (new PharmacyRepository())->getStats($caserneId ?? 0)
             : ['total_articles' => 0, 'alert_articles' => 0, 'outputs_last_7_days' => 0];
+        $dashboardModules = [
+            'anomalies' => $canAnomaliesDashboard ? (int) $dashboardConfig['anomalies']['order'] : 10000,
+            'verifications' => $canVerificationDashboard ? (int) $dashboardConfig['verifications']['order'] : 10000,
+            'pharmacy' => $canPharmacyDashboard ? (int) $dashboardConfig['pharmacy']['order'] : 10000,
+        ];
+        asort($dashboardModules, SORT_NUMERIC);
+        $dashboardModuleOrder = [];
+        foreach ($dashboardModules as $moduleKey => $order) {
+            if ($order < 10000) {
+                $dashboardModuleOrder[] = $moduleKey;
+            }
+        }
 
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = $canVerificationDashboard ? $this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, '') : '';
@@ -211,5 +227,41 @@ final class ManagerController
         $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
 
         return $caserneId > 0 ? $caserneId : null;
+    }
+
+    /**
+     * @return array<string, array{enabled: bool, order: int}>
+     */
+    private function resolveDashboardConfig(?int $caserneId): array
+    {
+        return [
+            'anomalies' => [
+                'enabled' => $this->getScopedSettingValue('dashboard_anomalies_enabled', 'DASHBOARD_ANOMALIES_ENABLED', $caserneId, '1') !== '0',
+                'order' => $this->readDashboardOrder('dashboard_anomalies_order', $caserneId, 10),
+            ],
+            'verifications' => [
+                'enabled' => $this->getScopedSettingValue('dashboard_verifications_enabled', 'DASHBOARD_VERIFICATIONS_ENABLED', $caserneId, '1') !== '0',
+                'order' => $this->readDashboardOrder('dashboard_verifications_order', $caserneId, 20),
+            ],
+            'pharmacy' => [
+                'enabled' => $this->getScopedSettingValue('dashboard_pharmacy_enabled', 'DASHBOARD_PHARMACY_ENABLED', $caserneId, '1') !== '0',
+                'order' => $this->readDashboardOrder('dashboard_pharmacy_order', $caserneId, 30),
+            ],
+        ];
+    }
+
+    private function readDashboardOrder(string $settingKey, ?int $caserneId, int $default): int
+    {
+        $value = $this->getScopedSettingValue($settingKey, strtoupper($settingKey), $caserneId, (string) $default);
+        if ($value === '' || ctype_digit($value) === false) {
+            return $default;
+        }
+
+        $parsed = (int) $value;
+        if ($parsed < 1 || $parsed > 999) {
+            return $default;
+        }
+
+        return $parsed;
     }
 }

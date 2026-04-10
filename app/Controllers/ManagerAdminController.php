@@ -40,6 +40,12 @@ final class ManagerAdminController
             $terrainDraftTtlHours = 12;
         }
         $terrainScrollMissingEnabled = $this->getScopedSettingValue('terrain_scroll_missing_enabled', 'TERRAIN_SCROLL_MISSING_ENABLED', $caserneId, '1') !== '0';
+        $dashboardAnomaliesEnabled = $this->getScopedSettingValue('dashboard_anomalies_enabled', 'DASHBOARD_ANOMALIES_ENABLED', $caserneId, '1') !== '0';
+        $dashboardVerificationsEnabled = $this->getScopedSettingValue('dashboard_verifications_enabled', 'DASHBOARD_VERIFICATIONS_ENABLED', $caserneId, '1') !== '0';
+        $dashboardPharmacyEnabled = $this->getScopedSettingValue('dashboard_pharmacy_enabled', 'DASHBOARD_PHARMACY_ENABLED', $caserneId, '1') !== '0';
+        $dashboardAnomaliesOrder = $this->readDashboardOrder('dashboard_anomalies_order', $caserneId, 10);
+        $dashboardVerificationsOrder = $this->readDashboardOrder('dashboard_verifications_order', $caserneId, 20);
+        $dashboardPharmacyOrder = $this->readDashboardOrder('dashboard_pharmacy_order', $caserneId, 30);
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
@@ -142,6 +148,57 @@ final class ManagerAdminController
         }
 
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=terrain_ux_saved');
+    }
+
+    public function dashboardConfigSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=dashboard_config_save_failed');
+        }
+
+        $anomaliesEnabled = isset($_POST['dashboard_anomalies_enabled']) && (string) $_POST['dashboard_anomalies_enabled'] === '1' ? '1' : '0';
+        $verificationsEnabled = isset($_POST['dashboard_verifications_enabled']) && (string) $_POST['dashboard_verifications_enabled'] === '1' ? '1' : '0';
+        $pharmacyEnabled = isset($_POST['dashboard_pharmacy_enabled']) && (string) $_POST['dashboard_pharmacy_enabled'] === '1' ? '1' : '0';
+
+        $anomaliesOrder = trim((string) ($_POST['dashboard_anomalies_order'] ?? '10'));
+        $verificationsOrder = trim((string) ($_POST['dashboard_verifications_order'] ?? '20'));
+        $pharmacyOrder = trim((string) ($_POST['dashboard_pharmacy_order'] ?? '30'));
+        foreach ([$anomaliesOrder, $verificationsOrder, $pharmacyOrder] as $orderValue) {
+            if ($orderValue === '' || ctype_digit($orderValue) === false) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=dashboard_config_invalid');
+            }
+            $parsed = (int) $orderValue;
+            if ($parsed < 1 || $parsed > 999) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=dashboard_config_invalid');
+            }
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $saveMap = [
+            'dashboard_anomalies_enabled_caserne_' . $caserneId => $anomaliesEnabled,
+            'dashboard_verifications_enabled_caserne_' . $caserneId => $verificationsEnabled,
+            'dashboard_pharmacy_enabled_caserne_' . $caserneId => $pharmacyEnabled,
+            'dashboard_anomalies_order_caserne_' . $caserneId => (string) ((int) $anomaliesOrder),
+            'dashboard_verifications_order_caserne_' . $caserneId => (string) ((int) $verificationsOrder),
+            'dashboard_pharmacy_order_caserne_' . $caserneId => (string) ((int) $pharmacyOrder),
+        ];
+
+        foreach ($saveMap as $key => $value) {
+            if (!$repository->set($key, $value)) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=dashboard_config_save_failed');
+            }
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=dashboard_config_saved');
     }
 
     public function caserneSave(): void
@@ -303,6 +360,21 @@ final class ManagerAdminController
         $repository = new AppSettingRepository();
 
         return $repository->isAvailable() ? 'database' : 'env';
+    }
+
+    private function readDashboardOrder(string $settingKey, ?int $caserneId, int $default): int
+    {
+        $value = $this->getScopedSettingValue($settingKey, strtoupper($settingKey), $caserneId, (string) $default);
+        if ($value === '' || ctype_digit($value) === false) {
+            return $default;
+        }
+
+        $parsed = (int) $value;
+        if ($parsed < 1 || $parsed > 999) {
+            return $default;
+        }
+
+        return $parsed;
     }
 
     private function resolveManagerCaserneId(): ?int

@@ -72,6 +72,7 @@ $managerRoutes = [
     'manager_admin/settings',
     'manager_admin/verification_timing_save',
     'manager_admin/terrain_ux_save',
+    'manager_admin/dashboard_config_save',
     'manager_admin/caserne_save',
     'manager_admin/regenerate_qr_token',
     'verifications/history',
@@ -167,6 +168,7 @@ $managerRoutePermissions = [
     'manager_admin/settings' => 'users.manage',
     'manager_admin/verification_timing_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
+    'manager_admin/dashboard_config_save' => 'users.manage',
     'manager_admin/caserne_save' => 'users.manage',
     'manager_admin/regenerate_qr_token' => 'users.manage',
     'verifications/history' => 'verifications.history',
@@ -361,6 +363,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'terrain_ux_save') {
         $controller = new ManagerAdminController();
         $controller->terrainUxSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'dashboard_config_save') {
+        $controller = new ManagerAdminController();
+        $controller->dashboardConfigSave();
         return;
     }
 
