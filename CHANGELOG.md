@@ -9,6 +9,22 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.3] - 2026-04-10
+
+### Added
+- Parametres application:
+  - bouton `Imprimer A4` sur les QR `Verification terrain` et `Sortie pharmacie`
+  - generation d une affiche d impression A4 portrait (QR grand format + lien)
+
+### Changed
+- BO Pharmacie (stock):
+  - ajout d un acces rapide vers le formulaire terrain de sortie materiel (lien tokenise + caserne)
+  - ouverture en nouvel onglet pour usage direct terrain
+
+### Fixed
+- Navigation BO Pharmacie:
+  - clarification du rappel de lien pour eviter la confusion avec l historique des sorties
+
 ## [0.16.2] - 2026-04-10
 
 ### Added

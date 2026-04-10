@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Env;
+use App\Repositories\AppSettingRepository;
 use App\Repositories\PharmacyRepository;
 
 final class ManagerPharmacyController
@@ -21,6 +23,13 @@ final class ManagerPharmacyController
         $stats = $repository->getStats($caserneId);
         $isAvailable = $repository->isAvailable();
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $appUrl = $this->resolvePublicBaseUrl();
+        $pharmacyToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
+        $caserneParam = '&caserne_id=' . $caserneId;
+        $pharmacyFormPath = '/index.php?controller=pharmacy&action=access'
+            . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '')
+            . $caserneParam;
+        $pharmacyFormUrl = $appUrl !== '' ? $appUrl . $pharmacyFormPath : $pharmacyFormPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy.php';
     }
@@ -134,5 +143,45 @@ final class ManagerPharmacyController
         }
 
         return (int) round($value);
+    }
+
+    private function resolvePublicBaseUrl(): string
+    {
+        $requestHost = isset($_SERVER['HTTP_HOST']) ? trim((string) $_SERVER['HTTP_HOST']) : '';
+        if ($requestHost !== '') {
+            $isHttps =
+                (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off') ||
+                (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443');
+            $scheme = $isHttps ? 'https' : 'http';
+
+            return $scheme . '://' . $requestHost;
+        }
+
+        return rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
+    }
+
+    private function getSettingValue(string $settingKey, string $envKey, string $default): string
+    {
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable()) {
+            $value = $repository->get($settingKey);
+            if ($value !== null && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return trim((string) (Env::get($envKey, $default) ?? $default));
+    }
+
+    private function getScopedSettingValue(string $settingKey, string $envKey, ?int $caserneId, string $default): string
+    {
+        if ($caserneId !== null && $caserneId > 0) {
+            $scoped = $this->getSettingValue($settingKey . '_caserne_' . $caserneId, $envKey, '');
+            if ($scoped !== '') {
+                return $scoped;
+            }
+        }
+
+        return $this->getSettingValue($settingKey, $envKey, $default);
     }
 }

@@ -224,6 +224,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <div class="mt-3 flex flex-wrap gap-2">
                 <a href="<?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-semibold">Ouvrir lien</a>
                 <button type="button" data-copy-target="fieldGuestUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Copier lien</button>
+                <button
+                    type="button"
+                    data-print-qr="1"
+                    data-print-title="Verification terrain"
+                    data-print-url="<?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                >
+                    Imprimer A4
+                </button>
                 <form method="post" action="/index.php?controller=manager_admin&action=regenerate_qr_token">
                     <input type="hidden" name="target" value="field">
                     <button
@@ -250,6 +259,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <div class="mt-3 flex flex-wrap gap-2">
                 <a href="<?= htmlspecialchars($pharmacyGuestUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-semibold">Ouvrir lien</a>
                 <button type="button" data-copy-target="pharmacyGuestUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Copier lien</button>
+                <button
+                    type="button"
+                    data-print-qr="1"
+                    data-print-title="Sortie pharmacie"
+                    data-print-url="<?= htmlspecialchars($pharmacyGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                >
+                    Imprimer A4
+                </button>
                 <form method="post" action="/index.php?controller=manager_admin&action=regenerate_qr_token">
                     <input type="hidden" name="target" value="pharmacy">
                     <button
@@ -295,28 +313,28 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             });
         });
 
-        const printButtons = document.querySelectorAll('button[data-print-vehicle-qr]');
+        const printButtons = document.querySelectorAll('button[data-print-qr]');
         printButtons.forEach((button) => {
             button.addEventListener('click', () => {
-                const vehicleName = button.getAttribute('data-print-name') || 'Vehicule';
-                const vehicleUrl = button.getAttribute('data-print-url') || '';
-                if (!vehicleUrl) {
+                const qrTitle = button.getAttribute('data-print-title') || 'QR Code';
+                const qrTargetUrl = button.getAttribute('data-print-url') || '';
+                if (!qrTargetUrl) {
                     return;
                 }
 
-                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(vehicleUrl);
+                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=700x700&data=' + encodeURIComponent(qrTargetUrl);
                 const printWindow = window.open('', '_blank', 'width=900,height=700');
                 if (!printWindow) {
                     window.alert('Autorisez les popups pour imprimer le QR code.');
                     return;
                 }
 
-                const safeName = vehicleName
+                const safeTitle = qrTitle
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;');
-                const safeUrl = vehicleUrl
+                const safeUrl = qrTargetUrl
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
@@ -327,32 +345,44 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>QR ${safeName}</title>
+<title>Affiche A4 - ${safeTitle}</title>
 <style>
-@page { size: A6 portrait; margin: 8mm; }
-html, body { margin:0; padding:0; font-family: Arial, sans-serif; color:#0f172a; }
+@page { size: A4 portrait; margin: 12mm; }
+html, body { margin:0; padding:0; font-family: Arial, sans-serif; color:#0f172a; background:#fff; }
+.page {
+    width: 100%;
+    min-height: calc(297mm - 24mm);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
 .card {
     width: 100%;
+    max-width: 170mm;
     border: 2px solid #0f172a;
-    border-radius: 12px;
-    padding: 12px;
+    border-radius: 16px;
+    padding: 16mm 12mm;
     box-sizing: border-box;
 }
-.title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color:#475569; margin:0 0 6px; }
-.vehicle { font-size: 22px; font-weight: 800; margin:0 0 10px; line-height: 1.2; }
-.qr-wrap { display:flex; justify-content:center; margin: 6px 0 10px; }
-.qr { width: 90mm; max-width: 100%; height: auto; border:1px solid #cbd5e1; border-radius:8px; padding:8px; box-sizing:border-box; background:white; }
-.hint { margin:0 0 4px; font-size: 11px; font-weight: 700; color:#1e293b; }
-.url { margin:0; font-size: 9px; color:#334155; word-break: break-all; }
+.title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color:#475569; margin:0 0 6px; }
+.module { font-size: 34px; font-weight: 800; margin:0 0 14px; line-height: 1.2; }
+.qr-wrap { display:flex; justify-content:center; margin: 8px 0 14px; }
+.qr { width: 125mm; max-width: 100%; height: auto; border:1px solid #cbd5e1; border-radius:10px; padding:8px; box-sizing:border-box; background:white; }
+.hint { margin:0 0 6px; font-size: 14px; font-weight: 700; color:#1e293b; }
+.url { margin:0; font-size: 11px; color:#334155; word-break: break-all; }
 </style>
 </head>
 <body>
-    <main class="card">
-        <p class="title">VerifApp - QR vehicule</p>
-        <p class="vehicle">${safeName}</p>
-        <div class="qr-wrap"><img class="qr" src="${qrUrl}" alt="QR ${safeName}"></div>
-        <p class="hint">Scan direct vers la verification du vehicule</p>
-        <p class="url">${safeUrl}</p>
+    <main class="page">
+        <div class="card">
+            <p class="title">VerifApp</p>
+            <p class="module">${safeTitle}</p>
+            <div class="qr-wrap"><img class="qr" src="${qrUrl}" alt="QR ${safeTitle}"></div>
+            <p class="hint">Scanner pour ouvrir le formulaire</p>
+            <p class="url">${safeUrl}</p>
+        </div>
     </main>
 </body>
 </html>`;

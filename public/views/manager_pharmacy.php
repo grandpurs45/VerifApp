@@ -29,6 +29,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </section>
 <?php endif; ?>
 
+<section class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-slate-700">
+            Acces rapide au terrain:
+            <strong>ouvrir le formulaire de sortie de materiel (QR pharmacie).</strong>
+        </p>
+        <a
+            href="<?= htmlspecialchars((string) ($pharmacyFormUrl ?? '/index.php?controller=pharmacy&action=access'), ENT_QUOTES, 'UTF-8') ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+        >
+            Ouvrir formulaire sortie
+        </a>
+    </div>
+</section>
+
 <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
     <article class="rounded-2xl bg-white shadow p-4">
         <p class="text-xs uppercase tracking-wide text-slate-500">Articles actifs</p>
