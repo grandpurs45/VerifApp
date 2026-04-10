@@ -15,6 +15,7 @@ final class ManagerAdminController
     public function menu(): void
     {
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $isPlatformAdmin = $this->isPlatformAdmin();
 
         require dirname(__DIR__, 2) . '/public/views/manager_admin.php';
     }
@@ -22,6 +23,7 @@ final class ManagerAdminController
     public function settings(): void
     {
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $isPlatformAdmin = $this->isPlatformAdmin();
         $caserneId = $this->resolveManagerCaserneId();
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -43,7 +45,7 @@ final class ManagerAdminController
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
         $settingsStorage = $this->getSettingsStorageMode();
         $caserneRepository = new CaserneRepository();
-        $casernes = $caserneRepository->findAll();
+        $casernes = $isPlatformAdmin ? $caserneRepository->findAll() : [];
 
         $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
@@ -144,6 +146,10 @@ final class ManagerAdminController
 
     public function caserneSave(): void
     {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/index.php?controller=manager_admin&action=settings');
         }
@@ -304,5 +310,22 @@ final class ManagerAdminController
         $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
 
         return $caserneId > 0 ? $caserneId : null;
+    }
+
+    private function isPlatformAdmin(): bool
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        if (!is_array($managerUser) || !isset($managerUser['id'])) {
+            return false;
+        }
+
+        $userRepository = new UserRepository();
+        $currentManager = $userRepository->findById((int) $managerUser['id']);
+        if ($currentManager === null) {
+            return false;
+        }
+
+        return strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
+            || (int) ($currentManager['id'] ?? 0) === 1;
     }
 }

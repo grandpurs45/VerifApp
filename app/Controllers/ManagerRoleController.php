@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Repositories\RoleRepository;
+use App\Repositories\UserRepository;
 
 final class ManagerRoleController
 {
     public function index(): void
     {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
         $repository = new RoleRepository();
         $roles = $repository->findAll();
         $catalog = RoleRepository::permissionCatalog();
@@ -27,6 +32,10 @@ final class ManagerRoleController
 
     public function roleSave(): void
     {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/index.php?controller=manager_roles&action=index');
         }
@@ -59,6 +68,10 @@ final class ManagerRoleController
 
     public function roleDelete(): void
     {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/index.php?controller=manager_roles&action=index');
         }
@@ -80,6 +93,10 @@ final class ManagerRoleController
 
     public function permissionsSave(): void
     {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/index.php?controller=manager_roles&action=index');
         }
@@ -114,5 +131,22 @@ final class ManagerRoleController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function isPlatformAdmin(): bool
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        if (!is_array($managerUser) || !isset($managerUser['id'])) {
+            return false;
+        }
+
+        $userRepository = new UserRepository();
+        $currentManager = $userRepository->findById((int) $managerUser['id']);
+        if ($currentManager === null) {
+            return false;
+        }
+
+        return strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
+            || (int) ($currentManager['id'] ?? 0) === 1;
     }
 }

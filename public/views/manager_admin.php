@@ -16,10 +16,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="text-lg font-bold">Parametres application</p>
         <p class="text-sm text-slate-600 mt-1">Configurer les options globales de securite et de fonctionnement.</p>
     </a>
-    <a href="/index.php?controller=manager_roles&action=index" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
-        <p class="text-lg font-bold">Roles et acces</p>
-        <p class="text-sm text-slate-600 mt-1">Creer des roles et choisir les fonctionnalites autorisees.</p>
-    </a>
+    <?php if (($isPlatformAdmin ?? false) === true): ?>
+        <a href="/index.php?controller=manager_roles&action=index" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
+            <p class="text-lg font-bold">Roles et acces</p>
+            <p class="text-sm text-slate-600 mt-1">Creer des roles et choisir les fonctionnalites autorisees.</p>
+        </a>
+    <?php endif; ?>
     <a href="/index.php?controller=manager_users&action=index" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
         <p class="text-lg font-bold">Utilisateurs</p>
         <p class="text-sm text-slate-600 mt-1">Creer et gerer les comptes, roles et activations.</p>

@@ -177,39 +177,40 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </form>
 </section>
 
-<section class="rounded-2xl bg-white shadow p-5">
-    <h2 class="text-lg font-bold">Casernes</h2>
-    <p class="text-sm text-slate-600 mt-2">
-        Configuration multi-caserne de la plateforme.
-    </p>
+<?php if (($isPlatformAdmin ?? false) === true): ?>
+    <section class="rounded-2xl bg-white shadow p-5">
+        <h2 class="text-lg font-bold">Casernes</h2>
+        <p class="text-sm text-slate-600 mt-2">
+            Configuration multi-caserne de la plateforme.
+        </p>
 
-    <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2">
-        <input type="hidden" name="id" value="0">
-        <input type="text" name="nom" required placeholder="Nom caserne (ex: Caserne Nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
-        <input type="text" name="code" required placeholder="Code (ex: caserne_nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
-        </select>
-        <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Ajouter</button>
-    </form>
+        <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2">
+            <input type="hidden" name="id" value="0">
+            <input type="text" name="nom" required placeholder="Nom caserne (ex: Caserne Nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+            <input type="text" name="code" required placeholder="Code (ex: caserne_nord)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+            <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+                <option value="1">Active</option>
+                <option value="0">Inactive</option>
+            </select>
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Ajouter</button>
+        </form>
 
-    <div class="mt-4 space-y-2">
-        <?php foreach ($casernes as $caserne): ?>
-            <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center rounded-xl border border-slate-200 p-3">
-                <input type="hidden" name="id" value="<?= (int) ($caserne['id'] ?? 0) ?>">
-                <input type="text" name="nom" required value="<?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
-                <input type="text" name="code" required value="<?= htmlspecialchars((string) ($caserne['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-                    <option value="1" <?= (int) ($caserne['actif'] ?? 0) === 1 ? 'selected' : '' ?>>Active</option>
-                    <option value="0" <?= (int) ($caserne['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactive</option>
-                </select>
-                <button type="submit" class="rounded-xl bg-slate-800 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Enregistrer</button>
-            </form>
-        <?php endforeach; ?>
-    </div>
-
-</section>
+        <div class="mt-4 space-y-2">
+            <?php foreach ($casernes as $caserne): ?>
+                <form method="post" action="/index.php?controller=manager_admin&action=caserne_save" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center rounded-xl border border-slate-200 p-3">
+                    <input type="hidden" name="id" value="<?= (int) ($caserne['id'] ?? 0) ?>">
+                    <input type="text" name="nom" required value="<?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+                    <input type="text" name="code" required value="<?= htmlspecialchars((string) ($caserne['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+                    <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+                        <option value="1" <?= (int) ($caserne['actif'] ?? 0) === 1 ? 'selected' : '' ?>>Active</option>
+                        <option value="0" <?= (int) ($caserne['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactive</option>
+                    </select>
+                    <button type="submit" class="rounded-xl bg-slate-800 text-white px-4 py-2 text-sm font-semibold md:col-span-2">Enregistrer</button>
+                </form>
+            <?php endforeach; ?>
+        </div>
+    </section>
+<?php endif; ?>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Acces invites (QR)</h2>

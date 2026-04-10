@@ -31,7 +31,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <?php if (isset($_GET['success'])): ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-        Operation effectuee avec succes.
+        <?php if ((string) $_GET['success'] === 'attached_existing'): ?>
+            Compte existant detecte: droits ajoutes sur cette caserne.
+        <?php elseif ((string) $_GET['success'] === 'detached'): ?>
+            Compte retire de cette caserne (conserve sur ses autres casernes).
+        <?php else: ?>
+            Operation effectuee avec succes.
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 <?php if (isset($_GET['error'])): ?>
@@ -57,26 +63,42 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <option value="0">Inactif</option>
         </select>
         <div class="md:col-span-12 rounded-xl border border-slate-200 p-3">
-            <div class="flex items-center justify-between gap-2 mb-2">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Affectations casernes (role par caserne)</p>
-                <input id="create-caserne-filter" type="text" placeholder="Filtrer casernes..." class="w-52 rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
-            </div>
-            <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
-                <?php foreach ($casernes as $caserne): ?>
-                    <?php $caserneId = (int) ($caserne['id'] ?? 0); ?>
-                    <div class="create-caserne-row grid grid-cols-1 md:grid-cols-12 gap-2 items-center" data-caserne-name="<?= htmlspecialchars(mb_strtolower((string) ($caserne['nom'] ?? ''), 'UTF-8'), ENT_QUOTES, 'UTF-8') ?>">
-                        <label class="md:col-span-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                            <input type="checkbox" name="caserne_enabled[<?= $caserneId ?>]" value="1" class="h-4 w-4 rounded border-slate-300 create-caserne-check">
-                            <?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                        </label>
-                        <select name="caserne_roles[<?= $caserneId ?>]" class="md:col-span-7 rounded-xl border border-slate-300 px-3 py-2 text-sm create-caserne-role">
-                            <?php foreach ($roleOptions as $code => $label): ?>
-                                <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === $defaultRoleCode ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
+            <?php if (!$isPlatformAdmin && count($casernes) === 1): ?>
+                <?php $singleCaserne = $casernes[0]; $singleCaserneId = (int) ($singleCaserne['id'] ?? 0); ?>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Affectation caserne</p>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <div class="md:col-span-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <input type="hidden" name="caserne_enabled[<?= $singleCaserneId ?>]" value="1">
+                        <?= htmlspecialchars((string) ($singleCaserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                     </div>
-                <?php endforeach; ?>
-            </div>
+                    <select name="caserne_roles[<?= $singleCaserneId ?>]" class="md:col-span-7 rounded-xl border border-slate-300 px-3 py-2 text-sm create-caserne-role">
+                        <?php foreach ($roleOptions as $code => $label): ?>
+                            <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === $defaultRoleCode ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php else: ?>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Affectations casernes (role par caserne)</p>
+                    <input id="create-caserne-filter" type="text" placeholder="Filtrer casernes..." class="w-52 rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
+                </div>
+                <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <?php foreach ($casernes as $caserne): ?>
+                        <?php $caserneId = (int) ($caserne['id'] ?? 0); ?>
+                        <div class="create-caserne-row grid grid-cols-1 md:grid-cols-12 gap-2 items-center" data-caserne-name="<?= htmlspecialchars(mb_strtolower((string) ($caserne['nom'] ?? ''), 'UTF-8'), ENT_QUOTES, 'UTF-8') ?>">
+                            <label class="md:col-span-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input type="checkbox" name="caserne_enabled[<?= $caserneId ?>]" value="1" class="h-4 w-4 rounded border-slate-300 create-caserne-check">
+                                <?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                            </label>
+                            <select name="caserne_roles[<?= $caserneId ?>]" class="md:col-span-7 rounded-xl border border-slate-300 px-3 py-2 text-sm create-caserne-role">
+                                <?php foreach ($roleOptions as $code => $label): ?>
+                                    <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === $defaultRoleCode ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </div>
         <?php if (!$isPlatformAdmin): ?>
             <p class="md:col-span-12 text-xs text-slate-500">Role admin plateforme masque pour ce compte.</p>
@@ -184,18 +206,16 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const filterInput = document.getElementById('create-caserne-filter');
-    if (!filterInput) {
-        return;
-    }
-
     const rows = Array.from(document.querySelectorAll('.create-caserne-row'));
-    filterInput.addEventListener('input', function () {
-        const query = (filterInput.value || '').toLowerCase().trim();
-        rows.forEach(function (row) {
-            const label = (row.getAttribute('data-caserne-name') || '').toLowerCase();
-            row.style.display = query === '' || label.includes(query) ? '' : 'none';
+    if (filterInput) {
+        filterInput.addEventListener('input', function () {
+            const query = (filterInput.value || '').toLowerCase().trim();
+            rows.forEach(function (row) {
+                const label = (row.getAttribute('data-caserne-name') || '').toLowerCase();
+                row.style.display = query === '' || label.includes(query) ? '' : 'none';
+            });
         });
-    });
+    }
 
     function bindAdminAutoSelect(roleSelector, checkboxSelector) {
         const roleSelects = Array.from(document.querySelectorAll(roleSelector));
@@ -231,6 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (createForm) {
         createForm.addEventListener('submit', function (event) {
             const checks = Array.from(createForm.querySelectorAll('.create-caserne-check'));
+            const hiddenEnabledInputs = Array.from(createForm.querySelectorAll('input[name^="caserne_enabled["][type="hidden"]'));
             const roles = Array.from(createForm.querySelectorAll('.create-caserne-role'));
             const hasAdminRole = roles.some(function (role) {
                 return (role.value || '').toLowerCase() === 'admin';
@@ -246,10 +267,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const selected = checks.some(function (check) {
                 return check.checked;
-            });
+            }) || hiddenEnabledInputs.length > 0;
             if (!selected) {
                 event.preventDefault();
                 window.alert('Selectionne au moins une caserne avant de creer le compte.');
+                return;
+            }
+
+            const confirmCreate = window.confirm(
+                'Confirmer la creation/rattachement du compte ?\n\nSi cet email existe deja, le compte sera rattache a cette caserne.'
+            );
+            if (!confirmCreate) {
+                event.preventDefault();
             }
         });
     }

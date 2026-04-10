@@ -15,21 +15,9 @@ final class ManagerUserController
         $userRepository = new UserRepository();
         $roleRepository = new RoleRepository();
         $caserneRepository = new CaserneRepository();
-        $managerUser = $_SESSION['manager_user'] ?? null;
-        $isPlatformAdmin = false;
-        if (is_array($managerUser) && isset($managerUser['id'])) {
-            $currentManager = $userRepository->findById((int) $managerUser['id']);
-            $isPlatformAdmin = $currentManager !== null
-                && (
-                    strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                    || (int) ($currentManager['id'] ?? 0) === 1
-                );
-            $_SESSION['manager_user']['is_platform_admin'] = $isPlatformAdmin ? 1 : 0;
-            if ($currentManager !== null) {
-                $_SESSION['manager_user']['global_role'] = (string) ($currentManager['role'] ?? '');
-            }
-        }
-        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+        $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
+        $isPlatformAdmin = $this->isPlatformAdmin($userRepository, $currentUserId);
+        $currentCaserneId = $this->currentCaserneId();
         if (!$isPlatformAdmin && $currentCaserneId <= 0) {
             $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
         }
@@ -55,7 +43,13 @@ final class ManagerUserController
                 $roleCode = trim((string) ($membership['role_code'] ?? ''));
                 $user['caserne_roles'][$caserneId] = $roleCode !== '' ? $roleCode : (string) ($user['role'] ?? 'verificateur');
             }
-            if ($currentCaserneId <= 0 || in_array($currentCaserneId, (array) $user['caserne_ids'], true)) {
+            if ($isPlatformAdmin) {
+                $filteredUsers[] = $user;
+                continue;
+            }
+
+            $hasCurrentCaserne = in_array($currentCaserneId, (array) $user['caserne_ids'], true);
+            if ($hasCurrentCaserne) {
                 $filteredUsers[] = $user;
             }
         }
@@ -97,21 +91,9 @@ final class ManagerUserController
         $roleRepository = new RoleRepository();
         $caserneRepository = new CaserneRepository();
 
-        $managerUser = $_SESSION['manager_user'] ?? null;
-        $isPlatformAdmin = false;
-        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
-        if (is_array($managerUser) && isset($managerUser['id'])) {
-            $currentManager = $userRepository->findById((int) $managerUser['id']);
-            $isPlatformAdmin = $currentManager !== null
-                && (
-                    strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                    || (int) ($currentManager['id'] ?? 0) === 1
-                );
-            $_SESSION['manager_user']['is_platform_admin'] = $isPlatformAdmin ? 1 : 0;
-            if ($currentManager !== null) {
-                $_SESSION['manager_user']['global_role'] = (string) ($currentManager['role'] ?? '');
-            }
-        }
+        $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
+        $isPlatformAdmin = $this->isPlatformAdmin($userRepository, $currentUserId);
+        $currentCaserneId = $this->currentCaserneId();
 
         $user = $userRepository->findById($id);
         if ($user === null) {
@@ -121,11 +103,8 @@ final class ManagerUserController
             $this->redirect('/index.php?controller=manager&action=forbidden');
         }
 
-        if (!$isPlatformAdmin && $currentCaserneId > 0) {
-            $userCaserneIds = $userRepository->findCaserneIdsByUserId((int) $id);
-            if (!in_array($currentCaserneId, $userCaserneIds, true)) {
-                $this->redirect('/index.php?controller=manager&action=forbidden');
-            }
+        if (!$this->canManageUser($userRepository, $id, $isPlatformAdmin, $currentCaserneId)) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
         }
 
         $memberships = $userRepository->findMembershipsByUserId((int) ($user['id'] ?? 0));
@@ -183,13 +162,8 @@ final class ManagerUserController
         $caserneEnabled = is_array($_POST['caserne_enabled'] ?? null) ? $_POST['caserne_enabled'] : [];
         $caserneRoles = is_array($_POST['caserne_roles'] ?? null) ? $_POST['caserne_roles'] : [];
         $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
-        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
-        $currentManager = $currentUserId > 0 ? (new UserRepository())->findById($currentUserId) : null;
-        $isPlatformAdmin = $currentManager !== null
-            && (
-                strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                || (int) ($currentManager['id'] ?? 0) === 1
-            );
+        $currentCaserneId = $this->currentCaserneId();
+        $isPlatformAdmin = $this->isPlatformAdmin(new UserRepository(), $currentUserId);
         $normalizedRole = strtolower(trim($role));
 
         $caserneRepository = new CaserneRepository();
@@ -293,11 +267,8 @@ final class ManagerUserController
             if ($existing === null) {
                 $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
             }
-            if (!$isPlatformAdmin && $currentCaserneId > 0) {
-                $existingCaserneIds = $userRepository->findCaserneIdsByUserId($id);
-                if (!in_array($currentCaserneId, $existingCaserneIds, true)) {
-                    $this->redirect('/index.php?controller=manager&action=forbidden');
-                }
+            if (!$this->canManageUser($userRepository, $id, $isPlatformAdmin, $currentCaserneId)) {
+                $this->redirect('/index.php?controller=manager&action=forbidden');
             }
             if ((string) ($existing['role'] ?? '') === 'admin' && !$isPlatformAdmin) {
                 $this->redirect('/index.php?controller=manager_users&action=index&error=forbidden_admin');
@@ -338,6 +309,41 @@ final class ManagerUserController
 
         if (strlen($password) < 8) {
             $this->redirect('/index.php?controller=manager_users&action=index&error=password_short');
+        }
+
+        $existingByEmail = $userRepository->findByEmail($email);
+        if ($existingByEmail !== null) {
+            $existingUserId = (int) ($existingByEmail['id'] ?? 0);
+            if ($existingUserId <= 0) {
+                $this->redirect('/index.php?controller=manager_users&action=index&error=create_failed');
+            }
+
+            if (strtolower((string) ($existingByEmail['role'] ?? '')) === 'admin' && !$isPlatformAdmin) {
+                $this->redirect('/index.php?controller=manager_users&action=index&error=forbidden_admin');
+            }
+
+            $existingMemberships = $userRepository->findMembershipsByUserId($existingUserId);
+            $mergedAssignments = [];
+            foreach ($existingMemberships as $membership) {
+                $membershipCaserneId = (int) ($membership['caserne_id'] ?? 0);
+                if ($membershipCaserneId <= 0) {
+                    continue;
+                }
+                $membershipRole = trim((string) ($membership['role_code'] ?? ''));
+                if ($membershipRole === '') {
+                    $membershipRole = (string) ($existingByEmail['role'] ?? 'verificateur');
+                }
+                $mergedAssignments[$membershipCaserneId] = $membershipRole;
+            }
+            foreach ($caserneAssignments as $membershipCaserneId => $membershipRole) {
+                $mergedAssignments[(int) $membershipCaserneId] = (string) $membershipRole;
+            }
+
+            if ($mergedAssignments === [] || !$userRepository->syncCasernes($existingUserId, $mergedAssignments, (string) ($existingByEmail['role'] ?? 'verificateur'))) {
+                $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+            }
+
+            $this->redirect('/index.php?controller=manager_users&action=index&success=attached_existing');
         }
 
         $ok = $userRepository->create(
@@ -382,22 +388,26 @@ final class ManagerUserController
             $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
         }
 
-        $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
-        $currentManager = $currentUserId > 0 ? $userRepository->findById($currentUserId) : null;
-        $isPlatformAdmin = $currentManager !== null
-            && (
-                strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                || (int) ($currentManager['id'] ?? 0) === 1
-            );
-        if (!$isPlatformAdmin && $currentCaserneId > 0) {
-            $existingCaserneIds = $userRepository->findCaserneIdsByUserId($id);
-            if (!in_array($currentCaserneId, $existingCaserneIds, true)) {
-                $this->redirect('/index.php?controller=manager&action=forbidden');
-            }
+        $currentCaserneId = $this->currentCaserneId();
+        $isPlatformAdmin = $this->isPlatformAdmin($userRepository, $currentUserId);
+        if (!$this->canManageUser($userRepository, $id, $isPlatformAdmin, $currentCaserneId)) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
         }
 
         if ((string) ($existing['role'] ?? '') === 'admin') {
             $this->redirect('/index.php?controller=manager_users&action=index&error=admin_lock');
+        }
+
+        if (!$isPlatformAdmin) {
+            $targetCaserneIds = $userRepository->findCaserneIdsByUserId($id);
+            if (count($targetCaserneIds) > 1) {
+                $detached = $userRepository->detachCaserneFromUser($id, $currentCaserneId);
+                if (!$detached) {
+                    $this->redirect('/index.php?controller=manager_users&action=index&error=delete_failed');
+                }
+
+                $this->redirect('/index.php?controller=manager_users&action=index&success=detached');
+            }
         }
 
         $ok = $userRepository->deletePermanently($id);
@@ -422,12 +432,8 @@ final class ManagerUserController
 
         $userRepository = new UserRepository();
         $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
-        $currentManager = $currentUserId > 0 ? $userRepository->findById($currentUserId) : null;
-        $isPlatformAdmin = $currentManager !== null
-            && (
-                strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                || (int) ($currentManager['id'] ?? 0) === 1
-            );
+        $isPlatformAdmin = $this->isPlatformAdmin($userRepository, $currentUserId);
+        $currentCaserneId = $this->currentCaserneId();
 
         $updated = 0;
         foreach ($ids as $id) {
@@ -438,12 +444,8 @@ final class ManagerUserController
             if ($existing === null) {
                 continue;
             }
-            $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
-            if (!$isPlatformAdmin && $currentCaserneId > 0) {
-                $existingCaserneIds = $userRepository->findCaserneIdsByUserId($id);
-                if (!in_array($currentCaserneId, $existingCaserneIds, true)) {
-                    continue;
-                }
+            if (!$this->canManageUser($userRepository, $id, $isPlatformAdmin, $currentCaserneId)) {
+                continue;
             }
             $isAdmin = strtolower((string) ($existing['role'] ?? '')) === 'admin';
             if ($isAdmin && !$isPlatformAdmin) {
@@ -484,12 +486,8 @@ final class ManagerUserController
 
         $userRepository = new UserRepository();
         $currentUserId = isset($_SESSION['manager_user']['id']) ? (int) $_SESSION['manager_user']['id'] : 0;
-        $currentManager = $currentUserId > 0 ? $userRepository->findById($currentUserId) : null;
-        $isPlatformAdmin = $currentManager !== null
-            && (
-                strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
-                || (int) ($currentManager['id'] ?? 0) === 1
-            );
+        $isPlatformAdmin = $this->isPlatformAdmin($userRepository, $currentUserId);
+        $currentCaserneId = $this->currentCaserneId();
 
         $updated = 0;
         foreach ($ids as $id) {
@@ -497,12 +495,8 @@ final class ManagerUserController
             if ($existing === null) {
                 continue;
             }
-            $currentCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
-            if (!$isPlatformAdmin && $currentCaserneId > 0) {
-                $existingCaserneIds = $userRepository->findCaserneIdsByUserId($id);
-                if (!in_array($currentCaserneId, $existingCaserneIds, true)) {
-                    continue;
-                }
+            if (!$this->canManageUser($userRepository, $id, $isPlatformAdmin, $currentCaserneId)) {
+                continue;
             }
             $isAdmin = strtolower((string) ($existing['role'] ?? '')) === 'admin';
             if ($isAdmin && !$isPlatformAdmin) {
@@ -546,5 +540,45 @@ final class ManagerUserController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function currentCaserneId(): int
+    {
+        return isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+    }
+
+    private function isPlatformAdmin(UserRepository $userRepository, int $currentUserId): bool
+    {
+        $currentManager = $currentUserId > 0 ? $userRepository->findById($currentUserId) : null;
+        $isPlatformAdmin = $currentManager !== null
+            && (
+                strtolower((string) ($currentManager['role'] ?? '')) === 'admin'
+                || (int) ($currentManager['id'] ?? 0) === 1
+            );
+
+        $_SESSION['manager_user']['is_platform_admin'] = $isPlatformAdmin ? 1 : 0;
+        if ($currentManager !== null) {
+            $_SESSION['manager_user']['global_role'] = (string) ($currentManager['role'] ?? '');
+        }
+
+        return $isPlatformAdmin;
+    }
+
+    private function canManageUser(UserRepository $userRepository, int $targetUserId, bool $isPlatformAdmin, int $currentCaserneId): bool
+    {
+        if ($isPlatformAdmin) {
+            return true;
+        }
+
+        if ($currentCaserneId <= 0) {
+            return false;
+        }
+
+        $targetCaserneIds = $userRepository->findCaserneIdsByUserId($targetUserId);
+        if (!in_array($currentCaserneId, $targetCaserneIds, true)) {
+            return false;
+        }
+
+        return true;
     }
 }

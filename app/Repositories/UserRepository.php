@@ -467,6 +467,73 @@ final class UserRepository
         return $rows;
     }
 
+    public function detachCaserneFromUser(int $userId, int $caserneId): bool
+    {
+        if (!$this->hasMembershipTable() || $userId <= 0 || $caserneId <= 0) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $connection->beginTransaction();
+
+            $delete = $connection->prepare('
+                DELETE FROM utilisateur_casernes
+                WHERE utilisateur_id = :utilisateur_id
+                  AND caserne_id = :caserne_id
+            ');
+            $delete->execute([
+                'utilisateur_id' => $userId,
+                'caserne_id' => $caserneId,
+            ]);
+
+            if ($delete->rowCount() <= 0) {
+                $connection->rollBack();
+                return false;
+            }
+
+            $remaining = $connection->prepare('
+                SELECT caserne_id
+                FROM utilisateur_casernes
+                WHERE utilisateur_id = :utilisateur_id
+                ORDER BY caserne_id ASC
+            ');
+            $remaining->execute(['utilisateur_id' => $userId]);
+            $rows = $remaining->fetchAll(PDO::FETCH_COLUMN);
+
+            if ($rows !== false && count($rows) > 0) {
+                $resetDefault = $connection->prepare('
+                    UPDATE utilisateur_casernes
+                    SET is_default = 0
+                    WHERE utilisateur_id = :utilisateur_id
+                ');
+                $resetDefault->execute(['utilisateur_id' => $userId]);
+
+                $firstCaserneId = (int) $rows[0];
+                $setDefault = $connection->prepare('
+                    UPDATE utilisateur_casernes
+                    SET is_default = 1
+                    WHERE utilisateur_id = :utilisateur_id
+                      AND caserne_id = :caserne_id
+                ');
+                $setDefault->execute([
+                    'utilisateur_id' => $userId,
+                    'caserne_id' => $firstCaserneId,
+                ]);
+            }
+
+            $connection->commit();
+            return true;
+        } catch (\Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+
+            return false;
+        }
+    }
+
     public function syncCasernes(int $userId, array $caserneAssignments, string $defaultRole = 'verificateur'): bool
     {
         if (!$this->hasMembershipTable()) {
