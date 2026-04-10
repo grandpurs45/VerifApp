@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.15.1` (voir fichier `VERSION`).
+Version courante: `v0.16.5` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -51,6 +51,10 @@ VerifApp permet de:
   - vehicules, zones, sous-zones
   - materiel configure par engin
 - Module pharmacie invite (QR) pour sorties de stock.
+- Sorties pharmacie:
+  - acquittement des sorties
+  - synthese depuis la derniere commande
+  - marquage `commande passee`
 - Roles et acces configurables.
 - Multi-caserne dans une seule instance.
 
@@ -146,6 +150,10 @@ Reglages notables:
 - generation QR invites
 - seuil horaire matin/soir des verifications mensuelles par caserne
 
+Pharmacie (backoffice):
+- `stock`: `/index.php?controller=manager_pharmacy&action=index`
+- `sorties`: `/index.php?controller=manager_pharmacy&action=outputs`
+
 ## Vue mensuelle des verifications
 URL:
 - `/index.php?controller=verifications&action=monthly`
@@ -161,13 +169,18 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 0.15.1`
+  - `./scripts/release.ps1 -Version 0.16.5`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
 ## Deploiement et release
 ### Push release
 - `git push origin main --tags`
+
+### Checklist release (obligatoire)
+- mettre a jour `VERSION`
+- mettre a jour `CHANGELOG.md`
+- mettre a jour `README.md`
 
 ### Mise a jour serveur
 - `git pull origin main --tags`
