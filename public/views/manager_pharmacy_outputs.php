@@ -58,10 +58,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <strong><?= (string) ($filters['summary_scope'] ?? 'pending') === 'pending' ? 'reste a traiter (non acquitte)' : 'toutes sorties' ?></strong>
             </p>
         </div>
-        <form method="post" action="/index.php?controller=manager_pharmacy&action=order_mark" class="flex flex-wrap items-center gap-2">
-            <input type="text" name="note" placeholder="Note commande (optionnel)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Commande passee</button>
-        </form>
+        <div class="flex flex-wrap items-center gap-2">
+            <a
+                href="/index.php?controller=manager_pharmacy&action=export_order_csv&summary_scope=<?= htmlspecialchars((string) ($filters['summary_scope'] ?? 'pending'), ENT_QUOTES, 'UTF-8') ?>"
+                class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+            >
+                Export CSV
+            </a>
+            <form method="post" action="/index.php?controller=manager_pharmacy&action=order_mark" class="flex flex-wrap items-center gap-2">
+                <input type="text" name="note" placeholder="Note commande (optionnel)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Commande passee</button>
+            </form>
+        </div>
     </div>
 
     <?php if ($summarySinceLastOrder === []): ?>

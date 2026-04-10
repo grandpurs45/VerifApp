@@ -71,6 +71,53 @@ final class ManagerPharmacyController
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
     }
 
+    public function exportOrderCsv(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $summaryScope = isset($_GET['summary_scope']) && in_array((string) $_GET['summary_scope'], ['all', 'pending'], true)
+            ? (string) $_GET['summary_scope']
+            : 'pending';
+        $onlyPending = $summaryScope === 'pending';
+
+        $repository = new PharmacyRepository();
+        $rows = $repository->findSummarySinceLastOrder($caserneId, $onlyPending);
+        $lastOrder = $repository->findLastOrder($caserneId);
+
+        $filename = 'commande_pharmacie_' . date('Ymd_His') . '.csv';
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $out = fopen('php://output', 'wb');
+        if ($out === false) {
+            exit;
+        }
+
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['VerifApp', 'Export commande pharmacie']);
+        fputcsv($out, ['Date export', date('Y-m-d H:i:s')]);
+        fputcsv($out, ['Caserne ID', (string) $caserneId]);
+        fputcsv($out, ['Mode synthese', $onlyPending ? 'reste_a_traiter_non_acquitte' : 'toutes_sorties']);
+        fputcsv($out, ['Derniere commande', (string) ($lastOrder['commande_le'] ?? 'aucune')]);
+        fputcsv($out, []);
+        fputcsv($out, ['Article', 'Unite', 'Quantite_a_recommander', 'Lignes_sorties']);
+
+        foreach ($rows as $row) {
+            fputcsv($out, [
+                (string) ($row['article_nom'] ?? ''),
+                (string) ($row['article_unite'] ?? 'u'),
+                (string) ((int) round((float) ($row['quantite_totale'] ?? 0))),
+                (string) ((int) ($row['lignes'] ?? 0)),
+            ]);
+        }
+
+        fclose($out);
+        exit;
+    }
+
     public function outputAcknowledge(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
