@@ -102,6 +102,7 @@ $managerRoutes = [
     'manager_pharmacy/index',
     'manager_pharmacy/outputs',
     'manager_pharmacy/export_order_csv',
+    'manager_pharmacy/order_print',
     'manager_pharmacy/article_save',
     'manager_pharmacy/output_acknowledge',
     'manager_pharmacy/order_mark',
@@ -199,6 +200,7 @@ $managerRoutePermissions = [
     'manager_pharmacy/index' => 'pharmacy.manage',
     'manager_pharmacy/outputs' => 'pharmacy.manage',
     'manager_pharmacy/export_order_csv' => 'pharmacy.manage',
+    'manager_pharmacy/order_print' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
@@ -497,6 +499,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'export_order_csv') {
         $controller = new ManagerPharmacyController();
         $controller->exportOrderCsv();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'order_print') {
+        $controller = new ManagerPharmacyController();
+        $controller->orderPrint();
         return;
     }
 

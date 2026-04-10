@@ -118,6 +118,34 @@ final class ManagerPharmacyController
         exit;
     }
 
+    public function orderPrint(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $summaryScope = isset($_GET['summary_scope']) && in_array((string) $_GET['summary_scope'], ['all', 'pending'], true)
+            ? (string) $_GET['summary_scope']
+            : 'pending';
+        $onlyPending = $summaryScope === 'pending';
+
+        $repository = new PharmacyRepository();
+        $rows = $repository->findSummarySinceLastOrder($caserneId, $onlyPending);
+        $lastOrder = $repository->findLastOrder($caserneId);
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $caserneName = is_array($managerUser) ? trim((string) ($managerUser['caserne_nom'] ?? '')) : '';
+        $generatedAt = date('Y-m-d H:i:s');
+        $totalQuantity = 0;
+        $totalLines = 0;
+        foreach ($rows as $row) {
+            $totalQuantity += (int) round((float) ($row['quantite_totale'] ?? 0));
+            $totalLines += (int) ($row['lignes'] ?? 0);
+        }
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_order_print.php';
+    }
+
     public function outputAcknowledge(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
