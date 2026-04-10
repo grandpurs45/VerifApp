@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.1] - 2026-04-10
+
+### Added
+- Pharmacie:
+  - champ de recherche instantanee sur `Articles existants` (filtre local par nom, sans rechargement)
+  - compteur dynamique des lignes visibles apres filtrage
+
+### Changed
+- Configuration engin:
+  - remplacement des encarts d aide repetitifs du mode `Presence (check)` par un bouton info `i`
+  - aide contextualisee via popover cliquable (desktop + mobile), plus compacte
+  - interaction popover amelioree (fermeture au clic exterieur, un seul ouvert)
+
 ## [0.16.0] - 2026-04-07
 
 ### Added

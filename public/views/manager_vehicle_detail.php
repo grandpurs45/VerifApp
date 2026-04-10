@@ -134,6 +134,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <h2 class="text-xl font-semibold">Materiel de l engin</h2>
         <p class="text-xs text-slate-500">Saisie simplifiee: libelle + poste + zone + type de reponse.</p>
     </div>
+    <p class="mb-3 text-xs text-slate-500">Astuce Presence (check): quantite attendue + reponse terrain Present/Manquant.</p>
 
     <?php if ($postes === []): ?>
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
@@ -177,8 +178,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="quantity-fields">
                 <input type="number" step="1" min="1" name="valeur_attendue" placeholder="Quantite attendue (ex: 2)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
-                <div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    Exemple: 2 Biseptine. Terrain: Present/Manquant (pas de saisie numerique).
+                <div class="md:col-span-2 flex items-center justify-start">
+                    <div class="relative inline-flex">
+                        <button
+                            type="button"
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800"
+                            aria-label="Info type Presence"
+                            data-info-trigger
+                        >
+                            i
+                        </button>
+                        <div
+                            class="hidden absolute left-9 top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 shadow-lg"
+                            data-info-panel
+                        >
+                            Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
+                        </div>
+                    </div>
                 </div>
             </div>
             <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Ajouter materiel</button>
@@ -226,8 +242,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-2 <?= $controlType === 'quantite' ? '' : 'hidden' ?>" data-wrap="quantity-fields">
                     <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Quantite attendue" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
-                    <div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
+                    <div class="md:col-span-2 flex items-center justify-start">
+                        <div class="relative inline-flex">
+                            <button
+                                type="button"
+                                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800"
+                                aria-label="Info type Presence"
+                                data-info-trigger
+                            >
+                                i
+                            </button>
+                            <div
+                                class="hidden absolute left-9 top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 shadow-lg"
+                                data-info-panel
+                            >
+                                Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -329,6 +360,32 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     submitter.classList.add('opacity-60', 'cursor-not-allowed');
                 }
             });
+        });
+
+        function closeAllInfoPanels() {
+            document.querySelectorAll('[data-info-panel]').forEach(function (panel) {
+                panel.classList.add('hidden');
+            });
+        }
+
+        document.querySelectorAll('[data-info-trigger]').forEach(function (button) {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const panel = button.parentElement ? button.parentElement.querySelector('[data-info-panel]') : null;
+                if (!panel) {
+                    return;
+                }
+                const isHidden = panel.classList.contains('hidden');
+                closeAllInfoPanels();
+                if (isHidden) {
+                    panel.classList.remove('hidden');
+                }
+            });
+        });
+
+        document.addEventListener('click', function () {
+            closeAllInfoPanels();
         });
     })();
 </script>
