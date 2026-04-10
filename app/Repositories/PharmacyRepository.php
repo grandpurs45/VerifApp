@@ -16,6 +16,7 @@ final class PharmacyRepository
     private ?bool $outputGroupColumnExists = null;
     private ?bool $freeLabelColumnExists = null;
     private ?bool $articleIdNullable = null;
+    private ?bool $ackColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -319,6 +320,8 @@ final class PharmacyRepository
                 m.commentaire,
                 m.declarant,
                 m.cree_le,
+                m.acquitte_le,
+                m.acquitte_par,
                 COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
                 COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
@@ -348,11 +351,16 @@ final class PharmacyRepository
         $limitGroups = max(1, min(100, $limitGroups));
         $connection = Database::getConnection();
         $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $hasAckColumn = $this->hasAckColumn();
         $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
         $articleSearch = trim((string) ($filters['article'] ?? ''));
         $declarantSearch = trim((string) ($filters['declarant'] ?? ''));
+        $ackStatus = (string) ($filters['ack_status'] ?? 'pending');
+        if (!in_array($ackStatus, ['all', 'pending', 'ack'], true)) {
+            $ackStatus = 'pending';
+        }
 
         if ($this->hasOutputGroupColumn()) {
             $where = [
@@ -372,6 +380,15 @@ final class PharmacyRepository
             if ($declarantSearch !== '') {
                 $where[] = 'm.declarant LIKE :declarant';
                 $params['declarant'] = '%' . $declarantSearch . '%';
+            }
+            if ($hasAckColumn) {
+                if ($ackStatus === 'pending') {
+                    $where[] = 'm.acquitte_le IS NULL';
+                } elseif ($ackStatus === 'ack') {
+                    $where[] = 'm.acquitte_le IS NOT NULL';
+                }
+            } elseif ($ackStatus === 'ack') {
+                return [];
             }
             if ($articleSearch !== '') {
                 $articlePredicate = $hasFreeLabelColumn
@@ -398,7 +415,10 @@ final class PharmacyRepository
                     MAX(m.cree_le) AS cree_le,
                     MAX(COALESCE(m.declarant, \'\')) AS declarant,
                     COUNT(*) AS lignes,
-                    SUM(m.quantite) AS total_quantite
+                    SUM(m.quantite) AS total_quantite,
+                    ' . ($hasAckColumn ? 'MIN(CASE WHEN m.acquitte_le IS NOT NULL THEN 1 ELSE 0 END)' : '0') . ' AS acquitte,
+                    ' . ($hasAckColumn ? 'MAX(m.acquitte_le)' : 'NULL') . ' AS acquitte_le,
+                    ' . ($hasAckColumn ? 'MAX(COALESCE(m.acquitte_par, \'\'))' : "''") . ' AS acquitte_par
                 FROM pharmacie_mouvements m
                 WHERE ' . implode(' AND ', $where) . '
                 GROUP BY COALESCE(NULLIF(m.sortie_ref, \'\'), CONCAT(\'legacy:\', m.id))
@@ -470,6 +490,9 @@ final class PharmacyRepository
                 'declarant' => (string) ($row['declarant'] ?? ''),
                 'lignes' => 1,
                 'total_quantite' => (float) ($row['quantite'] ?? 0),
+                'acquitte' => isset($row['acquitte_le']) && $row['acquitte_le'] !== null ? 1 : 0,
+                'acquitte_le' => (string) ($row['acquitte_le'] ?? ''),
+                'acquitte_par' => (string) ($row['acquitte_par'] ?? ''),
                 'items' => [$row],
             ];
         }
@@ -482,12 +505,17 @@ final class PharmacyRepository
         $limit = max(1, min(300, $limit));
         $connection = Database::getConnection();
         $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $hasAckColumn = $this->hasAckColumn();
         $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
 
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
         $articleSearch = trim((string) ($filters['article'] ?? ''));
         $declarantSearch = trim((string) ($filters['declarant'] ?? ''));
+        $ackStatus = (string) ($filters['ack_status'] ?? 'pending');
+        if (!in_array($ackStatus, ['all', 'pending', 'ack'], true)) {
+            $ackStatus = 'pending';
+        }
 
         $where = [
             'm.caserne_id = :caserne_id',
@@ -513,6 +541,15 @@ final class PharmacyRepository
             $where[] = 'm.declarant LIKE :declarant';
             $params['declarant'] = '%' . $declarantSearch . '%';
         }
+        if ($hasAckColumn) {
+            if ($ackStatus === 'pending') {
+                $where[] = 'm.acquitte_le IS NULL';
+            } elseif ($ackStatus === 'ack') {
+                $where[] = 'm.acquitte_le IS NOT NULL';
+            }
+        } elseif ($ackStatus === 'ack') {
+            return [];
+        }
 
         $sql = '
             SELECT
@@ -524,6 +561,8 @@ final class PharmacyRepository
                 m.commentaire,
                 m.declarant,
                 m.cree_le,
+                m.acquitte_le,
+                m.acquitte_par,
                 COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
                 COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
@@ -532,6 +571,142 @@ final class PharmacyRepository
             ORDER BY m.cree_le DESC, m.id DESC
             LIMIT ' . $limit;
 
+        $statement = $connection->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function acknowledgeOutputGroup(int $caserneId, string $sortieKey, string $managerName): bool
+    {
+        if (!$this->hasMovementsTable() || !$this->hasAckColumn()) {
+            return false;
+        }
+
+        $sortieKey = trim($sortieKey);
+        $managerName = trim($managerName);
+        if ($sortieKey === '' || $managerName === '') {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+        $params = [
+            'caserne_id' => $caserneId,
+            'acquitte_par' => $managerName,
+        ];
+
+        if (str_starts_with($sortieKey, 'legacy:')) {
+            $legacyId = (int) substr($sortieKey, 7);
+            if ($legacyId <= 0) {
+                return false;
+            }
+
+            $sql = '
+                UPDATE pharmacie_mouvements
+                SET acquitte_le = NOW(), acquitte_par = :acquitte_par
+                WHERE caserne_id = :caserne_id
+                  AND id = :legacy_id
+                  AND type = \'sortie\'
+                  AND acquitte_le IS NULL
+            ';
+            $params['legacy_id'] = $legacyId;
+            $statement = $connection->prepare($sql);
+            $statement->execute($params);
+
+            return $statement->rowCount() > 0;
+        }
+
+        if (!$this->hasOutputGroupColumn()) {
+            return false;
+        }
+
+        $sql = '
+            UPDATE pharmacie_mouvements
+            SET acquitte_le = NOW(), acquitte_par = :acquitte_par
+            WHERE caserne_id = :caserne_id
+              AND type = \'sortie\'
+              AND sortie_ref = :sortie_ref
+              AND acquitte_le IS NULL
+        ';
+        $params['sortie_ref'] = $sortieKey;
+        $statement = $connection->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->rowCount() > 0;
+    }
+
+    public function createOrderMark(int $caserneId, string $managerName, ?string $note = null): bool
+    {
+        if (!$this->hasOrdersTable()) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+        $statement = $connection->prepare(
+            'INSERT INTO pharmacie_commandes (caserne_id, commande_le, note, cree_par)
+             VALUES (:caserne_id, NOW(), :note, :cree_par)'
+        );
+
+        return $statement->execute([
+            'caserne_id' => $caserneId,
+            'note' => $note !== null && trim($note) !== '' ? trim($note) : null,
+            'cree_par' => trim($managerName) !== '' ? trim($managerName) : null,
+        ]);
+    }
+
+    public function findLastOrder(int $caserneId): ?array
+    {
+        if (!$this->hasOrdersTable()) {
+            return null;
+        }
+
+        $connection = Database::getConnection();
+        $statement = $connection->prepare(
+            'SELECT id, caserne_id, commande_le, note, cree_par
+             FROM pharmacie_commandes
+             WHERE caserne_id = :caserne_id
+             ORDER BY commande_le DESC, id DESC
+             LIMIT 1'
+        );
+        $statement->execute(['caserne_id' => $caserneId]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : null;
+    }
+
+    public function findSummarySinceLastOrder(int $caserneId): array
+    {
+        if (!$this->hasMovementsTable()) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
+        $lastOrder = $this->findLastOrder($caserneId);
+
+        $where = [
+            'm.caserne_id = :caserne_id',
+            'm.type = \'sortie\'',
+        ];
+        $params = ['caserne_id' => $caserneId];
+        if ($lastOrder !== null && isset($lastOrder['commande_le'])) {
+            $where[] = 'm.cree_le > :last_order';
+            $params['last_order'] = (string) $lastOrder['commande_le'];
+        }
+
+        $sql = '
+            SELECT
+                COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite,
+                SUM(m.quantite) AS quantite_totale,
+                COUNT(*) AS lignes
+            FROM pharmacie_mouvements m
+            LEFT JOIN pharmacie_articles a ON a.id = m.article_id
+            WHERE ' . implode(' AND ', $where) . '
+            GROUP BY COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\'), COALESCE(a.unite, \'u\')
+            ORDER BY article_nom ASC
+        ';
         $statement = $connection->prepare($sql);
         $statement->execute($params);
 
@@ -613,6 +788,36 @@ final class PharmacyRepository
     public function supportsFreeLabelOutputs(): bool
     {
         return $this->hasFreeLabelColumn() && $this->isMovementArticleIdNullable();
+    }
+
+    private function hasAckColumn(): bool
+    {
+        if ($this->ackColumnExists !== null) {
+            return $this->ackColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'acquitte_le'");
+            $this->ackColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->ackColumnExists = false;
+        }
+
+        return $this->ackColumnExists;
+    }
+
+    private function hasOrdersTable(): bool
+    {
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW TABLES LIKE 'pharmacie_commandes'");
+            return $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            return false;
+        }
     }
 
     private function isMovementArticleIdNullable(): bool

@@ -9,6 +9,24 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.5] - 2026-04-10
+
+### Added
+- Sorties pharmacie (backoffice):
+  - acquittement des sorties (`Acquitter` / `Prise en compte`)
+  - marquage `Commande passee` (horodatage + auteur + note optionnelle)
+  - synthese des sorties depuis la derniere commande pour preparation reappro
+  - migration `027_add_pharmacy_ack_and_orders.sql`
+
+### Changed
+- Filtres sorties pharmacie:
+  - ajout du filtre `Acquittement` (`A acquitter`, `Deja acquittees`, `Toutes`)
+  - filtre par defaut positionne sur `A acquitter`
+
+### Fixed
+- Suivi pharmacie:
+  - meilleure lisibilite de l etat de prise en compte dans la liste des sorties
+
 ## [0.16.4] - 2026-04-10
 
 ### Added

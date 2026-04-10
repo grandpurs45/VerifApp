@@ -101,6 +101,8 @@ $managerRoutes = [
     'manager_pharmacy/index',
     'manager_pharmacy/outputs',
     'manager_pharmacy/article_save',
+    'manager_pharmacy/output_acknowledge',
+    'manager_pharmacy/order_mark',
     'manager_roles/index',
     'manager_roles/role_save',
     'manager_roles/role_delete',
@@ -194,6 +196,8 @@ $managerRoutePermissions = [
     'manager_pharmacy/index' => 'pharmacy.manage',
     'manager_pharmacy/outputs' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
+    'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
+    'manager_pharmacy/order_mark' => 'pharmacy.manage',
     'manager_roles/index' => 'users.manage',
     'manager_roles/role_save' => 'users.manage',
     'manager_roles/role_delete' => 'users.manage',
@@ -483,6 +487,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'article_save') {
         $controller = new ManagerPharmacyController();
         $controller->articleSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'output_acknowledge') {
+        $controller = new ManagerPharmacyController();
+        $controller->outputAcknowledge();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'order_mark') {
+        $controller = new ManagerPharmacyController();
+        $controller->markOrder();
         return;
     }
 

@@ -48,11 +48,67 @@ final class ManagerPharmacyController
             'date_to' => isset($_GET['date_to']) ? (string) $_GET['date_to'] : '',
             'article' => isset($_GET['article']) ? trim((string) $_GET['article']) : '',
             'declarant' => isset($_GET['declarant']) ? trim((string) $_GET['declarant']) : '',
+            'ack_status' => isset($_GET['ack_status']) && in_array((string) $_GET['ack_status'], ['all', 'pending', 'ack'], true)
+                ? (string) $_GET['ack_status']
+                : 'pending',
         ];
         $movementGroups = $repository->findOutputGroups($caserneId, $filters, 120);
+        $lastOrder = $repository->findLastOrder($caserneId);
+        $summarySinceLastOrder = $repository->findSummarySinceLastOrder($caserneId);
+        $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
+        $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $managerUser = $_SESSION['manager_user'] ?? null;
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
+    }
+
+    public function outputAcknowledge(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $sortieKey = trim((string) ($_POST['sortie_key'] ?? ''));
+        if ($sortieKey === '') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=ack_invalid');
+        }
+
+        $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Gestionnaire'));
+        $repository = new PharmacyRepository();
+        $ok = $repository->acknowledgeOutputGroup($caserneId, $sortieKey, $managerName);
+        if (!$ok) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=ack_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=ack_saved');
+    }
+
+    public function markOrder(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $note = trim((string) ($_POST['note'] ?? ''));
+        $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Gestionnaire'));
+
+        $repository = new PharmacyRepository();
+        $ok = $repository->createOrderMark($caserneId, $managerName, $note);
+        if (!$ok) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=order_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=order_saved');
     }
 
     public function articleSave(): void
