@@ -53,6 +53,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     Aucune commande enregistree pour cette caserne.
                 <?php endif; ?>
             </p>
+            <p class="text-xs text-slate-500 mt-1">
+                Mode synthese:
+                <strong><?= (string) ($filters['summary_scope'] ?? 'pending') === 'pending' ? 'reste a traiter (non acquitte)' : 'toutes sorties' ?></strong>
+            </p>
         </div>
         <form method="post" action="/index.php?controller=manager_pharmacy&action=order_mark" class="flex flex-wrap items-center gap-2">
             <input type="text" name="note" placeholder="Note commande (optionnel)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -65,6 +69,21 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Aucune sortie depuis la derniere commande.
         </p>
     <?php else: ?>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Articles a recommander</p>
+                <p class="text-xl font-extrabold text-slate-900 mt-1"><?= count($summarySinceLastOrder) ?></p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Quantite totale</p>
+                <p class="text-xl font-extrabold text-slate-900 mt-1"><?= (int) ($summaryTotalQuantity ?? 0) ?></p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Lignes sorties</p>
+                <p class="text-xl font-extrabold text-slate-900 mt-1"><?= (int) ($summaryTotalLines ?? 0) ?></p>
+            </article>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
                 <thead>
@@ -104,6 +123,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <option value="pending" <?= (string) ($filters['ack_status'] ?? 'pending') === 'pending' ? 'selected' : '' ?>>A acquitter</option>
             <option value="ack" <?= (string) ($filters['ack_status'] ?? '') === 'ack' ? 'selected' : '' ?>>Deja acquittees</option>
             <option value="all" <?= (string) ($filters['ack_status'] ?? '') === 'all' ? 'selected' : '' ?>>Toutes</option>
+        </select>
+        <select name="summary_scope" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <option value="pending" <?= (string) ($filters['summary_scope'] ?? 'pending') === 'pending' ? 'selected' : '' ?>>Synthese: reste a traiter</option>
+            <option value="all" <?= (string) ($filters['summary_scope'] ?? '') === 'all' ? 'selected' : '' ?>>Synthese: toutes sorties</option>
         </select>
         <div class="flex gap-2">
             <button type="submit" class="flex-1 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Filtrer</button>

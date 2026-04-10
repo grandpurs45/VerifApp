@@ -674,13 +674,14 @@ final class PharmacyRepository
         return is_array($row) ? $row : null;
     }
 
-    public function findSummarySinceLastOrder(int $caserneId): array
+    public function findSummarySinceLastOrder(int $caserneId, bool $onlyPendingAcknowledge = false): array
     {
         if (!$this->hasMovementsTable()) {
             return [];
         }
 
         $connection = Database::getConnection();
+        $hasAckColumn = $this->hasAckColumn();
         $hasFreeLabelColumn = $this->hasFreeLabelColumn();
         $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
         $lastOrder = $this->findLastOrder($caserneId);
@@ -693,6 +694,9 @@ final class PharmacyRepository
         if ($lastOrder !== null && isset($lastOrder['commande_le'])) {
             $where[] = 'm.cree_le > :last_order';
             $params['last_order'] = (string) $lastOrder['commande_le'];
+        }
+        if ($onlyPendingAcknowledge && $hasAckColumn) {
+            $where[] = 'm.acquitte_le IS NULL';
         }
 
         $sql = '

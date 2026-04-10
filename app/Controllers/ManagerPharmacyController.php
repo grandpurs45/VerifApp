@@ -51,10 +51,19 @@ final class ManagerPharmacyController
             'ack_status' => isset($_GET['ack_status']) && in_array((string) $_GET['ack_status'], ['all', 'pending', 'ack'], true)
                 ? (string) $_GET['ack_status']
                 : 'pending',
+            'summary_scope' => isset($_GET['summary_scope']) && in_array((string) $_GET['summary_scope'], ['all', 'pending'], true)
+                ? (string) $_GET['summary_scope']
+                : 'pending',
         ];
         $movementGroups = $repository->findOutputGroups($caserneId, $filters, 120);
         $lastOrder = $repository->findLastOrder($caserneId);
-        $summarySinceLastOrder = $repository->findSummarySinceLastOrder($caserneId);
+        $summarySinceLastOrder = $repository->findSummarySinceLastOrder($caserneId, (string) $filters['summary_scope'] === 'pending');
+        $summaryTotalQuantity = 0;
+        $summaryTotalLines = 0;
+        foreach ($summarySinceLastOrder as $line) {
+            $summaryTotalQuantity += (int) round((float) ($line['quantite_totale'] ?? 0));
+            $summaryTotalLines += (int) ($line['lignes'] ?? 0);
+        }
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $managerUser = $_SESSION['manager_user'] ?? null;
