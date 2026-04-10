@@ -67,19 +67,41 @@ final class PharmacyController
         $articleIds = is_array($_POST['article_id'] ?? null) ? $_POST['article_id'] : [];
         $quantities = is_array($_POST['quantite'] ?? null) ? $_POST['quantite'] : [];
         $comments = is_array($_POST['commentaire_ligne'] ?? null) ? $_POST['commentaire_ligne'] : [];
+        $motifs = is_array($_POST['motif'] ?? null) ? $_POST['motif'] : [];
+        $interventionNumbers = is_array($_POST['intervention_numero'] ?? null) ? $_POST['intervention_numero'] : [];
         $declarant = trim((string) ($_POST['declarant'] ?? ''));
         if ($declarant === '') {
             $this->redirect('/index.php?controller=pharmacy&action=form&error=declarant_required');
         }
+        $repository = new PharmacyRepository();
+        $availableArticles = $repository->findAllArticles($caserneId, true);
+        $articlesById = [];
+        foreach ($availableArticles as $article) {
+            $articlesById[(int) ($article['id'] ?? 0)] = $article;
+        }
         $lines = [];
 
-        $maxRows = max(count($articleIds), count($quantities), count($comments));
+        $maxRows = max(
+            count($articleIds),
+            count($quantities),
+            count($comments),
+            count($motifs),
+            count($interventionNumbers)
+        );
         for ($index = 0; $index < $maxRows; $index++) {
             $articleRaw = isset($articleIds[$index]) ? trim((string) $articleIds[$index]) : '';
             $quantityRaw = isset($quantities[$index]) ? trim((string) $quantities[$index]) : '';
             $comment = isset($comments[$index]) ? trim((string) $comments[$index]) : '';
+            $motifRaw = isset($motifs[$index]) ? trim((string) $motifs[$index]) : '';
+            $interventionRaw = isset($interventionNumbers[$index]) ? trim((string) $interventionNumbers[$index]) : '';
 
-            if ($articleRaw === '' && $quantityRaw === '' && $comment === '') {
+            if (
+                $articleRaw === ''
+                && $quantityRaw === ''
+                && $comment === ''
+                && $motifRaw === ''
+                && $interventionRaw === ''
+            ) {
                 continue;
             }
 
@@ -87,11 +109,39 @@ final class PharmacyController
             if (!ctype_digit($articleRaw) || $quantityValue === null) {
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
+            $articleId = (int) $articleRaw;
+            $article = $articlesById[$articleId] ?? null;
+            if ($article === null) {
+                $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
+            }
+
+            $motif = '';
+            if ($motifRaw !== '') {
+                if (!in_array($motifRaw, ['perime', 'utilise'], true)) {
+                    $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
+                }
+                $motif = $motifRaw;
+            }
+            $reasonRequired = (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1;
+            if ($reasonRequired && $motif === '') {
+                $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
+            }
+
+            if ($motif === 'utilise' && $interventionRaw === '') {
+                $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
+            }
+
+            $composedComment = $comment;
+            if ($motif === 'perime') {
+                $composedComment = trim('[Motif: Materiel perime] ' . $composedComment);
+            } elseif ($motif === 'utilise') {
+                $composedComment = trim('[Motif: Utilise en intervention ' . $interventionRaw . '] ' . $composedComment);
+            }
 
             $lines[] = [
-                'article_id' => (int) $articleRaw,
+                'article_id' => $articleId,
                 'quantite' => (float) $quantityValue,
-                'commentaire' => $comment === '' ? null : $comment,
+                'commentaire' => $composedComment === '' ? null : $composedComment,
             ];
         }
 
@@ -99,7 +149,6 @@ final class PharmacyController
             $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
         }
 
-        $repository = new PharmacyRepository();
         $ok = $repository->recordOutputs($caserneId, $lines, $declarant);
 
         if (!$ok) {

@@ -122,6 +122,32 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         >
                             <?= htmlspecialchars($module['label'], ENT_QUOTES, 'UTF-8') ?>
                         </a>
+                        <?php if ($module['route_key'] === 'manager_pharmacy/index' && str_starts_with($currentRoute, 'manager_pharmacy/')): ?>
+                            <?php
+                            $pharmacySubmenu = [
+                                [
+                                    'label' => 'Stock',
+                                    'route' => '/index.php?controller=manager_pharmacy&action=index',
+                                    'active' => $currentRoute === 'manager_pharmacy/index',
+                                ],
+                                [
+                                    'label' => 'Sorties',
+                                    'route' => '/index.php?controller=manager_pharmacy&action=outputs',
+                                    'active' => $currentRoute === 'manager_pharmacy/outputs',
+                                ],
+                            ];
+                            ?>
+                            <div class="ml-3 mt-1 space-y-1 border-l border-white/20 pl-2">
+                                <?php foreach ($pharmacySubmenu as $item): ?>
+                                    <a
+                                        href="<?= htmlspecialchars($item['route'], ENT_QUOTES, 'UTF-8') ?>"
+                                        class="block rounded-lg px-2 py-1.5 text-xs font-semibold <?= $item['active'] ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10' ?>"
+                                    >
+                                        <?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </nav>
                 <div class="mt-auto pt-4">
@@ -144,8 +170,12 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <?php if ($pageBackUrl !== ''): ?>
-                                <a href="<?= htmlspecialchars($pageBackUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-xs text-slate-300 hover:text-white">
-                                    <- <?= htmlspecialchars($pageBackLabel, ENT_QUOTES, 'UTF-8') ?>
+                                <a
+                                    href="<?= htmlspecialchars($pageBackUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                    class="inline-flex items-center gap-1 rounded-xl border border-white/35 bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                                >
+                                    <span aria-hidden="true">&larr;</span>
+                                    <?= htmlspecialchars($pageBackLabel, ENT_QUOTES, 'UTF-8') ?>
                                 </a>
                             <?php endif; ?>
                             <?php if ($pageHeading !== ''): ?>

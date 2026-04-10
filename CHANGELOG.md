@@ -9,6 +9,30 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.2] - 2026-04-10
+
+### Added
+- Backoffice:
+  - vrai bouton `Retour` visible dans la banniere (remplace le lien discret)
+  - sous-menu `Pharmacie` dans la navigation gauche (`Stock`, `Sorties`)
+- Pharmacie:
+  - migration `025_add_pharmacy_output_reason_requirement.sql`
+  - nouveau parametre article `motif_sortie_obligatoire`
+  - filtre rapide `Voir erreurs uniquement` sur la liste des articles
+
+### Changed
+- Sortie pharmacie terrain (QR):
+  - selection article optimisee smartphone: recherche live + ajout direct en ligne
+  - champ `Motif` masque quand non requis pour l article
+  - champ `Motif` obligatoire quand l article l exige
+  - numero d intervention obligatoire si motif = `utilise`
+- Stock pharmacie:
+  - sorties autorisees meme si stock insuffisant (stock negatif possible)
+
+### Fixed
+- Navigation:
+  - parcours plus lisible sur les pages avec retour (bouton explicite)
+
 ## [0.16.1] - 2026-04-10
 
 ### Added

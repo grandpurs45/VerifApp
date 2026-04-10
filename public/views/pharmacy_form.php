@@ -6,7 +6,7 @@ $errorMessage = null;
 if ($errorCode === 'invalid') {
     $errorMessage = 'Saisie invalide. Verifie article et quantite.';
 } elseif ($errorCode === 'stock') {
-    $errorMessage = 'Stock insuffisant ou article inactif.';
+    $errorMessage = 'Article inactif ou donnees invalides.';
 } elseif ($errorCode === 'declarant_required') {
     $errorMessage = 'Nom du declarant obligatoire.';
 }
@@ -59,11 +59,44 @@ if ($errorCode === 'invalid') {
                 </a>
             <?php else: ?>
                 <form method="post" action="/index.php?controller=pharmacy&action=save" class="rounded-3xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg space-y-3" id="pharmacyForm">
-                    <div id="lineItems" class="space-y-3"></div>
+                    <section class="space-y-2">
+                        <label for="articleSearchMain" class="text-sm font-semibold text-slate-200">Ajouter un article</label>
+                        <input
+                            id="articleSearchMain"
+                            type="text"
+                            data-main-article-search
+                            class="w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white"
+                            placeholder="Tape le nom d'un article..."
+                            autocomplete="off"
+                        >
+                        <div class="max-h-60 overflow-y-auto rounded-2xl border border-slate-500 bg-slate-950/80" data-main-article-list>
+                            <?php foreach ($articles as $article): ?>
+                                <?php
+                                $articleName = (string) $article['nom'];
+                                $articleStock = (string) $article['stock_actuel'];
+                                $articleUnit = (string) $article['unite'];
+                                $articleLabel = $articleName . ' (stock: ' . $articleStock . ' ' . $articleUnit . ')';
+                                ?>
+                                <button
+                                    type="button"
+                                    class="w-full border-b border-slate-800 px-4 py-3 text-left text-base text-slate-100 last:border-b-0 active:bg-slate-700"
+                                    data-main-article-option
+                                    data-value="<?= (int) $article['id'] ?>"
+                                    data-label="<?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-nom="<?= htmlspecialchars($articleName, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-reason-required="<?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? '1' : '0' ?>"
+                                >
+                                    <?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="text-xs text-slate-300">Selection rapide: touche un article pour ajouter sa ligne de quantite.</p>
+                    </section>
 
-                    <button type="button" id="addLineButton" class="w-full rounded-2xl border border-slate-500 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-100 active:scale-[0.99]">
-                        + Ajouter un article
-                    </button>
+                    <div id="lineItems" class="space-y-3"></div>
+                    <p id="noLineNotice" class="rounded-xl border border-amber-400/70 bg-amber-500/20 px-3 py-2 text-xs text-amber-100">
+                        Aucun article selectionne.
+                    </p>
 
                     <div>
                         <label for="declarant" class="text-sm font-semibold text-slate-200">Nom du declarant</label>
@@ -82,21 +115,25 @@ if ($errorCode === 'invalid') {
         <template id="lineTemplate">
             <section class="rounded-2xl border border-slate-600 bg-slate-900/60 p-3 space-y-2" data-line>
                 <div>
-                    <label class="text-sm font-semibold text-slate-200">Article</label>
-                    <select name="article_id[]" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white">
-                        <option value="">Selectionner...</option>
-                        <?php foreach ($articles as $article): ?>
-                            <option value="<?= (int) $article['id'] ?>">
-                                <?= htmlspecialchars((string) $article['nom'], ENT_QUOTES, 'UTF-8') ?>
-                                (stock: <?= htmlspecialchars((string) $article['stock_actuel'], ENT_QUOTES, 'UTF-8') ?>
-                                <?= htmlspecialchars((string) $article['unite'], ENT_QUOTES, 'UTF-8') ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <p class="text-sm font-semibold text-slate-100" data-line-label></p>
+                    <input type="hidden" name="article_id[]" required data-article-id>
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-slate-200">Quantite sortie</label>
-                    <input name="quantite[]" type="number" min="1" step="1" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2">
+                    <input name="quantite[]" type="number" min="1" step="1" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2" data-quantity-input>
+                </div>
+                <div>
+                    <label class="text-sm font-semibold text-slate-200" data-motif-label>Motif (optionnel)</label>
+                    <select name="motif[]" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" data-motif-select>
+                        <option value="" data-motif-empty>Aucun</option>
+                        <option value="perime">Materiel perime</option>
+                        <option value="utilise">Materiel utilise en intervention</option>
+                    </select>
+                    <p class="mt-1 hidden text-xs text-amber-200" data-motif-required-hint>Motif obligatoire pour cet article.</p>
+                </div>
+                <div class="hidden" data-intervention-wrap>
+                    <label class="text-sm font-semibold text-slate-200">Numero intervention</label>
+                    <input name="intervention_numero[]" type="text" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2026-001245" data-intervention-input>
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-slate-200">Commentaire (optionnel)</label>
@@ -112,35 +149,146 @@ if ($errorCode === 'invalid') {
             (function () {
                 const lineItems = document.getElementById('lineItems');
                 const template = document.getElementById('lineTemplate');
-                const addButton = document.getElementById('addLineButton');
+                const searchInput = document.querySelector('[data-main-article-search]');
+                const mainOptions = Array.from(document.querySelectorAll('[data-main-article-option]'));
+                const noLineNotice = document.getElementById('noLineNotice');
 
-                function bindRemove(button) {
-                    button.addEventListener('click', function () {
-                        const lines = lineItems.querySelectorAll('[data-line]');
-                        if (lines.length <= 1) {
-                            return;
-                        }
-                        button.closest('[data-line]').remove();
+                function updateMainOptions(query) {
+                    const search = (query || '').trim().toLowerCase();
+                    mainOptions.forEach(function (option) {
+                        const label = (option.dataset.label || '').toLowerCase();
+                        const isVisible = search === '' || label.indexOf(search) !== -1;
+                        option.classList.toggle('hidden', !isVisible);
                     });
                 }
 
-                function addLine() {
+                function refreshNoLineNotice() {
+                    if (!noLineNotice) {
+                        return;
+                    }
+                    const lineCount = lineItems.querySelectorAll('[data-line]').length;
+                    noLineNotice.classList.toggle('hidden', lineCount > 0);
+                }
+
+                function bindRemove(button) {
+                    button.addEventListener('click', function () {
+                        button.closest('[data-line]').remove();
+                        refreshNoLineNotice();
+                    });
+                }
+
+                function bindMotifBehavior(line, reasonRequired) {
+                    const motifSelect = line.querySelector('[data-motif-select]');
+                    const interventionWrap = line.querySelector('[data-intervention-wrap]');
+                    const interventionInput = line.querySelector('[data-intervention-input]');
+                    const motifHint = line.querySelector('[data-motif-required-hint]');
+                    const motifLabel = line.querySelector('[data-motif-label]');
+                    const motifContainer = motifSelect ? motifSelect.closest('div') : null;
+                    const motifEmptyOption = motifSelect ? motifSelect.querySelector('[data-motif-empty]') : null;
+                    if (!motifSelect || !interventionWrap || !interventionInput || !motifHint || !motifLabel || !motifContainer) {
+                        return;
+                    }
+
+                    function update() {
+                        if (reasonRequired) {
+                            motifContainer.classList.remove('hidden');
+                            motifSelect.required = true;
+                            motifLabel.textContent = 'Motif (obligatoire)';
+                            motifHint.classList.remove('hidden');
+                            if (motifEmptyOption) {
+                                motifEmptyOption.textContent = 'Selectionner un motif';
+                            }
+                        } else {
+                            motifContainer.classList.add('hidden');
+                            motifSelect.required = false;
+                            motifSelect.value = '';
+                            motifLabel.textContent = 'Motif (optionnel)';
+                            motifHint.classList.add('hidden');
+                            if (motifEmptyOption) {
+                                motifEmptyOption.textContent = 'Aucun';
+                            }
+                        }
+
+                        const isIntervention = motifSelect.value === 'utilise';
+                        interventionWrap.classList.toggle('hidden', !isIntervention);
+                        interventionInput.required = isIntervention;
+                        if (!isIntervention) {
+                            interventionInput.value = '';
+                        }
+                    }
+
+                    motifSelect.addEventListener('change', update);
+                    update();
+                }
+
+                function addLineFromArticle(articleId, articleLabel, articleName, reasonRequired) {
                     if (!lineItems || !template) {
                         return;
                     }
+
+                    const existing = lineItems.querySelector('[data-article-id][value="' + articleId + '"]');
+                    if (existing) {
+                        const existingLine = existing.closest('[data-line]');
+                        if (existingLine) {
+                            const qty = existingLine.querySelector('[data-quantity-input]');
+                            if (qty) {
+                                qty.focus();
+                            }
+                        }
+                        return;
+                    }
+
                     const fragment = template.content.cloneNode(true);
                     const removeButton = fragment.querySelector('[data-remove-line]');
                     if (removeButton) {
                         bindRemove(removeButton);
                     }
+                    const line = fragment.querySelector('[data-line]');
+                    if (line) {
+                        const hiddenInput = line.querySelector('[data-article-id]');
+                        const label = line.querySelector('[data-line-label]');
+                        if (hiddenInput) {
+                            hiddenInput.value = articleId;
+                        }
+                        if (label) {
+                            label.textContent = articleName || articleLabel;
+                        }
+                        bindMotifBehavior(line, reasonRequired);
+                    }
                     lineItems.appendChild(fragment);
+                    if (line) {
+                        const qty = line.querySelector('[data-quantity-input]');
+                        if (qty) {
+                            qty.focus();
+                        }
+                    }
+                    refreshNoLineNotice();
                 }
 
-                if (addButton) {
-                    addButton.addEventListener('click', addLine);
+                mainOptions.forEach(function (option) {
+                    option.addEventListener('click', function () {
+                        const articleId = option.dataset.value || '';
+                        const articleLabel = option.dataset.label || '';
+                        const articleName = option.dataset.nom || articleLabel;
+                        const reasonRequired = (option.dataset.reasonRequired || '0') === '1';
+                        if (articleId === '') {
+                            return;
+                        }
+                        addLineFromArticle(articleId, articleLabel, articleName, reasonRequired);
+                        if (searchInput) {
+                            searchInput.value = '';
+                            updateMainOptions('');
+                        }
+                    });
+                });
+
+                if (searchInput) {
+                    searchInput.addEventListener('input', function () {
+                        updateMainOptions(searchInput.value || '');
+                    });
                 }
 
-                addLine();
+                refreshNoLineNotice();
             })();
         </script>
     <?php endif; ?>

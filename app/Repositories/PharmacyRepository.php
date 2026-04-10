@@ -35,7 +35,8 @@ final class PharmacyRepository
                 unite,
                 stock_actuel,
                 seuil_alerte,
-                actif
+                actif,
+                motif_sortie_obligatoire
             FROM pharmacie_articles
             WHERE caserne_id = :caserne_id
             ' . ($activeOnly ? 'AND actif = 1' : '') . '
@@ -55,7 +56,8 @@ final class PharmacyRepository
         string $unit,
         float $stock,
         ?float $alertThreshold,
-        bool $active
+        bool $active,
+        bool $outputReasonRequired = false
     ): bool {
         if (!$this->hasArticlesTable()) {
             return false;
@@ -71,7 +73,8 @@ final class PharmacyRepository
                     unite = :unite,
                     stock_actuel = :stock_actuel,
                     seuil_alerte = :seuil_alerte,
-                    actif = :actif
+                    actif = :actif,
+                    motif_sortie_obligatoire = :motif_sortie_obligatoire
                 WHERE id = :id
                   AND caserne_id = :caserne_id
             ';
@@ -85,12 +88,13 @@ final class PharmacyRepository
                 'stock_actuel' => $stock,
                 'seuil_alerte' => $alertThreshold,
                 'actif' => $active ? 1 : 0,
+                'motif_sortie_obligatoire' => $outputReasonRequired ? 1 : 0,
             ]);
         }
 
         $sql = '
-            INSERT INTO pharmacie_articles (caserne_id, nom, unite, stock_actuel, seuil_alerte, actif)
-            VALUES (:caserne_id, :nom, :unite, :stock_actuel, :seuil_alerte, :actif)
+            INSERT INTO pharmacie_articles (caserne_id, nom, unite, stock_actuel, seuil_alerte, actif, motif_sortie_obligatoire)
+            VALUES (:caserne_id, :nom, :unite, :stock_actuel, :seuil_alerte, :actif, :motif_sortie_obligatoire)
         ';
         $statement = $connection->prepare($sql);
 
@@ -101,6 +105,7 @@ final class PharmacyRepository
             'stock_actuel' => $stock,
             'seuil_alerte' => $alertThreshold,
             'actif' => $active ? 1 : 0,
+            'motif_sortie_obligatoire' => $outputReasonRequired ? 1 : 0,
         ]);
     }
 
@@ -170,12 +175,6 @@ final class PharmacyRepository
                 $article = $stockStatement->fetch(PDO::FETCH_ASSOC);
 
                 if ($article === false || (int) ($article['actif'] ?? 0) !== 1) {
-                    $connection->rollBack();
-                    return false;
-                }
-
-                $currentStock = (float) ($article['stock_actuel'] ?? 0);
-                if ($currentStock < $quantity) {
                     $connection->rollBack();
                     return false;
                 }

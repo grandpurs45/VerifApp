@@ -49,10 +49,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <h2 class="text-xl font-bold">Ajouter un article</h2>
     <form method="post" action="/index.php?controller=manager_pharmacy&action=article_save" class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2">
         <input type="hidden" name="id" value="0">
-        <input type="text" name="nom" required placeholder="Nom article" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
+        <input type="text" name="nom" required placeholder="Nom article" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
         <input type="text" name="unite" required placeholder="Unite (u, boite, ml...)" value="u" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
         <input type="number" min="0" step="1" name="stock_actuel" required placeholder="Stock (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
         <input type="number" min="0" step="1" name="seuil_alerte" placeholder="Seuil alerte (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        <select name="motif_sortie_obligatoire" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+            <option value="0">Sortie libre</option>
+            <option value="1">Motif obligatoire</option>
+        </select>
         <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
             <option value="1">Actif</option>
             <option value="0">Inactif</option>
@@ -65,6 +69,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-xl font-bold">Articles existants</h2>
         <div class="flex items-center gap-2">
+            <button
+                type="button"
+                id="pharmacyAlertOnlyToggle"
+                class="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800"
+            >
+                Voir erreurs uniquement
+            </button>
             <input
                 id="pharmacyArticleSearch"
                 type="search"
@@ -78,12 +89,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <div class="mt-3 overflow-x-auto">
         <table class="min-w-[980px] w-full table-fixed text-sm">
             <colgroup>
-                <col style="width:33%">
+                <col style="width:28%">
                 <col style="width:9%">
-                <col style="width:17%">
-                <col style="width:17%">
+                <col style="width:14%">
+                <col style="width:14%">
+                <col style="width:14%">
                 <col style="width:9%">
-                <col style="width:15%">
+                <col style="width:12%">
             </colgroup>
             <thead>
                 <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -91,6 +103,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <th class="py-2 px-2 text-center">Unite</th>
                     <th class="py-2 px-2 text-center">Quantite</th>
                     <th class="py-2 px-2 text-center">Seuil</th>
+                    <th class="py-2 px-2 text-center">Sortie CR</th>
                     <th class="py-2 px-2 text-center">Etat</th>
                     <th class="py-2 px-2 text-center">Action</th>
                 </tr>
@@ -104,7 +117,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         && (float) $article['stock_actuel'] < (float) $article['seuil_alerte'];
                     $formId = 'pharmacy-article-' . (int) $article['id'];
                     ?>
-                    <tr class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?>" data-article-row data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>">
+                    <tr
+                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?>"
+                        data-article-row
+                        data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
+                        data-article-alert="<?= $isAlert ? '1' : '0' ?>"
+                    >
                         <td class="px-2 py-2">
                             <form id="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" method="post" action="/index.php?controller=manager_pharmacy&action=article_save">
                                 <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
@@ -125,6 +143,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </td>
                         <td class="px-2 py-2 text-center">
                             <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="number" min="0" step="1" name="seuil_alerte" value="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (int) round((float) $article['seuil_alerte']) : ''), ENT_QUOTES, 'UTF-8') ?>" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        </td>
+                        <td class="px-2 py-2 text-center">
+                            <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="motif_sortie_obligatoire" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <option value="0" <?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 0 ? 'selected' : '' ?>>Non</option>
+                                <option value="1" <?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? 'selected' : '' ?>>Oui</option>
+                            </select>
                         </td>
                         <td class="px-2 py-2 text-center">
                             <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="actif" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -202,11 +226,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <script>
     (function () {
         const searchInput = document.getElementById('pharmacyArticleSearch');
+        const alertOnlyButton = document.getElementById('pharmacyAlertOnlyToggle');
         const rows = Array.from(document.querySelectorAll('[data-article-row]'));
         const count = document.getElementById('pharmacyArticleCount');
         if (!searchInput || rows.length === 0 || !count) {
             return;
         }
+        let alertOnly = false;
 
         const normalize = (value) => (value || '')
             .toString()
@@ -219,7 +245,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             let visible = 0;
             rows.forEach((row) => {
                 const name = normalize(row.getAttribute('data-article-name') || '');
-                const match = needle === '' || name.includes(needle);
+                const isAlert = (row.getAttribute('data-article-alert') || '0') === '1';
+                const matchSearch = needle === '' || name.includes(needle);
+                const matchAlert = !alertOnly || isAlert;
+                const match = matchSearch && matchAlert;
                 row.classList.toggle('hidden', !match);
                 if (match) {
                     visible += 1;
@@ -229,5 +258,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         };
 
         searchInput.addEventListener('input', applyFilter);
+        if (alertOnlyButton) {
+            alertOnlyButton.addEventListener('click', function () {
+                alertOnly = !alertOnly;
+                alertOnlyButton.textContent = alertOnly ? 'Afficher tous les articles' : 'Voir erreurs uniquement';
+                alertOnlyButton.classList.toggle('bg-red-600', alertOnly);
+                alertOnlyButton.classList.toggle('text-white', alertOnly);
+                alertOnlyButton.classList.toggle('border-red-600', alertOnly);
+                alertOnlyButton.classList.toggle('bg-red-50', !alertOnly);
+                alertOnlyButton.classList.toggle('text-red-800', !alertOnly);
+                alertOnlyButton.classList.toggle('border-red-300', !alertOnly);
+                applyFilter();
+            });
+        }
     })();
 </script>
