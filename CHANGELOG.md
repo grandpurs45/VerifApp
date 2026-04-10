@@ -9,6 +9,22 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.4] - 2026-04-10
+
+### Added
+- Sortie pharmacie terrain:
+  - option `Autre (hors liste)` deplacee en fin de liste de selection
+  - support DB des sorties hors liste via migration `026_allow_free_label_outputs.sql`
+
+### Changed
+- Sortie pharmacie terrain:
+  - pour `Autre`, la quantite n est plus saisie (forcee a `1`)
+  - commentaire rendu obligatoire avec minimum 5 caracteres
+
+### Fixed
+- Gestion d erreur:
+  - message explicite si la migration `026` n est pas appliquee (au lieu d un message generique)
+
 ## [0.16.3] - 2026-04-10
 
 ### Added

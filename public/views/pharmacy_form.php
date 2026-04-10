@@ -9,6 +9,10 @@ if ($errorCode === 'invalid') {
     $errorMessage = 'Article inactif ou donnees invalides.';
 } elseif ($errorCode === 'declarant_required') {
     $errorMessage = 'Nom du declarant obligatoire.';
+} elseif ($errorCode === 'other_comment_required') {
+    $errorMessage = 'Pour "Autre", commentaire obligatoire (minimum 5 caracteres).';
+} elseif ($errorCode === 'other_requires_migration') {
+    $errorMessage = 'Option "Autre" indisponible: migration base requise (026_allow_free_label_outputs).';
 }
 ?>
 <!DOCTYPE html>
@@ -85,10 +89,23 @@ if ($errorCode === 'invalid') {
                                     data-label="<?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>"
                                     data-nom="<?= htmlspecialchars($articleName, ENT_QUOTES, 'UTF-8') ?>"
                                     data-reason-required="<?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? '1' : '0' ?>"
+                                    data-is-other="0"
                                 >
                                     <?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>
                                 </button>
                             <?php endforeach; ?>
+                            <button
+                                type="button"
+                                class="w-full border-t border-slate-700 bg-slate-800/80 px-4 py-3 text-left text-base font-semibold text-amber-200 active:bg-slate-700"
+                                data-main-article-option
+                                data-value="other"
+                                data-label="Autre (hors liste)"
+                                data-nom="Autre (hors liste)"
+                                data-reason-required="0"
+                                data-is-other="1"
+                            >
+                                Autre (hors liste)
+                            </button>
                         </div>
                         <p class="text-xs text-slate-300">Selection rapide: touche un article pour ajouter sa ligne de quantite.</p>
                     </section>
@@ -119,8 +136,10 @@ if ($errorCode === 'invalid') {
                     <input type="hidden" name="article_id[]" required data-article-id>
                 </div>
                 <div>
+                    <div data-quantity-wrap>
                     <label class="text-sm font-semibold text-slate-200">Quantite sortie</label>
                     <input name="quantite[]" type="number" min="1" step="1" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2" data-quantity-input>
+                    </div>
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-slate-200" data-motif-label>Motif (optionnel)</label>
@@ -136,8 +155,8 @@ if ($errorCode === 'invalid') {
                     <input name="intervention_numero[]" type="text" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Ex: 2026-001245" data-intervention-input>
                 </div>
                 <div>
-                    <label class="text-sm font-semibold text-slate-200">Commentaire (optionnel)</label>
-                    <input name="commentaire_ligne[]" type="text" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Precision utile">
+                    <label class="text-sm font-semibold text-slate-200" data-comment-label>Commentaire (optionnel)</label>
+                    <input name="commentaire_ligne[]" type="text" class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Precision utile" data-comment-input>
                 </div>
                 <button type="button" class="w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white active:scale-[0.99]" data-remove-line>
                     Supprimer cette ligne
@@ -177,7 +196,7 @@ if ($errorCode === 'invalid') {
                     });
                 }
 
-                function bindMotifBehavior(line, reasonRequired) {
+                function bindMotifBehavior(line, reasonRequired, isOther) {
                     const motifSelect = line.querySelector('[data-motif-select]');
                     const interventionWrap = line.querySelector('[data-intervention-wrap]');
                     const interventionInput = line.querySelector('[data-intervention-input]');
@@ -185,11 +204,41 @@ if ($errorCode === 'invalid') {
                     const motifLabel = line.querySelector('[data-motif-label]');
                     const motifContainer = motifSelect ? motifSelect.closest('div') : null;
                     const motifEmptyOption = motifSelect ? motifSelect.querySelector('[data-motif-empty]') : null;
+                    const commentLabel = line.querySelector('[data-comment-label]');
+                    const commentInput = line.querySelector('[data-comment-input]');
+                    const quantityWrap = line.querySelector('[data-quantity-wrap]');
+                    const quantityInput = line.querySelector('[data-quantity-input]');
                     if (!motifSelect || !interventionWrap || !interventionInput || !motifHint || !motifLabel || !motifContainer) {
                         return;
                     }
 
                     function update() {
+                        if (isOther) {
+                            if (quantityWrap) {
+                                quantityWrap.classList.add('hidden');
+                            }
+                            if (quantityInput) {
+                                quantityInput.required = false;
+                                quantityInput.value = '1';
+                            }
+                            motifContainer.classList.add('hidden');
+                            motifSelect.required = false;
+                            motifSelect.value = '';
+                            motifHint.classList.add('hidden');
+                            interventionWrap.classList.add('hidden');
+                            interventionInput.required = false;
+                            interventionInput.value = '';
+                            if (commentLabel) {
+                                commentLabel.textContent = 'Commentaire (obligatoire min 5)';
+                            }
+                            if (commentInput) {
+                                commentInput.required = true;
+                                commentInput.minLength = 5;
+                                commentInput.placeholder = 'Preciser l article sorti (min 5 caracteres)';
+                            }
+                            return;
+                        }
+
                         if (reasonRequired) {
                             motifContainer.classList.remove('hidden');
                             motifSelect.required = true;
@@ -215,13 +264,30 @@ if ($errorCode === 'invalid') {
                         if (!isIntervention) {
                             interventionInput.value = '';
                         }
+                        if (quantityWrap) {
+                            quantityWrap.classList.remove('hidden');
+                        }
+                        if (quantityInput) {
+                            quantityInput.required = true;
+                            if ((quantityInput.value || '').trim() === '') {
+                                quantityInput.value = '';
+                            }
+                        }
+                        if (commentLabel) {
+                            commentLabel.textContent = 'Commentaire (optionnel)';
+                        }
+                        if (commentInput) {
+                            commentInput.required = false;
+                            commentInput.minLength = 0;
+                            commentInput.placeholder = 'Precision utile';
+                        }
                     }
 
                     motifSelect.addEventListener('change', update);
                     update();
                 }
 
-                function addLineFromArticle(articleId, articleLabel, articleName, reasonRequired) {
+                function addLineFromArticle(articleId, articleLabel, articleName, reasonRequired, isOther) {
                     if (!lineItems || !template) {
                         return;
                     }
@@ -253,13 +319,20 @@ if ($errorCode === 'invalid') {
                         if (label) {
                             label.textContent = articleName || articleLabel;
                         }
-                        bindMotifBehavior(line, reasonRequired);
+                        bindMotifBehavior(line, reasonRequired, isOther);
                     }
                     lineItems.appendChild(fragment);
                     if (line) {
-                        const qty = line.querySelector('[data-quantity-input]');
-                        if (qty) {
-                            qty.focus();
+                        if (isOther) {
+                            const comment = line.querySelector('[data-comment-input]');
+                            if (comment) {
+                                comment.focus();
+                            }
+                        } else {
+                            const qty = line.querySelector('[data-quantity-input]');
+                            if (qty) {
+                                qty.focus();
+                            }
                         }
                     }
                     refreshNoLineNotice();
@@ -271,10 +344,11 @@ if ($errorCode === 'invalid') {
                         const articleLabel = option.dataset.label || '';
                         const articleName = option.dataset.nom || articleLabel;
                         const reasonRequired = (option.dataset.reasonRequired || '0') === '1';
+                        const isOther = (option.dataset.isOther || '0') === '1';
                         if (articleId === '') {
                             return;
                         }
-                        addLineFromArticle(articleId, articleLabel, articleName, reasonRequired);
+                        addLineFromArticle(articleId, articleLabel, articleName, reasonRequired, isOther);
                         if (searchInput) {
                             searchInput.value = '';
                             updateMainOptions('');

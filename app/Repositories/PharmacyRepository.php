@@ -14,6 +14,8 @@ final class PharmacyRepository
     private ?bool $articlesTableExists = null;
     private ?bool $movementsTableExists = null;
     private ?bool $outputGroupColumnExists = null;
+    private ?bool $freeLabelColumnExists = null;
+    private ?bool $articleIdNullable = null;
 
     public function isAvailable(): bool
     {
@@ -136,6 +138,9 @@ final class PharmacyRepository
         try {
             $connection->beginTransaction();
             $sortieRef = $this->generateOutputReference();
+            $hasOutputGroupColumn = $this->hasOutputGroupColumn();
+            $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+            $supportsFreeLabelOutputs = $this->supportsFreeLabelOutputs();
 
             $stockStatement = $connection->prepare(
                 'SELECT stock_actuel, actif FROM pharmacie_articles WHERE id = :id AND caserne_id = :caserne_id FOR UPDATE'
@@ -143,55 +148,78 @@ final class PharmacyRepository
             $updateStatement = $connection->prepare(
                 'UPDATE pharmacie_articles SET stock_actuel = stock_actuel - :quantity WHERE id = :id AND caserne_id = :caserne_id'
             );
-            if ($this->hasOutputGroupColumn()) {
-                $insertStatement = $connection->prepare(
-                    'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, sortie_ref, quantite, commentaire, declarant)
-                     VALUES (:caserne_id, :article_id, \'sortie\', :sortie_ref, :quantite, :commentaire, :declarant)'
-                );
+            if ($hasOutputGroupColumn) {
+                if ($hasFreeLabelColumn) {
+                    $insertStatement = $connection->prepare(
+                        'INSERT INTO pharmacie_mouvements (caserne_id, article_id, article_libre_nom, type, sortie_ref, quantite, commentaire, declarant)
+                         VALUES (:caserne_id, :article_id, :article_libre_nom, \'sortie\', :sortie_ref, :quantite, :commentaire, :declarant)'
+                    );
+                } else {
+                    $insertStatement = $connection->prepare(
+                        'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, sortie_ref, quantite, commentaire, declarant)
+                         VALUES (:caserne_id, :article_id, \'sortie\', :sortie_ref, :quantite, :commentaire, :declarant)'
+                    );
+                }
             } else {
-                $insertStatement = $connection->prepare(
-                    'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, quantite, commentaire, declarant)
-                     VALUES (:caserne_id, :article_id, \'sortie\', :quantite, :commentaire, :declarant)'
-                );
+                if ($hasFreeLabelColumn) {
+                    $insertStatement = $connection->prepare(
+                        'INSERT INTO pharmacie_mouvements (caserne_id, article_id, article_libre_nom, type, quantite, commentaire, declarant)
+                         VALUES (:caserne_id, :article_id, :article_libre_nom, \'sortie\', :quantite, :commentaire, :declarant)'
+                    );
+                } else {
+                    $insertStatement = $connection->prepare(
+                        'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, quantite, commentaire, declarant)
+                         VALUES (:caserne_id, :article_id, \'sortie\', :quantite, :commentaire, :declarant)'
+                    );
+                }
             }
-
-            $hasOutputGroupColumn = $this->hasOutputGroupColumn();
 
             foreach ($lines as $line) {
                 $articleId = isset($line['article_id']) ? (int) $line['article_id'] : 0;
                 $quantity = isset($line['quantite']) ? (float) $line['quantite'] : 0.0;
                 $comment = isset($line['commentaire']) ? trim((string) $line['commentaire']) : '';
+                $freeLabel = isset($line['article_libre_nom']) ? trim((string) $line['article_libre_nom']) : '';
                 $isIntegerQuantity = abs($quantity - round($quantity)) < 0.00001;
 
-                if ($articleId <= 0 || $quantity <= 0 || !$isIntegerQuantity) {
+                if ($quantity <= 0 || !$isIntegerQuantity) {
                     $connection->rollBack();
                     return false;
                 }
 
-                $stockStatement->execute([
-                    'id' => $articleId,
-                    'caserne_id' => $caserneId,
-                ]);
-                $article = $stockStatement->fetch(PDO::FETCH_ASSOC);
+                if ($articleId > 0) {
+                    $stockStatement->execute([
+                        'id' => $articleId,
+                        'caserne_id' => $caserneId,
+                    ]);
+                    $article = $stockStatement->fetch(PDO::FETCH_ASSOC);
 
-                if ($article === false || (int) ($article['actif'] ?? 0) !== 1) {
-                    $connection->rollBack();
-                    return false;
+                    if ($article === false || (int) ($article['actif'] ?? 0) !== 1) {
+                        $connection->rollBack();
+                        return false;
+                    }
+
+                    $updateStatement->execute([
+                        'quantity' => $quantity,
+                        'id' => $articleId,
+                        'caserne_id' => $caserneId,
+                    ]);
+                } else {
+                    if (!$supportsFreeLabelOutputs || $freeLabel === '') {
+                        $connection->rollBack();
+                        return false;
+                    }
                 }
-
-                $updateStatement->execute([
-                    'quantity' => $quantity,
-                    'id' => $articleId,
-                    'caserne_id' => $caserneId,
-                ]);
 
                 $insertParams = [
                     'caserne_id' => $caserneId,
-                    'article_id' => $articleId,
+                    'article_id' => $articleId > 0 ? $articleId : null,
                     'quantite' => $quantity,
                     'commentaire' => $comment === '' ? null : $comment,
                     'declarant' => $declarant,
                 ];
+                if ($hasFreeLabelColumn) {
+                    $insertParams['article_libre_nom'] = $freeLabel !== '' ? $freeLabel : null;
+                }
                 if ($hasOutputGroupColumn) {
                     $insertParams['sortie_ref'] = $sortieRef;
                 }
@@ -280,6 +308,7 @@ final class PharmacyRepository
 
         $limit = max(1, min(300, $limit));
         $connection = Database::getConnection();
+        $freeNameExpr = $this->hasFreeLabelColumn() ? 'm.article_libre_nom' : "NULL";
         $sql = '
             SELECT
                 m.id,
@@ -290,10 +319,10 @@ final class PharmacyRepository
                 m.commentaire,
                 m.declarant,
                 m.cree_le,
-                a.nom AS article_nom,
-                a.unite AS article_unite
+                COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
-            INNER JOIN pharmacie_articles a ON a.id = m.article_id
+            LEFT JOIN pharmacie_articles a ON a.id = m.article_id
             WHERE m.caserne_id = :caserne_id
               AND m.type = \'sortie\'
             ORDER BY m.cree_le DESC, m.id DESC
@@ -318,6 +347,8 @@ final class PharmacyRepository
 
         $limitGroups = max(1, min(100, $limitGroups));
         $connection = Database::getConnection();
+        $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
         $articleSearch = trim((string) ($filters['article'] ?? ''));
@@ -343,16 +374,19 @@ final class PharmacyRepository
                 $params['declarant'] = '%' . $declarantSearch . '%';
             }
             if ($articleSearch !== '') {
+                $articlePredicate = $hasFreeLabelColumn
+                    ? '(ax.nom LIKE :article OR mx.article_libre_nom LIKE :article)'
+                    : 'ax.nom LIKE :article';
                 $where[] = '
                     EXISTS (
                         SELECT 1
                         FROM pharmacie_mouvements mx
-                        INNER JOIN pharmacie_articles ax ON ax.id = mx.article_id
+                        LEFT JOIN pharmacie_articles ax ON ax.id = mx.article_id
                         WHERE mx.caserne_id = m.caserne_id
                           AND mx.type = \'sortie\'
                           AND COALESCE(NULLIF(mx.sortie_ref, \'\'), CONCAT(\'legacy:\', mx.id))
                               = COALESCE(NULLIF(m.sortie_ref, \'\'), CONCAT(\'legacy:\', m.id))
-                          AND ax.nom LIKE :article
+                          AND ' . $articlePredicate . '
                     )
                 ';
                 $params['article'] = '%' . $articleSearch . '%';
@@ -391,10 +425,10 @@ final class PharmacyRepository
                     m.quantite,
                     m.commentaire,
                     m.cree_le,
-                    a.nom AS article_nom,
-                    a.unite AS article_unite
+                    COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
+                    COALESCE(a.unite, \'u\') AS article_unite
                 FROM pharmacie_mouvements m
-                INNER JOIN pharmacie_articles a ON a.id = m.article_id
+                LEFT JOIN pharmacie_articles a ON a.id = m.article_id
                 WHERE m.caserne_id = ?
                   AND m.type = \'sortie\'
                   AND COALESCE(NULLIF(m.sortie_ref, \'\'), CONCAT(\'legacy:\', m.id)) IN (' . $placeholders . ')
@@ -447,6 +481,8 @@ final class PharmacyRepository
     {
         $limit = max(1, min(300, $limit));
         $connection = Database::getConnection();
+        $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
 
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
@@ -468,7 +504,9 @@ final class PharmacyRepository
             $params['date_to'] = $dateTo;
         }
         if ($articleSearch !== '') {
-            $where[] = 'a.nom LIKE :article';
+            $where[] = $hasFreeLabelColumn
+                ? '(a.nom LIKE :article OR m.article_libre_nom LIKE :article)'
+                : 'a.nom LIKE :article';
             $params['article'] = '%' . $articleSearch . '%';
         }
         if ($declarantSearch !== '') {
@@ -486,10 +524,10 @@ final class PharmacyRepository
                 m.commentaire,
                 m.declarant,
                 m.cree_le,
-                a.nom AS article_nom,
-                a.unite AS article_unite
+                COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
-            INNER JOIN pharmacie_articles a ON a.id = m.article_id
+            LEFT JOIN pharmacie_articles a ON a.id = m.article_id
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY m.cree_le DESC, m.id DESC
             LIMIT ' . $limit;
@@ -552,6 +590,48 @@ final class PharmacyRepository
         }
 
         return $this->outputGroupColumnExists;
+    }
+
+    private function hasFreeLabelColumn(): bool
+    {
+        if ($this->freeLabelColumnExists !== null) {
+            return $this->freeLabelColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'article_libre_nom'");
+            $this->freeLabelColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->freeLabelColumnExists = false;
+        }
+
+        return $this->freeLabelColumnExists;
+    }
+
+    public function supportsFreeLabelOutputs(): bool
+    {
+        return $this->hasFreeLabelColumn() && $this->isMovementArticleIdNullable();
+    }
+
+    private function isMovementArticleIdNullable(): bool
+    {
+        if ($this->articleIdNullable !== null) {
+            return $this->articleIdNullable;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'article_id'");
+            $row = $statement !== false ? $statement->fetch(PDO::FETCH_ASSOC) : false;
+            $this->articleIdNullable = is_array($row) && strtoupper((string) ($row['Null'] ?? 'NO')) === 'YES';
+        } catch (PDOException $exception) {
+            $this->articleIdNullable = false;
+        }
+
+        return $this->articleIdNullable;
     }
 
     private function generateOutputReference(): string

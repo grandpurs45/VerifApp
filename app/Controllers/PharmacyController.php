@@ -80,6 +80,7 @@ final class PharmacyController
             $articlesById[(int) ($article['id'] ?? 0)] = $article;
         }
         $lines = [];
+        $hasOtherLine = false;
 
         $maxRows = max(
             count($articleIds),
@@ -105,24 +106,25 @@ final class PharmacyController
                 continue;
             }
 
-            $quantityValue = $this->parsePositiveInteger($quantityRaw);
-            if (!ctype_digit($articleRaw) || $quantityValue === null) {
+            $isOtherArticle = $articleRaw === 'other';
+            $quantityValue = $isOtherArticle ? 1 : $this->parsePositiveInteger($quantityRaw);
+            if ((!ctype_digit($articleRaw) && !$isOtherArticle) || $quantityValue === null) {
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
-            $articleId = (int) $articleRaw;
-            $article = $articlesById[$articleId] ?? null;
-            if ($article === null) {
+            $articleId = $isOtherArticle ? 0 : (int) $articleRaw;
+            $article = $isOtherArticle ? null : ($articlesById[$articleId] ?? null);
+            if (!$isOtherArticle && $article === null) {
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
 
             $motif = '';
-            if ($motifRaw !== '') {
+            if (!$isOtherArticle && $motifRaw !== '') {
                 if (!in_array($motifRaw, ['perime', 'utilise'], true)) {
                     $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
                 }
                 $motif = $motifRaw;
             }
-            $reasonRequired = (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1;
+            $reasonRequired = !$isOtherArticle && (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1;
             if ($reasonRequired && $motif === '') {
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
@@ -131,22 +133,36 @@ final class PharmacyController
                 $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
             }
 
+            if ($isOtherArticle && mb_strlen($comment) < 5) {
+                $this->redirect('/index.php?controller=pharmacy&action=form&error=other_comment_required');
+            }
+            if ($isOtherArticle) {
+                $hasOtherLine = true;
+            }
+
             $composedComment = $comment;
             if ($motif === 'perime') {
                 $composedComment = trim('[Motif: Materiel perime] ' . $composedComment);
             } elseif ($motif === 'utilise') {
                 $composedComment = trim('[Motif: Utilise en intervention ' . $interventionRaw . '] ' . $composedComment);
+            } elseif ($isOtherArticle) {
+                $composedComment = trim('[Article: Autre hors liste] ' . $composedComment);
             }
 
             $lines[] = [
                 'article_id' => $articleId,
                 'quantite' => (float) $quantityValue,
+                'article_libre_nom' => $isOtherArticle ? 'Autre (hors liste)' : null,
                 'commentaire' => $composedComment === '' ? null : $composedComment,
             ];
         }
 
         if ($lines === []) {
             $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
+        }
+
+        if ($hasOtherLine && !$repository->supportsFreeLabelOutputs()) {
+            $this->redirect('/index.php?controller=pharmacy&action=form&error=other_requires_migration');
         }
 
         $ok = $repository->recordOutputs($caserneId, $lines, $declarant);
