@@ -112,6 +112,7 @@ $managerRoutes = [
     'manager_pharmacy/article_force_delete',
     'manager_pharmacy/output_acknowledge',
     'manager_pharmacy/order_mark',
+    'manager_pharmacy/order_receive',
     'manager_pharmacy/inventory_save',
     'manager_pharmacy/inventory_apply',
     'manager_roles/index',
@@ -219,6 +220,7 @@ $managerRoutePermissions = [
     'manager_pharmacy/article_force_delete' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
+    'manager_pharmacy/order_receive' => 'pharmacy.manage',
     'manager_pharmacy/inventory_save' => 'pharmacy.manage',
     'manager_pharmacy/inventory_apply' => 'pharmacy.manage',
     'manager_roles/index' => 'users.manage',
@@ -570,6 +572,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'order_mark') {
         $controller = new ManagerPharmacyController();
         $controller->markOrder();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'order_receive') {
+        $controller = new ManagerPharmacyController();
+        $controller->receiveOrder();
         return;
     }
 

@@ -928,6 +928,177 @@ final class PharmacyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findReceptionCandidatesSinceLastOrder(int $caserneId, bool $onlyPendingAcknowledge = false): array
+    {
+        if (!$this->hasMovementsTable() || !$this->hasArticlesTable()) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $hasAckColumn = $this->hasAckColumn();
+        $lastOrder = $this->findLastOrder($caserneId);
+
+        $where = [
+            'm.caserne_id = :caserne_id',
+            'm.type = \'sortie\'',
+            'm.article_id IS NOT NULL',
+        ];
+        $params = ['caserne_id' => $caserneId];
+        if ($lastOrder !== null && isset($lastOrder['commande_le'])) {
+            $where[] = 'm.cree_le > :last_order';
+            $params['last_order'] = (string) $lastOrder['commande_le'];
+        }
+        if ($onlyPendingAcknowledge && $hasAckColumn) {
+            $where[] = 'm.acquitte_le IS NULL';
+        }
+
+        $sql = '
+            SELECT
+                a.id AS article_id,
+                a.nom AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite,
+                SUM(m.quantite) AS quantite_totale,
+                COUNT(*) AS lignes
+            FROM pharmacie_mouvements m
+            INNER JOIN pharmacie_articles a ON a.id = m.article_id
+            WHERE ' . implode(' AND ', $where) . '
+            GROUP BY a.id, a.nom, a.unite
+            ORDER BY a.nom ASC
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function applyOrderReception(
+        int $caserneId,
+        array $lines,
+        string $managerName,
+        ?string $note = null,
+        bool $markOrderReference = true
+    ): bool {
+        if (!$this->hasMovementsTable() || !$this->hasArticlesTable()) {
+            return false;
+        }
+
+        $managerName = trim($managerName);
+        if ($managerName === '') {
+            $managerName = 'Gestionnaire';
+        }
+
+        $normalized = [];
+        foreach ($lines as $line) {
+            $articleId = isset($line['article_id']) ? (int) $line['article_id'] : 0;
+            $quantity = isset($line['quantite']) ? (float) $line['quantite'] : 0.0;
+            $isIntegerQuantity = abs($quantity - round($quantity)) < 0.00001;
+            if ($articleId <= 0 || $quantity <= 0 || !$isIntegerQuantity) {
+                continue;
+            }
+            $normalized[] = [
+                'article_id' => $articleId,
+                'quantite' => (int) round($quantity),
+            ];
+        }
+
+        if ($normalized === []) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $connection->beginTransaction();
+
+            $selectArticle = $connection->prepare(
+                'SELECT id, actif
+                 FROM pharmacie_articles
+                 WHERE id = :id
+                   AND caserne_id = :caserne_id
+                 FOR UPDATE'
+            );
+            $updateArticle = $connection->prepare(
+                'UPDATE pharmacie_articles
+                 SET stock_actuel = stock_actuel + :quantite
+                 WHERE id = :id
+                   AND caserne_id = :caserne_id'
+            );
+
+            $hasOutputGroupColumn = $this->hasOutputGroupColumn();
+            if ($hasOutputGroupColumn) {
+                $insertMovement = $connection->prepare(
+                    'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, sortie_ref, quantite, commentaire, declarant)
+                     VALUES (:caserne_id, :article_id, \'entree\', NULL, :quantite, :commentaire, :declarant)'
+                );
+            } else {
+                $insertMovement = $connection->prepare(
+                    'INSERT INTO pharmacie_mouvements (caserne_id, article_id, type, quantite, commentaire, declarant)
+                     VALUES (:caserne_id, :article_id, \'entree\', :quantite, :commentaire, :declarant)'
+                );
+            }
+
+            $lineComment = '[Reception commande]';
+            if ($note !== null && trim($note) !== '') {
+                $lineComment .= ' ' . trim($note);
+            }
+
+            foreach ($normalized as $line) {
+                $articleId = (int) $line['article_id'];
+                $quantity = (int) $line['quantite'];
+
+                $selectArticle->execute([
+                    'id' => $articleId,
+                    'caserne_id' => $caserneId,
+                ]);
+                $article = $selectArticle->fetch(PDO::FETCH_ASSOC);
+                if ($article === false) {
+                    $connection->rollBack();
+                    return false;
+                }
+
+                $updateArticle->execute([
+                    'quantite' => $quantity,
+                    'id' => $articleId,
+                    'caserne_id' => $caserneId,
+                ]);
+
+                $insertMovement->execute([
+                    'caserne_id' => $caserneId,
+                    'article_id' => $articleId,
+                    'quantite' => $quantity,
+                    'commentaire' => $lineComment,
+                    'declarant' => $managerName,
+                ]);
+            }
+
+            if ($markOrderReference && $this->hasOrdersTable()) {
+                $orderStatement = $connection->prepare(
+                    'INSERT INTO pharmacie_commandes (caserne_id, commande_le, note, cree_par)
+                     VALUES (:caserne_id, NOW(), :note, :cree_par)'
+                );
+                $orderNote = 'Reception commande';
+                if ($note !== null && trim($note) !== '') {
+                    $orderNote .= ': ' . trim($note);
+                }
+                $orderStatement->execute([
+                    'caserne_id' => $caserneId,
+                    'note' => $orderNote,
+                    'cree_par' => $managerName,
+                ]);
+            }
+
+            $connection->commit();
+            return true;
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+            return false;
+        }
+    }
+
     public function hasInventoryModule(): bool
     {
         return $this->hasInventoriesTable() && $this->hasInventoryLinesTable();

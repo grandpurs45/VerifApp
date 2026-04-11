@@ -90,6 +90,7 @@ final class ManagerPharmacyController
         $movementGroups = $repository->findOutputGroups($caserneId, $filters, 120);
         $lastOrder = $repository->findLastOrder($caserneId);
         $summarySinceLastOrder = $repository->findSummarySinceLastOrder($caserneId, (string) $filters['summary_scope'] === 'pending');
+        $receptionArticles = $repository->findAllArticles($caserneId, false, true);
         $summaryTotalQuantity = 0;
         $summaryTotalLines = 0;
         foreach ($summarySinceLastOrder as $line) {
@@ -225,6 +226,59 @@ final class ManagerPharmacyController
         }
 
         $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=order_saved');
+    }
+
+    public function receiveOrder(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $articleIdsRaw = isset($_POST['article_id_reception']) && is_array($_POST['article_id_reception']) ? $_POST['article_id_reception'] : [];
+        $quantitiesRaw = isset($_POST['quantite_reception']) && is_array($_POST['quantite_reception']) ? $_POST['quantite_reception'] : [];
+        $note = trim((string) ($_POST['note_reception'] ?? ''));
+        $markOrderReference = isset($_POST['mark_order_reference']) && (string) $_POST['mark_order_reference'] === '1';
+
+        $lines = [];
+        $max = max(count($articleIdsRaw), count($quantitiesRaw));
+        $quantitiesByArticle = [];
+        for ($i = 0; $i < $max; $i++) {
+            $articleId = isset($articleIdsRaw[$i]) ? (int) $articleIdsRaw[$i] : 0;
+            $quantityRaw = isset($quantitiesRaw[$i]) ? trim((string) $quantitiesRaw[$i]) : '';
+            $quantityValue = $this->parseNonNegativeInteger(str_replace(',', '.', $quantityRaw));
+            if ($articleId <= 0 || $quantityValue === null || $quantityValue <= 0) {
+                continue;
+            }
+            if (!isset($quantitiesByArticle[$articleId])) {
+                $quantitiesByArticle[$articleId] = 0;
+            }
+            $quantitiesByArticle[$articleId] += $quantityValue;
+        }
+
+        foreach ($quantitiesByArticle as $articleId => $quantityValue) {
+            $lines[] = [
+                'article_id' => $articleId,
+                'quantite' => $quantityValue,
+            ];
+        }
+
+        if ($lines === []) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=receive_invalid');
+        }
+
+        $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Gestionnaire'));
+        $repository = new PharmacyRepository();
+        $ok = $repository->applyOrderReception($caserneId, $lines, $managerName, $note, $markOrderReference);
+        if (!$ok) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=receive_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=receive_saved');
     }
 
     public function inventorySave(): void

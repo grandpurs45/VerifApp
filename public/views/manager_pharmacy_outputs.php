@@ -25,6 +25,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
         Commande marquee avec succes.
     </section>
+<?php elseif ($success === 'receive_saved'): ?>
+    <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
+        Reception enregistree: stocks mis a jour automatiquement.
+    </section>
 <?php elseif ($error !== ''): ?>
     <section class="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 text-sm">
         <?php if ($error === 'ack_invalid'): ?>
@@ -33,6 +37,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Impossible d acquitter cette sortie.
         <?php elseif ($error === 'order_failed'): ?>
             Impossible d enregistrer la commande.
+        <?php elseif ($error === 'receive_invalid'): ?>
+            Reception invalide: renseigne au moins une quantite recue superieure a 0.
+        <?php elseif ($error === 'receive_failed'): ?>
+            Impossible d appliquer la reception de commande.
         <?php else: ?>
             Action impossible.
         <?php endif; ?>
@@ -122,6 +130,219 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </tbody>
             </table>
         </div>
+    <?php endif; ?>
+</section>
+
+<section class="rounded-2xl bg-white shadow p-4 md:p-5 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+            <h2 class="text-xl font-bold">Reception de commande</h2>
+            <p class="text-sm text-slate-600 mt-1">
+                Saisie libre des articles recus: le stock est incremente automatiquement.
+            </p>
+        </div>
+    </div>
+
+    <?php if (($receptionArticles ?? []) === []): ?>
+        <p class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+            Aucun article disponible pour reception.
+        </p>
+    <?php else: ?>
+        <form method="post" action="/index.php?controller=manager_pharmacy&action=order_receive" class="space-y-3" id="orderReceptionForm">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                    id="orderReceptionSearch"
+                    type="text"
+                    placeholder="Rechercher un article a ajouter..."
+                    class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+                    autocomplete="off"
+                >
+                <button
+                    type="button"
+                    id="orderReceptionAddFirst"
+                    class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+                >
+                    Ajouter article
+                </button>
+            </div>
+            <div id="orderReceptionSuggestions" class="hidden max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                <?php foreach ($receptionArticles as $article): ?>
+                    <?php
+                    $articleId = (int) ($article['id'] ?? 0);
+                    $articleNom = (string) ($article['nom'] ?? '');
+                    $articleUnite = (string) ($article['unite'] ?? 'u');
+                    $articleActif = (int) ($article['actif'] ?? 0) === 1;
+                    $articleLabel = $articleNom . ' (' . $articleUnite . ')' . ($articleActif ? '' : ' - inactif');
+                    ?>
+                    <button
+                        type="button"
+                        class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 last:border-b-0 hover:bg-slate-50"
+                        data-reception-option
+                        data-article-id="<?= $articleId ?>"
+                        data-article-name="<?= htmlspecialchars($articleNom, ENT_QUOTES, 'UTF-8') ?>"
+                        data-article-unit="<?= htmlspecialchars($articleUnite, ENT_QUOTES, 'UTF-8') ?>"
+                        data-article-label="<?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>"
+                    >
+                        <?= htmlspecialchars($articleLabel, ENT_QUOTES, 'UTF-8') ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+
+            <div id="orderReceptionLines" class="space-y-2"></div>
+            <p id="orderReceptionEmpty" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Aucun article ajoute. Utilise la recherche ci-dessus.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                    type="text"
+                    name="note_reception"
+                    placeholder="Note reception (optionnel)"
+                    class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+                >
+                <label class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <input type="checkbox" name="mark_order_reference" value="1" checked>
+                    Marquer comme nouvelle commande de reference
+                </label>
+            </div>
+
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
+                Valider reception commande
+            </button>
+        </form>
+
+        <template id="orderReceptionLineTemplate">
+            <div class="rounded-xl border border-slate-200 p-3">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <input type="hidden" name="article_id_reception[]" data-line-article-id>
+                    <div class="md:col-span-7">
+                        <p class="text-sm font-semibold text-slate-900" data-line-article-label></p>
+                    </div>
+                    <div class="md:col-span-3">
+                        <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            name="quantite_reception[]"
+                            required
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                            placeholder="Quantite recue"
+                        >
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="button" class="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" data-line-remove>
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <script>
+            (function () {
+                const searchInput = document.getElementById('orderReceptionSearch');
+                const suggestions = document.getElementById('orderReceptionSuggestions');
+                const suggestionButtons = Array.from(document.querySelectorAll('[data-reception-option]'));
+                const linesContainer = document.getElementById('orderReceptionLines');
+                const emptyNotice = document.getElementById('orderReceptionEmpty');
+                const template = document.getElementById('orderReceptionLineTemplate');
+                const addFirstButton = document.getElementById('orderReceptionAddFirst');
+
+                if (!searchInput || !suggestions || !linesContainer || !emptyNotice || !template) {
+                    return;
+                }
+
+                const normalize = (value) => (value || '')
+                    .toString()
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+
+                const refreshEmptyNotice = () => {
+                    const hasLines = linesContainer.querySelectorAll('[data-line-article-id]').length > 0;
+                    emptyNotice.classList.toggle('hidden', hasLines);
+                };
+
+                const filterSuggestions = () => {
+                    const query = normalize(searchInput.value.trim());
+                    let visibleCount = 0;
+                    suggestionButtons.forEach((button) => {
+                        const label = normalize(button.dataset.articleLabel || '');
+                        const show = query === '' || label.includes(query);
+                        button.classList.toggle('hidden', !show);
+                        if (show) {
+                            visibleCount += 1;
+                        }
+                    });
+                    suggestions.classList.toggle('hidden', visibleCount === 0);
+                };
+
+                const lineExists = (articleId) => {
+                    return linesContainer.querySelector('[data-line-article-id][value="' + articleId + '"]') !== null;
+                };
+
+                const addLine = (articleId, articleLabel) => {
+                    if (!articleId || lineExists(articleId)) {
+                        return;
+                    }
+                    const fragment = template.content.cloneNode(true);
+                    const idInput = fragment.querySelector('[data-line-article-id]');
+                    const label = fragment.querySelector('[data-line-article-label]');
+                    const removeButton = fragment.querySelector('[data-line-remove]');
+                    const qtyInput = fragment.querySelector('input[name="quantite_reception[]"]');
+
+                    if (idInput) {
+                        idInput.value = articleId;
+                    }
+                    if (label) {
+                        label.textContent = articleLabel;
+                    }
+                    if (removeButton) {
+                        removeButton.addEventListener('click', () => {
+                            const row = removeButton.closest('.rounded-xl');
+                            if (row) {
+                                row.remove();
+                            }
+                            refreshEmptyNotice();
+                        });
+                    }
+
+                    linesContainer.appendChild(fragment);
+                    refreshEmptyNotice();
+                    if (qtyInput) {
+                        qtyInput.focus();
+                    }
+                };
+
+                suggestionButtons.forEach((button) => {
+                    button.addEventListener('click', () => {
+                        addLine(button.dataset.articleId || '', button.dataset.articleLabel || '');
+                        searchInput.value = '';
+                        filterSuggestions();
+                    });
+                });
+
+                searchInput.addEventListener('focus', filterSuggestions);
+                searchInput.addEventListener('input', filterSuggestions);
+
+                document.addEventListener('click', (event) => {
+                    if (!suggestions.contains(event.target) && event.target !== searchInput) {
+                        suggestions.classList.add('hidden');
+                    }
+                });
+
+                if (addFirstButton) {
+                    addFirstButton.addEventListener('click', () => {
+                        const firstVisible = suggestionButtons.find((button) => !button.classList.contains('hidden'));
+                        if (firstVisible) {
+                            addLine(firstVisible.dataset.articleId || '', firstVisible.dataset.articleLabel || '');
+                            searchInput.value = '';
+                            filterSuggestions();
+                        }
+                    });
+                }
+            })();
+        </script>
     <?php endif; ?>
 </section>
 

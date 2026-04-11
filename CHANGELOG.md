@@ -9,6 +9,24 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.9] - 2026-04-11
+
+### Added
+- Pharmacie (sorties):
+  - nouveau bloc `Reception de commande` en saisie libre (mode multi-lignes)
+  - recherche article + ajout rapide + quantite recue par ligne
+  - option `Marquer comme nouvelle commande de reference` a la validation
+
+### Changed
+- Reception commande:
+  - abandon du mode pre-rempli uniquement depuis la synthese des sorties
+  - passage a un mode de saisie manuelle adapte au reel terrain (ecarts stock/sorties possibles)
+
+### Fixed
+- Flux reception:
+  - mise a jour automatique du stock en `+ quantite recue`
+  - tracabilite des receptions via mouvements `entree`
+
 ## [0.16.8] - 2026-04-11
 
 ### Added
