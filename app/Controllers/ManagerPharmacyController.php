@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\PharmacyRepository;
+use Throwable;
 
 final class ManagerPharmacyController
 {
@@ -383,22 +384,98 @@ final class ManagerPharmacyController
         if ($caserneId === null) {
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
         }
-        $ok = $repository->saveArticle(
-            $caserneId,
-            $id,
-            $name,
-            $unit,
-            (float) $stockValue,
-            $alertThreshold,
-            $active,
-            $outputReasonRequired
-        );
+        try {
+            $ok = $repository->saveArticle(
+                $caserneId,
+                $id,
+                $name,
+                $unit,
+                (float) $stockValue,
+                $alertThreshold,
+                $active,
+                $outputReasonRequired
+            );
+        } catch (Throwable $throwable) {
+            $message = strtolower($throwable->getMessage());
+            if (str_contains($message, 'duplicate entry') || str_contains($message, 'uq_pharmacie_articles_caserne_nom')) {
+                $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_duplicate');
+            }
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
+        }
 
         if (!$ok) {
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
         }
 
         $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_saved');
+    }
+
+    public function articleDelete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index');
+        }
+
+        $articleId = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($articleId <= 0) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_invalid');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_failed');
+        }
+
+        $repository = new PharmacyRepository();
+        $status = $repository->deleteArticle($caserneId, $articleId);
+        if ($status === 'ok') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_deleted');
+        }
+
+        if ($status === 'has_movements') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_has_movements');
+        }
+
+        if ($status === 'has_inventories') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_has_inventories');
+        }
+
+        if ($status === 'not_found' || $status === 'invalid') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_not_found');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_failed');
+    }
+
+    public function articleForceDelete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index');
+        }
+
+        $articleId = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($articleId <= 0) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_invalid');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_failed');
+        }
+
+        $repository = new PharmacyRepository();
+        $status = $repository->forceDeleteArticle($caserneId, $articleId);
+        if ($status === 'ok') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_force_deleted');
+        }
+        if ($status === 'must_inactive') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_force_delete_must_inactive');
+        }
+        if ($status === 'not_found' || $status === 'invalid') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_delete_not_found');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_force_delete_failed');
     }
 
     private function redirect(string $location): void

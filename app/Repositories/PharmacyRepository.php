@@ -117,6 +117,147 @@ final class PharmacyRepository
         ]);
     }
 
+    public function deleteArticle(int $caserneId, int $articleId): string
+    {
+        if (!$this->hasArticlesTable() || $articleId <= 0) {
+            return 'invalid';
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            if ($this->hasMovementsTable()) {
+                $movementStatement = $connection->prepare(
+                    'SELECT id
+                     FROM pharmacie_mouvements
+                     WHERE caserne_id = :caserne_id
+                       AND article_id = :article_id
+                     LIMIT 1'
+                );
+                $movementStatement->execute([
+                    'caserne_id' => $caserneId,
+                    'article_id' => $articleId,
+                ]);
+                if ($movementStatement->fetchColumn() !== false) {
+                    return 'has_movements';
+                }
+            }
+
+            if ($this->hasInventoryLinesTable()) {
+                $inventoryStatement = $connection->prepare(
+                    'SELECT l.id
+                     FROM pharmacie_inventaire_lignes l
+                     INNER JOIN pharmacie_inventaires i ON i.id = l.inventaire_id
+                     WHERE i.caserne_id = :caserne_id
+                       AND l.article_id = :article_id
+                     LIMIT 1'
+                );
+                $inventoryStatement->execute([
+                    'caserne_id' => $caserneId,
+                    'article_id' => $articleId,
+                ]);
+                if ($inventoryStatement->fetchColumn() !== false) {
+                    return 'has_inventories';
+                }
+            }
+
+            $deleteStatement = $connection->prepare(
+                'DELETE FROM pharmacie_articles
+                 WHERE id = :id
+                   AND caserne_id = :caserne_id'
+            );
+            $deleteStatement->execute([
+                'id' => $articleId,
+                'caserne_id' => $caserneId,
+            ]);
+
+            return $deleteStatement->rowCount() > 0 ? 'ok' : 'not_found';
+        } catch (Throwable $throwable) {
+            return 'error';
+        }
+    }
+
+    public function forceDeleteArticle(int $caserneId, int $articleId): string
+    {
+        if (!$this->hasArticlesTable() || $articleId <= 0) {
+            return 'invalid';
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $articleStatement = $connection->prepare(
+                'SELECT id, actif
+                 FROM pharmacie_articles
+                 WHERE id = :id
+                   AND caserne_id = :caserne_id
+                 LIMIT 1'
+            );
+            $articleStatement->execute([
+                'id' => $articleId,
+                'caserne_id' => $caserneId,
+            ]);
+            $article = $articleStatement->fetch(PDO::FETCH_ASSOC);
+            if ($article === false) {
+                return 'not_found';
+            }
+            if ((int) ($article['actif'] ?? 1) === 1) {
+                return 'must_inactive';
+            }
+
+            $connection->beginTransaction();
+
+            if ($this->hasMovementsTable()) {
+                $movementDelete = $connection->prepare(
+                    'DELETE FROM pharmacie_mouvements
+                     WHERE caserne_id = :caserne_id
+                       AND article_id = :article_id'
+                );
+                $movementDelete->execute([
+                    'caserne_id' => $caserneId,
+                    'article_id' => $articleId,
+                ]);
+            }
+
+            if ($this->hasInventoryLinesTable() && $this->hasInventoriesTable()) {
+                $inventoryLineDelete = $connection->prepare(
+                    'DELETE l
+                     FROM pharmacie_inventaire_lignes l
+                     INNER JOIN pharmacie_inventaires i ON i.id = l.inventaire_id
+                     WHERE i.caserne_id = :caserne_id
+                       AND l.article_id = :article_id'
+                );
+                $inventoryLineDelete->execute([
+                    'caserne_id' => $caserneId,
+                    'article_id' => $articleId,
+                ]);
+            }
+
+            $articleDelete = $connection->prepare(
+                'DELETE FROM pharmacie_articles
+                 WHERE id = :id
+                   AND caserne_id = :caserne_id'
+            );
+            $articleDelete->execute([
+                'id' => $articleId,
+                'caserne_id' => $caserneId,
+            ]);
+
+            if ($articleDelete->rowCount() <= 0) {
+                $connection->rollBack();
+                return 'not_found';
+            }
+
+            $connection->commit();
+            return 'ok';
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+            return 'error';
+        }
+    }
+
     public function recordOutput(int $caserneId, int $articleId, float $quantity, string $declarant, ?string $comment): bool
     {
         return $this->recordOutputs($caserneId, [

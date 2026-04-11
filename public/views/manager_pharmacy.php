@@ -21,11 +21,36 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
         Article enregistre.
     </section>
+<?php elseif (isset($_GET['success']) && (string) $_GET['success'] === 'article_deleted'): ?>
+    <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
+        Article supprime.
+    </section>
+<?php elseif (isset($_GET['success']) && (string) $_GET['success'] === 'article_force_deleted'): ?>
+    <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
+        Article supprime avec son historique lie.
+    </section>
 <?php endif; ?>
 
 <?php if (isset($_GET['error'])): ?>
     <section class="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 text-sm">
-        Action impossible. Verifie les champs saisis.
+        <?php $errorCode = (string) $_GET['error']; ?>
+        <?php if ($errorCode === 'article_delete_has_movements'): ?>
+            Suppression simple impossible: article deja utilise dans des sorties. Passe-le en inactif puis utilise le menu `Supprimer tout`.
+        <?php elseif ($errorCode === 'article_delete_has_inventories'): ?>
+            Suppression simple impossible: article present dans l historique des inventaires. Passe-le en inactif puis utilise le menu `Supprimer tout`.
+        <?php elseif ($errorCode === 'article_delete_not_found' || $errorCode === 'article_delete_invalid'): ?>
+            Article introuvable ou invalide.
+        <?php elseif ($errorCode === 'article_duplicate'): ?>
+            Article deja existant dans cette caserne (nom en doublon).
+        <?php elseif ($errorCode === 'article_delete_failed'): ?>
+            Suppression impossible.
+        <?php elseif ($errorCode === 'article_force_delete_must_inactive'): ?>
+            Suppression forcee refusee: passe d abord l article en inactif.
+        <?php elseif ($errorCode === 'article_force_delete_failed'): ?>
+            Suppression forcee impossible.
+        <?php else: ?>
+            Action impossible. Verifie les champs saisis.
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -110,13 +135,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <div class="mt-3 overflow-x-auto">
         <table class="min-w-[980px] w-full table-fixed text-sm">
             <colgroup>
-                <col style="width:28%">
+                <col style="width:27%">
                 <col style="width:9%">
-                <col style="width:14%">
-                <col style="width:14%">
-                <col style="width:14%">
-                <col style="width:9%">
+                <col style="width:13%">
+                <col style="width:13%">
+                <col style="width:13%">
                 <col style="width:12%">
+                <col style="width:13%">
             </colgroup>
             <thead>
                 <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -132,6 +157,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <tbody>
                 <?php foreach ($articles as $article): ?>
                     <?php
+                    $isInactive = (int) ($article['actif'] ?? 0) !== 1;
                     $isAlert = (int) ($article['actif'] ?? 0) === 1
                         && $article['seuil_alerte'] !== null
                         && (float) $article['seuil_alerte'] > 0
@@ -139,7 +165,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     $formId = 'pharmacy-article-' . (int) $article['id'];
                     ?>
                     <tr
-                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?>"
+                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?> <?= $isInactive ? 'bg-slate-100/90' : '' ?>"
                         data-article-row
                         data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
                         data-article-alert="<?= $isAlert ? '1' : '0' ?>"
@@ -152,6 +178,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-200/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-red-800">
                                     <span class="inline-block h-2.5 w-2.5 rounded-full bg-red-600"></span>
                                     Alerte stock
+                                </span>
+                            <?php elseif ($isInactive): ?>
+                                <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-200/90 px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-700">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-slate-500"></span>
+                                    Inactif
                                 </span>
                             <?php endif; ?>
                             <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="text" name="nom" value="<?= htmlspecialchars((string) $article['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -177,8 +208,34 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 <option value="0" <?= (int) ($article['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactif</option>
                             </select>
                         </td>
-                        <td class="px-2 py-2 text-center">
-                            <button form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="submit" class="mx-auto w-[92%] rounded-xl bg-slate-800 text-white px-4 py-2 text-sm font-semibold">Enregistrer</button>
+                        <td class="px-2 py-2">
+                            <?php $forceMenuId = 'pharmacy-force-delete-menu-' . (int) $article['id']; ?>
+                            <div class="mx-auto flex w-full flex-col gap-1">
+                                <button form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="submit" class="w-full rounded-xl bg-slate-800 text-white px-2 py-2 text-xs font-semibold">Enregistrer</button>
+                                <div class="relative">
+                                    <div class="grid grid-cols-[1fr_auto] gap-1">
+                                        <form method="post" action="/index.php?controller=manager_pharmacy&action=article_delete" onsubmit="return window.confirm('Supprimer cet article ? Si deja utilise, la suppression sera refusee.');">
+                                            <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
+                                            <button type="submit" class="w-full rounded-l-xl rounded-r-md bg-red-600 text-white px-2 py-2 text-xs font-semibold hover:bg-red-700">Supprimer</button>
+                                        </form>
+                                        <button
+                                            type="button"
+                                            class="rounded-l-md rounded-r-xl bg-red-700 px-2 py-2 text-xs font-bold text-white hover:bg-red-800"
+                                            data-delete-menu-toggle="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>"
+                                            aria-expanded="false"
+                                            aria-controls="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>"
+                                        >
+                                            ▼
+                                        </button>
+                                    </div>
+                                    <div id="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>" class="hidden absolute right-0 z-20 mt-1 min-w-[150px] rounded-xl border border-red-200 bg-white p-2 shadow-lg" data-delete-menu>
+                                        <form method="post" action="/index.php?controller=manager_pharmacy&action=article_force_delete" onsubmit="return window.confirm('ATTENTION: suppression forcee irreversible. L article et ses sorties/inventaires lies seront supprimes. Continuer ?');">
+                                            <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
+                                            <button type="submit" class="w-full rounded-lg bg-red-50 px-3 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-100">Supprimer tout</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -292,5 +349,37 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 applyFilter();
             });
         }
+
+        const menuToggles = Array.from(document.querySelectorAll('[data-delete-menu-toggle]'));
+        const menus = Array.from(document.querySelectorAll('[data-delete-menu]'));
+        const closeMenus = () => {
+            menus.forEach((menu) => menu.classList.add('hidden'));
+            menuToggles.forEach((toggle) => toggle.setAttribute('aria-expanded', 'false'));
+        };
+
+        menuToggles.forEach((toggle) => {
+            toggle.addEventListener('click', function (event) {
+                event.stopPropagation();
+                const targetId = toggle.getAttribute('data-delete-menu-toggle');
+                if (!targetId) return;
+                const menu = document.getElementById(targetId);
+                if (!menu) return;
+
+                const isHidden = menu.classList.contains('hidden');
+                closeMenus();
+                if (isHidden) {
+                    menu.classList.remove('hidden');
+                    toggle.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        menus.forEach((menu) => {
+            menu.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+        });
+
+        document.addEventListener('click', closeMenus);
     })();
 </script>

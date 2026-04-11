@@ -108,6 +108,8 @@ $managerRoutes = [
     'manager_pharmacy/inventories',
     'manager_pharmacy/inventory_show',
     'manager_pharmacy/article_save',
+    'manager_pharmacy/article_delete',
+    'manager_pharmacy/article_force_delete',
     'manager_pharmacy/output_acknowledge',
     'manager_pharmacy/order_mark',
     'manager_pharmacy/inventory_save',
@@ -213,6 +215,8 @@ $managerRoutePermissions = [
     'manager_pharmacy/inventories' => 'pharmacy.manage',
     'manager_pharmacy/inventory_show' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
+    'manager_pharmacy/article_delete' => 'pharmacy.manage',
+    'manager_pharmacy/article_force_delete' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
     'manager_pharmacy/inventory_save' => 'pharmacy.manage',
@@ -542,6 +546,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'article_save') {
         $controller = new ManagerPharmacyController();
         $controller->articleSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'article_delete') {
+        $controller = new ManagerPharmacyController();
+        $controller->articleDelete();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'article_force_delete') {
+        $controller = new ManagerPharmacyController();
+        $controller->articleForceDelete();
         return;
     }
 
