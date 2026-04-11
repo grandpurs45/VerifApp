@@ -106,10 +106,12 @@ $managerRoutes = [
     'manager_pharmacy/export_order_csv',
     'manager_pharmacy/order_print',
     'manager_pharmacy/inventories',
+    'manager_pharmacy/inventory_show',
     'manager_pharmacy/article_save',
     'manager_pharmacy/output_acknowledge',
     'manager_pharmacy/order_mark',
     'manager_pharmacy/inventory_save',
+    'manager_pharmacy/inventory_apply',
     'manager_roles/index',
     'manager_roles/role_save',
     'manager_roles/role_delete',
@@ -209,10 +211,12 @@ $managerRoutePermissions = [
     'manager_pharmacy/export_order_csv' => 'pharmacy.manage',
     'manager_pharmacy/order_print' => 'pharmacy.manage',
     'manager_pharmacy/inventories' => 'pharmacy.manage',
+    'manager_pharmacy/inventory_show' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
     'manager_pharmacy/inventory_save' => 'pharmacy.manage',
+    'manager_pharmacy/inventory_apply' => 'pharmacy.manage',
     'manager_roles/index' => 'users.manage',
     'manager_roles/role_save' => 'users.manage',
     'manager_roles/role_delete' => 'users.manage',
@@ -517,6 +521,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_pharmacy' && $action === 'inventory_show' && isset($_GET['id'])) {
+        $controller = new ManagerPharmacyController();
+        $controller->inventoryShow((int) $_GET['id']);
+        return;
+    }
+
     if ($controllerName === 'manager_pharmacy' && $action === 'export_order_csv') {
         $controller = new ManagerPharmacyController();
         $controller->exportOrderCsv();
@@ -550,6 +560,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'inventory_save') {
         $controller = new ManagerPharmacyController();
         $controller->inventorySave();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'inventory_apply') {
+        $controller = new ManagerPharmacyController();
+        $controller->inventoryApply();
         return;
     }
 

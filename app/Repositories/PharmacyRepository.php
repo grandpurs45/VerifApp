@@ -20,6 +20,8 @@ final class PharmacyRepository
     private ?bool $inventoriesTableExists = null;
     private ?bool $inventoryLinesTableExists = null;
     private ?bool $inventoryFreeNameColumnExists = null;
+    private ?bool $inventoryAppliedAtColumnExists = null;
+    private ?bool $inventoryAppliedByColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -764,6 +766,8 @@ final class PharmacyRepository
 
         $limit = max(1, min(50, $limit));
         $connection = Database::getConnection();
+        $appliedAtExpr = $this->hasInventoryAppliedAtColumn() ? 'i.applique_le' : 'NULL';
+        $appliedByExpr = $this->hasInventoryAppliedByColumn() ? 'i.applique_par' : "''";
         $sql = '
             SELECT
                 i.id,
@@ -771,6 +775,8 @@ final class PharmacyRepository
                 i.cree_par,
                 i.note,
                 i.cree_le,
+                ' . $appliedAtExpr . ' AS applique_le,
+                ' . $appliedByExpr . ' AS applique_par,
                 COUNT(l.id) AS total_lignes,
                 SUM(CASE WHEN l.ecart <> 0 THEN 1 ELSE 0 END) AS lignes_ecart,
                 SUM(l.ecart) AS ecart_total
@@ -784,6 +790,171 @@ final class PharmacyRepository
         $statement->execute(['caserne_id' => $caserneId]);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function findInventoryById(int $caserneId, int $inventoryId): ?array
+    {
+        if (!$this->hasInventoryModule() || $inventoryId <= 0) {
+            return null;
+        }
+
+        $connection = Database::getConnection();
+        $appliedAtExpr = $this->hasInventoryAppliedAtColumn() ? 'i.applique_le' : 'NULL';
+        $appliedByExpr = $this->hasInventoryAppliedByColumn() ? 'i.applique_par' : "''";
+        $sql = '
+            SELECT
+                i.id,
+                i.caserne_id,
+                i.cree_par,
+                i.note,
+                i.cree_le,
+                ' . $appliedAtExpr . ' AS applique_le,
+                ' . $appliedByExpr . ' AS applique_par,
+                COUNT(l.id) AS total_lignes,
+                SUM(CASE WHEN l.ecart <> 0 THEN 1 ELSE 0 END) AS lignes_ecart,
+                SUM(l.ecart) AS ecart_total
+            FROM pharmacie_inventaires i
+            LEFT JOIN pharmacie_inventaire_lignes l ON l.inventaire_id = i.id
+            WHERE i.caserne_id = :caserne_id
+              AND i.id = :inventory_id
+            GROUP BY i.id, i.caserne_id, i.cree_par, i.note, i.cree_le, ' . $appliedAtExpr . ', ' . $appliedByExpr . '
+            LIMIT 1
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute([
+            'caserne_id' => $caserneId,
+            'inventory_id' => $inventoryId,
+        ]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : null;
+    }
+
+    public function findInventoryLines(int $caserneId, int $inventoryId): array
+    {
+        if (!$this->hasInventoryModule() || $inventoryId <= 0) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $freeNameExpr = $this->hasInventoryFreeNameColumn() ? 'l.article_libre_nom' : "NULL";
+        $sql = '
+            SELECT
+                l.id,
+                l.inventaire_id,
+                l.article_id,
+                l.stock_theorique,
+                l.stock_compte,
+                l.ecart,
+                l.commentaire,
+                COALESCE(a.nom, ' . $freeNameExpr . ', \'Hors liste\') AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite
+            FROM pharmacie_inventaire_lignes l
+            INNER JOIN pharmacie_inventaires i ON i.id = l.inventaire_id
+            LEFT JOIN pharmacie_articles a ON a.id = l.article_id
+            WHERE i.caserne_id = :caserne_id
+              AND l.inventaire_id = :inventory_id
+            ORDER BY l.id ASC
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute([
+            'caserne_id' => $caserneId,
+            'inventory_id' => $inventoryId,
+        ]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function applyInventoryToStock(int $caserneId, int $inventoryId, string $appliedBy): string
+    {
+        if (!$this->hasInventoryModule() || !$this->hasArticlesTable() || $inventoryId <= 0) {
+            return 'error';
+        }
+
+        $appliedBy = trim($appliedBy);
+        if ($appliedBy === '') {
+            $appliedBy = 'Gestionnaire';
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $connection->beginTransaction();
+
+            $inventorySql = 'SELECT id, caserne_id'
+                . ($this->hasInventoryAppliedAtColumn() ? ', applique_le' : '')
+                . ' FROM pharmacie_inventaires WHERE id = :inventory_id AND caserne_id = :caserne_id FOR UPDATE';
+            $inventoryStatement = $connection->prepare($inventorySql);
+            $inventoryStatement->execute([
+                'inventory_id' => $inventoryId,
+                'caserne_id' => $caserneId,
+            ]);
+            $inventory = $inventoryStatement->fetch(PDO::FETCH_ASSOC);
+            if ($inventory === false) {
+                $connection->rollBack();
+                return 'not_found';
+            }
+
+            if ($this->hasInventoryAppliedAtColumn() && !empty($inventory['applique_le'])) {
+                $connection->rollBack();
+                return 'already_applied';
+            }
+
+            $lineStatement = $connection->prepare(
+                'SELECT article_id, stock_compte
+                 FROM pharmacie_inventaire_lignes
+                 WHERE inventaire_id = :inventory_id
+                   AND article_id IS NOT NULL'
+            );
+            $lineStatement->execute(['inventory_id' => $inventoryId]);
+            $lines = $lineStatement->fetchAll(PDO::FETCH_ASSOC);
+            if ($lines === []) {
+                $connection->rollBack();
+                return 'error';
+            }
+
+            $updateArticleStatement = $connection->prepare(
+                'UPDATE pharmacie_articles
+                 SET stock_actuel = :stock_actuel
+                 WHERE id = :article_id
+                   AND caserne_id = :caserne_id'
+            );
+
+            foreach ($lines as $line) {
+                $articleId = isset($line['article_id']) ? (int) $line['article_id'] : 0;
+                if ($articleId <= 0) {
+                    continue;
+                }
+                $stock = (float) ($line['stock_compte'] ?? 0);
+                $updateArticleStatement->execute([
+                    'stock_actuel' => $stock,
+                    'article_id' => $articleId,
+                    'caserne_id' => $caserneId,
+                ]);
+            }
+
+            if ($this->hasInventoryAppliedAtColumn()) {
+                $updateInventorySql = 'UPDATE pharmacie_inventaires SET applique_le = NOW()'
+                    . ($this->hasInventoryAppliedByColumn() ? ', applique_par = :applique_par' : '')
+                    . ' WHERE id = :inventory_id AND caserne_id = :caserne_id';
+                $updateInventoryStatement = $connection->prepare($updateInventorySql);
+                $params = [
+                    'inventory_id' => $inventoryId,
+                    'caserne_id' => $caserneId,
+                ];
+                if ($this->hasInventoryAppliedByColumn()) {
+                    $params['applique_par'] = $appliedBy;
+                }
+                $updateInventoryStatement->execute($params);
+            }
+
+            $connection->commit();
+            return 'ok';
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+            return 'error';
+        }
     }
 
     public function createInventory(int $caserneId, string $createdBy, ?string $note, array $lines): bool
@@ -1061,6 +1232,40 @@ final class PharmacyRepository
         }
 
         return $this->inventoryFreeNameColumnExists;
+    }
+
+    private function hasInventoryAppliedAtColumn(): bool
+    {
+        if ($this->inventoryAppliedAtColumnExists !== null) {
+            return $this->inventoryAppliedAtColumnExists;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_inventaires LIKE 'applique_le'");
+            $this->inventoryAppliedAtColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->inventoryAppliedAtColumnExists = false;
+        }
+
+        return $this->inventoryAppliedAtColumnExists;
+    }
+
+    private function hasInventoryAppliedByColumn(): bool
+    {
+        if ($this->inventoryAppliedByColumnExists !== null) {
+            return $this->inventoryAppliedByColumnExists;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_inventaires LIKE 'applique_par'");
+            $this->inventoryAppliedByColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->inventoryAppliedByColumnExists = false;
+        }
+
+        return $this->inventoryAppliedByColumnExists;
     }
 
     private function isMovementArticleIdNullable(): bool

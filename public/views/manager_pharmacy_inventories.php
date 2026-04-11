@@ -33,6 +33,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Module inventaire indisponible.
         <?php elseif ($error === 'inventory_missing_values'): ?>
             Renseigne une quantite comptee pour chaque article.
+        <?php elseif ($error === 'inventory_not_found'): ?>
+            Inventaire introuvable.
         <?php elseif ($error === 'inventory_save_failed'): ?>
             Inventaire non enregistre. Verifie les quantites saisies.
         <?php else: ?>
@@ -165,18 +167,21 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <div class="mt-3 overflow-x-auto">
             <table class="min-w-full text-sm">
                 <thead>
-                    <tr class="text-left text-slate-500 border-b border-slate-200">
-                        <th class="py-2 pr-3">Date</th>
-                        <th class="py-2 pr-3">Declarant</th>
-                        <th class="py-2 pr-3">Lignes</th>
-                        <th class="py-2 pr-3">Lignes en ecart</th>
-                        <th class="py-2 pr-3">Ecart total</th>
-                        <th class="py-2 pr-3">Note</th>
-                    </tr>
-                </thead>
-                <tbody>
+                        <tr class="text-left text-slate-500 border-b border-slate-200">
+                            <th class="py-2 pr-3">Date</th>
+                            <th class="py-2 pr-3">Declarant</th>
+                            <th class="py-2 pr-3">Lignes</th>
+                            <th class="py-2 pr-3">Lignes en ecart</th>
+                            <th class="py-2 pr-3">Ecart total</th>
+                            <th class="py-2 pr-3">Note</th>
+                            <th class="py-2 pr-3">Etat</th>
+                            <th class="py-2 pr-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                     <?php foreach ($inventories as $inventory): ?>
                         <?php $hasDiff = abs((float) ($inventory['ecart_total'] ?? 0)) > 0.00001; ?>
+                        <?php $isApplied = !empty($inventory['applique_le']); ?>
                         <tr class="border-b border-slate-100">
                             <td class="py-2 pr-3 font-semibold"><?= htmlspecialchars((string) ($inventory['cree_le'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="py-2 pr-3"><?= htmlspecialchars((string) ($inventory['cree_par'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
@@ -188,11 +193,21 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 </span>
                             </td>
                             <td class="py-2 pr-3"><?= htmlspecialchars((string) ($inventory['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="py-2 pr-3">
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold <?= $isApplied ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' ?>">
+                                    <?= $isApplied ? 'Applique' : 'Non applique' ?>
+                                </span>
+                            </td>
+                            <td class="py-2 pr-3">
+                                <a href="/index.php?controller=manager_pharmacy&action=inventory_show&id=<?= (int) ($inventory['id'] ?? 0) ?>" class="inline-flex rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    Voir detail
+                                </a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+                    </tbody>
+                </table>
+            </div>
     <?php endif; ?>
 </section>
 

@@ -293,6 +293,60 @@ final class ManagerPharmacyController
         $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&success=inventory_saved');
     }
 
+    public function inventoryShow(int $inventoryId): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $inventoryAvailable = $repository->hasInventoryModule();
+        $inventory = $repository->findInventoryById($caserneId, $inventoryId);
+        if ($inventory === null) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_not_found');
+        }
+        $lines = $repository->findInventoryLines($caserneId, $inventoryId);
+        $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
+        $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $managerUser = $_SESSION['manager_user'] ?? null;
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_inventory_show.php';
+    }
+
+    public function inventoryApply(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $inventoryId = isset($_POST['inventory_id']) ? (int) $_POST['inventory_id'] : 0;
+        if ($inventoryId <= 0) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_not_found');
+        }
+
+        $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Gestionnaire'));
+        $repository = new PharmacyRepository();
+        $status = $repository->applyInventoryToStock($caserneId, $inventoryId, $managerName);
+        if ($status === 'ok') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventory_show&id=' . $inventoryId . '&success=inventory_applied');
+        }
+        if ($status === 'already_applied') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventory_show&id=' . $inventoryId . '&error=inventory_already_applied');
+        }
+        if ($status === 'not_found') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_not_found');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=inventory_show&id=' . $inventoryId . '&error=inventory_apply_failed');
+    }
+
     public function articleSave(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
