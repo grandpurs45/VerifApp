@@ -54,7 +54,7 @@ final class PharmacyController
 
         $repository = new PharmacyRepository();
         $isAvailable = $repository->isAvailable();
-        $articles = $repository->findAllArticles($caserneId, true);
+        $articles = $repository->findAllArticles($caserneId, true, true);
         $success = isset($_GET['success']) && (string) $_GET['success'] === '1';
         $successItems = isset($_GET['items']) && ctype_digit((string) $_GET['items']) ? (int) $_GET['items'] : 0;
         $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -83,7 +83,7 @@ final class PharmacyController
             $this->redirect('/index.php?controller=pharmacy&action=form&error=declarant_required');
         }
         $repository = new PharmacyRepository();
-        $availableArticles = $repository->findAllArticles($caserneId, true);
+        $availableArticles = $repository->findAllArticles($caserneId, true, true);
         $articlesById = [];
         foreach ($availableArticles as $article) {
             $articlesById[(int) ($article['id'] ?? 0)] = $article;
@@ -128,7 +128,7 @@ final class PharmacyController
 
             $motif = '';
             if (!$isOtherArticle && $motifRaw !== '') {
-                if (!in_array($motifRaw, ['perime', 'utilise'], true)) {
+                if (!in_array($motifRaw, ['perime', 'utilise', 'perdu'], true)) {
                     $this->redirect('/index.php?controller=pharmacy&action=form&error=invalid');
                 }
                 $motif = $motifRaw;
@@ -154,6 +154,8 @@ final class PharmacyController
                 $composedComment = trim('[Motif: Materiel perime] ' . $composedComment);
             } elseif ($motif === 'utilise') {
                 $composedComment = trim('[Motif: Utilise en intervention ' . $interventionRaw . '] ' . $composedComment);
+            } elseif ($motif === 'perdu') {
+                $composedComment = trim('[Motif: Materiel perdu] ' . $composedComment);
             } elseif ($isOtherArticle) {
                 $composedComment = trim('[Article: Autre hors liste] ' . $composedComment);
             }
@@ -193,7 +195,7 @@ final class PharmacyController
         $repository = new PharmacyRepository();
         $isAvailable = $repository->isAvailable();
         $inventoryAvailable = $repository->hasInventoryModule();
-        $articles = $repository->findAllArticles($caserneId, true);
+        $articles = $repository->findAllArticles($caserneId, true, true);
         $success = isset($_GET['success']) && (string) $_GET['success'] === '1';
         $savedItems = isset($_GET['items']) && ctype_digit((string) $_GET['items']) ? (int) $_GET['items'] : 0;
         $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';

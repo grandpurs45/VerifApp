@@ -9,6 +9,23 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.8] - 2026-04-11
+
+### Added
+- Pharmacie:
+  - nouveau motif de sortie `Materiel perdu` dans le formulaire terrain
+- BO Pharmacie:
+  - exposition des indicateurs article `Sorties 6 mois` et `Derniere sortie`
+
+### Changed
+- Tri des articles pharmacie:
+  - classement par usage recent (6 derniers mois) pour accelerer la saisie terrain
+  - fallback alphabetique pour les articles sans sortie recente
+
+### Fixed
+- BO Pharmacie:
+  - ajustement de mise en page de la table articles apres ajout des indicateurs de sorties
+
 ## [0.16.7] - 2026-04-11
 
 ### Added

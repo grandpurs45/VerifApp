@@ -28,27 +28,64 @@ final class PharmacyRepository
         return $this->hasArticlesTable() && $this->hasMovementsTable();
     }
 
-    public function findAllArticles(int $caserneId, bool $activeOnly = false): array
+    public function findAllArticles(
+        int $caserneId,
+        bool $activeOnly = false,
+        bool $orderByRecentOutput = false
+    ): array
     {
         if (!$this->hasArticlesTable()) {
             return [];
         }
 
         $connection = Database::getConnection();
+        $hasMovements = $this->hasMovementsTable();
+        $recentStatsJoin = '';
+        $recentStatsSelect = '0 AS sorties_6m, NULL AS derniere_sortie_le';
+        if ($hasMovements) {
+            $recentStatsJoin = '
+                LEFT JOIN (
+                    SELECT
+                        article_id,
+                        COUNT(*) AS sorties_6m,
+                        MAX(cree_le) AS derniere_sortie_le
+                    FROM pharmacie_mouvements
+                    WHERE type = \'sortie\'
+                      AND article_id IS NOT NULL
+                      AND cree_le >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    GROUP BY article_id
+                ) sortie_stats ON sortie_stats.article_id = a.id
+            ';
+            $recentStatsSelect = 'COALESCE(sortie_stats.sorties_6m, 0) AS sorties_6m, sortie_stats.derniere_sortie_le AS derniere_sortie_le';
+        }
+
+        $orderBy = 'ORDER BY a.nom ASC';
+        if ($orderByRecentOutput && $hasMovements) {
+            $orderBy = '
+                ORDER BY
+                    CASE WHEN sortie_stats.derniere_sortie_le IS NULL THEN 1 ELSE 0 END ASC,
+                    sortie_stats.derniere_sortie_le DESC,
+                    COALESCE(sortie_stats.sorties_6m, 0) DESC,
+                    a.nom ASC
+            ';
+        }
+
         $sql = '
             SELECT
-                id,
-                caserne_id,
-                nom,
-                unite,
-                stock_actuel,
-                seuil_alerte,
-                actif,
-                motif_sortie_obligatoire
-            FROM pharmacie_articles
-            WHERE caserne_id = :caserne_id
-            ' . ($activeOnly ? 'AND actif = 1' : '') . '
-            ORDER BY nom ASC
+                a.id,
+                a.caserne_id,
+                a.nom,
+                a.unite,
+                a.stock_actuel,
+                a.seuil_alerte,
+                a.actif,
+                a.motif_sortie_obligatoire,
+                ' . $recentStatsSelect . '
+            FROM pharmacie_articles a
+            ' . $recentStatsJoin . '
+            WHERE a.caserne_id = :caserne_id
+            ' . ($activeOnly ? 'AND a.actif = 1' : '') . '
+            ' . $orderBy . '
         ';
 
         $statement = $connection->prepare($sql);

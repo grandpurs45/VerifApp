@@ -147,6 +147,7 @@ if ($errorCode === 'invalid') {
                         <option value="" data-motif-empty>Aucun</option>
                         <option value="perime">Materiel perime</option>
                         <option value="utilise">Materiel utilise en intervention</option>
+                        <option value="perdu">Materiel perdu</option>
                     </select>
                     <p class="mt-1 hidden text-xs text-amber-200" data-motif-required-hint>Motif obligatoire pour cet article.</p>
                 </div>

@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.16.7` (voir fichier `VERSION`).
+Version courante: `v0.16.8` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif

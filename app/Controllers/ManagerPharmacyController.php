@@ -19,7 +19,7 @@ final class ManagerPharmacyController
         }
 
         $repository = new PharmacyRepository();
-        $articles = $repository->findAllArticles($caserneId);
+        $articles = $repository->findAllArticles($caserneId, false, true);
         $movementGroups = $repository->findLastOutputGroups($caserneId, 10);
         $stats = $repository->getStats($caserneId);
         $isAvailable = $repository->isAvailable();
