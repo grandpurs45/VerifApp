@@ -9,6 +9,34 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.16.7] - 2026-04-11
+
+### Added
+- Pharmacie inventaire:
+  - QR dedie `Inventaire mobile` dans `Administration -> Parametres application`
+  - generation/regeneration token dedie inventaire
+  - impression A4 de l affiche QR inventaire
+  - message imprime QR inventaire configurable par caserne
+- Inventaire (BO + terrain):
+  - support des lignes `Materiel en trop (hors liste)`
+  - migrations:
+    - `028_create_pharmacy_inventory_module.sql`
+    - `029_allow_inventory_extra_lines.sql`
+
+### Changed
+- Inventaire terrain (UX mobile):
+  - passage en inventaire complet: quantite obligatoire pour tous les articles actifs
+  - progression sticky en tete (`x / total`)
+  - filtre rapide `Tous / A saisir`
+  - cartes allegees pour lecture/saisie plus rapide
+  - commentaires d ecart replis par defaut
+- Inventaire BO:
+  - ajout du bloc `Materiel en trop (hors liste)` pour les ecarts non references
+
+### Fixed
+- Acces inventaire mobile:
+  - compatibilite token dedie inventaire + fallback token pharmacie
+
 ## [0.16.6] - 2026-04-10
 
 ### Added

@@ -59,7 +59,8 @@ $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION
 $isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
 $fieldProtected = $isFeatureProtected('field_qr_token', 'FIELD_QR_TOKEN');
 $hasFieldAccess = !$fieldProtected || (isset($_SESSION['field_access']) && $_SESSION['field_access'] === true);
-$pharmacyProtected = $isFeatureProtected('pharmacy_qr_token', 'PHARMACY_QR_TOKEN');
+$pharmacyProtected = $isFeatureProtected('pharmacy_qr_token', 'PHARMACY_QR_TOKEN')
+    || $isFeatureProtected('inventory_qr_token', 'INVENTORY_QR_TOKEN');
 $hasPharmacyAccess = !$pharmacyProtected || (isset($_SESSION['pharmacy_access']) && $_SESSION['pharmacy_access'] === true);
 
 $managerRoutes = [
@@ -73,6 +74,7 @@ $managerRoutes = [
     'manager_admin/verification_timing_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
+    'manager_admin/qr_print_hints_save',
     'manager_admin/caserne_save',
     'manager_admin/regenerate_qr_token',
     'verifications/history',
@@ -103,9 +105,11 @@ $managerRoutes = [
     'manager_pharmacy/outputs',
     'manager_pharmacy/export_order_csv',
     'manager_pharmacy/order_print',
+    'manager_pharmacy/inventories',
     'manager_pharmacy/article_save',
     'manager_pharmacy/output_acknowledge',
     'manager_pharmacy/order_mark',
+    'manager_pharmacy/inventory_save',
     'manager_roles/index',
     'manager_roles/role_save',
     'manager_roles/role_delete',
@@ -129,6 +133,8 @@ $fieldRoutes = [
 $pharmacyRoutes = [
     'pharmacy/form',
     'pharmacy/save',
+    'pharmacy/inventory_form',
+    'pharmacy/inventory_save',
 ];
 
 $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
@@ -171,6 +177,7 @@ $managerRoutePermissions = [
     'manager_admin/verification_timing_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
+    'manager_admin/qr_print_hints_save' => 'users.manage',
     'manager_admin/caserne_save' => 'users.manage',
     'manager_admin/regenerate_qr_token' => 'users.manage',
     'verifications/history' => 'verifications.history',
@@ -201,9 +208,11 @@ $managerRoutePermissions = [
     'manager_pharmacy/outputs' => 'pharmacy.manage',
     'manager_pharmacy/export_order_csv' => 'pharmacy.manage',
     'manager_pharmacy/order_print' => 'pharmacy.manage',
+    'manager_pharmacy/inventories' => 'pharmacy.manage',
     'manager_pharmacy/article_save' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
+    'manager_pharmacy/inventory_save' => 'pharmacy.manage',
     'manager_roles/index' => 'users.manage',
     'manager_roles/role_save' => 'users.manage',
     'manager_roles/role_delete' => 'users.manage',
@@ -376,6 +385,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_admin' && $action === 'qr_print_hints_save') {
+        $controller = new ManagerAdminController();
+        $controller->qrPrintHintsSave();
+        return;
+    }
+
     if ($controllerName === 'manager_assets' && $action === 'index') {
         $controller = new ManagerAssetController();
         $controller->index();
@@ -496,6 +511,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_pharmacy' && $action === 'inventories') {
+        $controller = new ManagerPharmacyController();
+        $controller->inventories();
+        return;
+    }
+
     if ($controllerName === 'manager_pharmacy' && $action === 'export_order_csv') {
         $controller = new ManagerPharmacyController();
         $controller->exportOrderCsv();
@@ -523,6 +544,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'order_mark') {
         $controller = new ManagerPharmacyController();
         $controller->markOrder();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'inventory_save') {
+        $controller = new ManagerPharmacyController();
+        $controller->inventorySave();
         return;
     }
 
@@ -613,6 +640,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'pharmacy' && $action === 'save') {
         $controller = new PharmacyController();
         $controller->save();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'inventory_form') {
+        $controller = new PharmacyController();
+        $controller->inventoryForm();
+        return;
+    }
+
+    if ($controllerName === 'pharmacy' && $action === 'inventory_save') {
+        $controller = new PharmacyController();
+        $controller->inventorySave();
         return;
     }
 

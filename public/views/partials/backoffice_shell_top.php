@@ -135,6 +135,11 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                     'route' => '/index.php?controller=manager_pharmacy&action=outputs',
                                     'active' => $currentRoute === 'manager_pharmacy/outputs',
                                 ],
+                                [
+                                    'label' => 'Inventaires',
+                                    'route' => '/index.php?controller=manager_pharmacy&action=inventories',
+                                    'active' => $currentRoute === 'manager_pharmacy/inventories',
+                                ],
                             ];
                             ?>
                             <div class="ml-3 mt-1 space-y-1 border-l border-white/20 pl-2">

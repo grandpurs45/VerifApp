@@ -14,7 +14,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php if ($success === 'token_regenerated'): ?>
     <?php $target = isset($_GET['target']) ? (string) $_GET['target'] : ''; ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
-        <?= $target === 'pharmacy' ? 'Lien/QR pharmacie regeneres.' : 'Lien/QR verification terrain regeneres.' ?>
+        <?php if ($target === 'pharmacy'): ?>
+            Lien/QR sortie pharmacie regeneres.
+        <?php elseif ($target === 'inventory'): ?>
+            Lien/QR inventaire mobile regeneres.
+        <?php else: ?>
+            Lien/QR verification terrain regeneres.
+        <?php endif; ?>
     </section>
 <?php elseif ($error === 'settings_store_unavailable'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm space-y-2">
@@ -49,6 +55,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($success === 'dashboard_config_saved'): ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Configuration du dashboard enregistree pour cette caserne.
+    </section>
+<?php elseif ($success === 'qr_hint_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Messages d affiche QR enregistres.
     </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -90,7 +100,63 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement de la configuration dashboard impossible.
     </section>
+<?php elseif ($error === 'qr_hint_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Texte invalide pour le message d affiche QR.
+    </section>
+<?php elseif ($error === 'qr_hint_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement du message d affiche QR impossible.
+    </section>
 <?php endif; ?>
+
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Messages affiche QR</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Texte imprime sous le QR code pour guider les utilisateurs.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=qr_print_hints_save" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+            <label for="field_qr_print_hint" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Message QR verification</label>
+            <textarea
+                id="field_qr_print_hint"
+                name="field_qr_print_hint"
+                rows="3"
+                maxlength="180"
+                required
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            ><?= htmlspecialchars((string) $fieldQrPrintHint, ENT_QUOTES, 'UTF-8') ?></textarea>
+        </div>
+        <div>
+            <label for="pharmacy_qr_print_hint" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Message QR pharmacie</label>
+            <textarea
+                id="pharmacy_qr_print_hint"
+                name="pharmacy_qr_print_hint"
+                rows="3"
+                maxlength="180"
+                required
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            ><?= htmlspecialchars((string) $pharmacyQrPrintHint, ENT_QUOTES, 'UTF-8') ?></textarea>
+        </div>
+        <div>
+            <label for="inventory_qr_print_hint" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Message QR inventaire</label>
+            <textarea
+                id="inventory_qr_print_hint"
+                name="inventory_qr_print_hint"
+                rows="3"
+                maxlength="180"
+                required
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            ><?= htmlspecialchars((string) $inventoryQrPrintHint, ENT_QUOTES, 'UTF-8') ?></textarea>
+        </div>
+        <div class="md:col-span-3">
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
+                Enregistrer messages QR
+            </button>
+        </div>
+    </form>
+</section>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Dashboard configurable</h2>
@@ -282,7 +348,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         Liens et QR codes generes depuis l administration pour partage terrain.
     </p>
 
-    <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+    <div class="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
         <article class="rounded-xl border border-slate-200 p-4">
             <p class="text-sm font-semibold text-slate-800">Verification terrain</p>
             <p class="text-xs text-slate-500 mt-1 break-all" id="fieldGuestUrl"><?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?></p>
@@ -293,6 +359,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     type="button"
                     data-print-qr="1"
                     data-print-title="Verification terrain"
+                    data-print-hint="<?= htmlspecialchars((string) $fieldQrPrintHint, ENT_QUOTES, 'UTF-8') ?>"
                     data-print-url="<?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
                     class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
                 >
@@ -328,6 +395,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     type="button"
                     data-print-qr="1"
                     data-print-title="Sortie pharmacie"
+                    data-print-hint="<?= htmlspecialchars((string) $pharmacyQrPrintHint, ENT_QUOTES, 'UTF-8') ?>"
                     data-print-url="<?= htmlspecialchars($pharmacyGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
                     class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
                 >
@@ -348,6 +416,42 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <img
                     src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?= rawurlencode($pharmacyGuestUrl) ?>"
                     alt="QR sortie pharmacie"
+                    class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
+                >
+            </div>
+        </article>
+
+        <article class="rounded-xl border border-slate-200 p-4">
+            <p class="text-sm font-semibold text-slate-800">Inventaire mobile</p>
+            <p class="text-xs text-slate-500 mt-1 break-all" id="inventoryGuestUrl"><?= htmlspecialchars($inventoryGuestUrl, ENT_QUOTES, 'UTF-8') ?></p>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <a href="<?= htmlspecialchars($inventoryGuestUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-semibold">Ouvrir lien</a>
+                <button type="button" data-copy-target="inventoryGuestUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Copier lien</button>
+                <button
+                    type="button"
+                    data-print-qr="1"
+                    data-print-title="Inventaire mobile"
+                    data-print-hint="<?= htmlspecialchars((string) $inventoryQrPrintHint, ENT_QUOTES, 'UTF-8') ?>"
+                    data-print-url="<?= htmlspecialchars($inventoryGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                >
+                    Imprimer A4
+                </button>
+                <form method="post" action="/index.php?controller=manager_admin&action=regenerate_qr_token">
+                    <input type="hidden" name="target" value="inventory">
+                    <button
+                        type="submit"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                        onclick="return window.confirm('Regenerer ce lien QR ? Les anciens liens et anciens QR ne fonctionneront plus.');"
+                    >
+                        <?= $inventoryToken === '' ? 'Generer lien + QR' : 'Regenerer lien + QR' ?>
+                    </button>
+                </form>
+            </div>
+            <div class="mt-4">
+                <img
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?= rawurlencode($inventoryGuestUrl) ?>"
+                    alt="QR inventaire mobile"
                     class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
                 >
             </div>
@@ -383,6 +487,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             button.addEventListener('click', () => {
                 const qrTitle = button.getAttribute('data-print-title') || 'QR Code';
                 const qrTargetUrl = button.getAttribute('data-print-url') || '';
+                const qrHint = button.getAttribute('data-print-hint') || 'Scanner pour ouvrir le formulaire';
                 if (!qrTargetUrl) {
                     return;
                 }
@@ -400,6 +505,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;');
                 const safeUrl = qrTargetUrl
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+                const safeHint = qrHint
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
@@ -445,7 +555,7 @@ html, body { margin:0; padding:0; font-family: Arial, sans-serif; color:#0f172a;
             <p class="title">VerifApp</p>
             <p class="module">${safeTitle}</p>
             <div class="qr-wrap"><img class="qr" src="${qrUrl}" alt="QR ${safeTitle}"></div>
-            <p class="hint">Scanner pour ouvrir le formulaire</p>
+            <p class="hint">${safeHint}</p>
             <p class="url">${safeUrl}</p>
         </div>
     </main>

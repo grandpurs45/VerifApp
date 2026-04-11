@@ -35,14 +35,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Acces rapide au terrain:
             <strong>ouvrir le formulaire de sortie de materiel (QR pharmacie).</strong>
         </p>
-        <a
-            href="<?= htmlspecialchars((string) ($pharmacyFormUrl ?? '/index.php?controller=pharmacy&action=access'), ENT_QUOTES, 'UTF-8') ?>"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-        >
-            Ouvrir formulaire sortie
-        </a>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/index.php?controller=manager_pharmacy&action=outputs" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Voir sorties</a>
+            <a href="/index.php?controller=manager_pharmacy&action=inventories" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Module inventaire</a>
+            <a
+                href="<?= htmlspecialchars((string) ($pharmacyFormUrl ?? '/index.php?controller=pharmacy&action=access'), ENT_QUOTES, 'UTF-8') ?>"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            >
+                Ouvrir formulaire sortie
+            </a>
+        </div>
     </div>
 </section>
 

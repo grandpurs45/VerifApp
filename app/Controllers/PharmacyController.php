@@ -14,13 +14,22 @@ final class PharmacyController
     public function access(): void
     {
         $caserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
-        $configuredToken = $this->getPharmacyToken($caserneId > 0 ? $caserneId : null);
+        $next = isset($_GET['next']) ? (string) $_GET['next'] : 'form';
+        if (!in_array($next, ['form', 'inventory_form'], true)) {
+            $next = 'form';
+        }
+        $configuredToken = $next === 'inventory_form'
+            ? $this->getInventoryToken($caserneId > 0 ? $caserneId : null)
+            : $this->getPharmacyToken($caserneId > 0 ? $caserneId : null);
+        if ($configuredToken === '' && $next === 'inventory_form') {
+            $configuredToken = $this->getPharmacyToken($caserneId > 0 ? $caserneId : null);
+        }
         $providedToken = isset($_GET['token']) ? (string) $_GET['token'] : '';
 
         if ($configuredToken === '') {
             $_SESSION['pharmacy_access'] = true;
             $this->storePharmacyCaserneContext($caserneId);
-            $this->redirect('/index.php?controller=pharmacy&action=form');
+            $this->redirect('/index.php?controller=pharmacy&action=' . $next);
         }
 
         if ($caserneId <= 0) {
@@ -30,7 +39,7 @@ final class PharmacyController
         if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['pharmacy_access'] = true;
             $this->storePharmacyCaserneContext($caserneId);
-            $this->redirect('/index.php?controller=pharmacy&action=form');
+            $this->redirect('/index.php?controller=pharmacy&action=' . $next);
         }
 
         $this->redirect('/index.php?controller=pharmacy&action=denied');
@@ -174,6 +183,110 @@ final class PharmacyController
         $this->redirect('/index.php?controller=pharmacy&action=form&success=1&items=' . count($lines));
     }
 
+    public function inventoryForm(): void
+    {
+        $caserneId = $this->resolvePharmacyCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $inventoryAvailable = $repository->hasInventoryModule();
+        $articles = $repository->findAllArticles($caserneId, true);
+        $success = isset($_GET['success']) && (string) $_GET['success'] === '1';
+        $savedItems = isset($_GET['items']) && ctype_digit((string) $_GET['items']) ? (int) $_GET['items'] : 0;
+        $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';
+
+        require dirname(__DIR__, 2) . '/public/views/pharmacy_inventory_form.php';
+    }
+
+    public function inventorySave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=pharmacy&action=inventory_form');
+        }
+
+        $caserneId = $this->resolvePharmacyCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=pharmacy&action=denied');
+        }
+
+        $declarant = trim((string) ($_POST['declarant'] ?? ''));
+        if ($declarant === '') {
+            $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=declarant_required');
+        }
+
+        $repository = new PharmacyRepository();
+        if (!$repository->hasInventoryModule()) {
+            $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_unavailable');
+        }
+
+        $articleIds = is_array($_POST['article_id'] ?? null) ? $_POST['article_id'] : [];
+        $countedStocks = is_array($_POST['stock_compte'] ?? null) ? $_POST['stock_compte'] : [];
+        $comments = is_array($_POST['commentaire'] ?? null) ? $_POST['commentaire'] : [];
+        $extraNames = is_array($_POST['article_libre_nom'] ?? null) ? $_POST['article_libre_nom'] : [];
+        $extraStocks = is_array($_POST['stock_compte_libre'] ?? null) ? $_POST['stock_compte_libre'] : [];
+        $extraComments = is_array($_POST['commentaire_libre'] ?? null) ? $_POST['commentaire_libre'] : [];
+        $note = trim((string) ($_POST['note'] ?? ''));
+
+        $max = max(count($articleIds), count($countedStocks), count($comments));
+        $lines = [];
+        for ($i = 0; $i < $max; $i++) {
+            $articleId = isset($articleIds[$i]) ? (int) $articleIds[$i] : 0;
+            $countedRaw = isset($countedStocks[$i]) ? trim((string) $countedStocks[$i]) : '';
+            $comment = isset($comments[$i]) ? trim((string) $comments[$i]) : '';
+            if ($articleId <= 0 && $countedRaw === '' && $comment === '') {
+                continue;
+            }
+            if ($articleId <= 0 || $countedRaw === '') {
+                $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_missing_values');
+            }
+            if ($this->parseNonNegativeInteger($countedRaw) === null) {
+                $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_invalid_qty');
+            }
+
+            $lines[] = [
+                'article_id' => $articleId,
+                'stock_compte' => $countedRaw,
+                'commentaire' => $comment,
+            ];
+        }
+
+        $extraMax = max(count($extraNames), count($extraStocks), count($extraComments));
+        for ($i = 0; $i < $extraMax; $i++) {
+            $name = trim((string) ($extraNames[$i] ?? ''));
+            $stock = trim((string) ($extraStocks[$i] ?? ''));
+            $comment = trim((string) ($extraComments[$i] ?? ''));
+            if ($name === '' && $stock === '' && $comment === '') {
+                continue;
+            }
+            if ($name === '' || $stock === '') {
+                $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_missing_values');
+            }
+            if ($this->parseNonNegativeInteger($stock) === null) {
+                $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_invalid_qty');
+            }
+            $lines[] = [
+                'article_id' => 0,
+                'article_libre_nom' => $name,
+                'stock_compte' => $stock,
+                'commentaire' => $comment,
+            ];
+        }
+
+        if ($lines === []) {
+            $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=invalid');
+        }
+
+        $ok = $repository->createInventory($caserneId, $declarant, $note, $lines);
+        if (!$ok) {
+            $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=pharmacy&action=inventory_form&success=1&items=' . count($lines));
+    }
+
     public function denied(): void
     {
         require dirname(__DIR__, 2) . '/public/views/pharmacy_denied.php';
@@ -203,6 +316,26 @@ final class PharmacyController
         }
 
         return trim((string) (Env::get('PHARMACY_QR_TOKEN', '') ?? ''));
+    }
+
+    private function getInventoryToken(?int $caserneId): string
+    {
+        $repository = new AppSettingRepository();
+        if ($repository->isAvailable()) {
+            if ($caserneId !== null && $caserneId > 0) {
+                $scoped = $repository->get('inventory_qr_token_caserne_' . $caserneId);
+                if ($scoped !== null && trim($scoped) !== '') {
+                    return trim($scoped);
+                }
+            }
+
+            $global = $repository->get('inventory_qr_token');
+            if ($global !== null && trim($global) !== '') {
+                return trim($global);
+            }
+        }
+
+        return trim((string) (Env::get('INVENTORY_QR_TOKEN', '') ?? ''));
     }
 
     private function storePharmacyCaserneContext(int $caserneId): void
@@ -243,6 +376,20 @@ final class PharmacyController
 
         $value = (int) $raw;
         if ($value <= 0) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function parseNonNegativeInteger(string $raw): ?int
+    {
+        if ($raw === '' || !preg_match('/^\d+$/', $raw)) {
+            return null;
+        }
+
+        $value = (int) $raw;
+        if ($value < 0) {
             return null;
         }
 

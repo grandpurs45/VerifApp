@@ -22,6 +22,7 @@ final class ManagerPharmacyController
         $movementGroups = $repository->findLastOutputGroups($caserneId, 10);
         $stats = $repository->getStats($caserneId);
         $isAvailable = $repository->isAvailable();
+        $inventoryAvailable = $repository->hasInventoryModule();
         $managerUser = $_SESSION['manager_user'] ?? null;
         $appUrl = $this->resolvePublicBaseUrl();
         $pharmacyToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
@@ -32,6 +33,36 @@ final class ManagerPharmacyController
         $pharmacyFormUrl = $appUrl !== '' ? $appUrl . $pharmacyFormPath : $pharmacyFormPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy.php';
+    }
+
+    public function inventories(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $inventoryAvailable = $repository->hasInventoryModule();
+        $articles = $repository->findAllArticles($caserneId, true);
+        $inventories = $repository->findLastInventories($caserneId, 12);
+        $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
+        $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $appUrl = $this->resolvePublicBaseUrl();
+        $inventoryToken = $this->getScopedSettingValue('inventory_qr_token', 'INVENTORY_QR_TOKEN', $caserneId, '');
+        if ($inventoryToken === '') {
+            $inventoryToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
+        }
+        $caserneParam = '&caserne_id=' . $caserneId;
+        $inventoryMobilePath = '/index.php?controller=pharmacy&action=access'
+            . ($inventoryToken !== '' ? '&token=' . rawurlencode($inventoryToken) : '')
+            . $caserneParam
+            . '&next=inventory_form';
+        $inventoryMobileUrl = $appUrl !== '' ? $appUrl . $inventoryMobilePath : $inventoryMobilePath;
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_inventories.php';
     }
 
     public function outputs(): void
@@ -193,6 +224,73 @@ final class ManagerPharmacyController
         }
 
         $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=order_saved');
+    }
+
+    public function inventorySave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        if (!$repository->hasInventoryModule()) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_unavailable');
+        }
+
+        $createdBy = trim((string) ($_POST['declarant'] ?? ($_SESSION['manager_user']['nom'] ?? '')));
+        $note = trim((string) ($_POST['note'] ?? ''));
+        $articleIds = isset($_POST['article_id']) && is_array($_POST['article_id']) ? $_POST['article_id'] : [];
+        $countedStocks = isset($_POST['stock_compte']) && is_array($_POST['stock_compte']) ? $_POST['stock_compte'] : [];
+        $comments = isset($_POST['commentaire']) && is_array($_POST['commentaire']) ? $_POST['commentaire'] : [];
+        $extraNames = isset($_POST['article_libre_nom']) && is_array($_POST['article_libre_nom']) ? $_POST['article_libre_nom'] : [];
+        $extraStocks = isset($_POST['stock_compte_libre']) && is_array($_POST['stock_compte_libre']) ? $_POST['stock_compte_libre'] : [];
+        $extraComments = isset($_POST['commentaire_libre']) && is_array($_POST['commentaire_libre']) ? $_POST['commentaire_libre'] : [];
+
+        $max = max(count($articleIds), count($countedStocks), count($comments));
+        $lines = [];
+        for ($i = 0; $i < $max; $i++) {
+            $articleId = isset($articleIds[$i]) ? (int) $articleIds[$i] : 0;
+            $countedRaw = isset($countedStocks[$i]) ? trim((string) $countedStocks[$i]) : '';
+            if ($articleId > 0 && $countedRaw === '') {
+                $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_missing_values');
+            }
+            $lines[] = [
+                'article_id' => $articleId,
+                'stock_compte' => $countedRaw,
+                'commentaire' => isset($comments[$i]) ? (string) $comments[$i] : '',
+            ];
+        }
+
+        $extraMax = max(count($extraNames), count($extraStocks), count($extraComments));
+        for ($i = 0; $i < $extraMax; $i++) {
+            $name = trim((string) ($extraNames[$i] ?? ''));
+            $stock = trim((string) ($extraStocks[$i] ?? ''));
+            $comment = trim((string) ($extraComments[$i] ?? ''));
+            if ($name === '' && $stock === '' && $comment === '') {
+                continue;
+            }
+            if ($name === '' || $stock === '') {
+                $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_missing_values');
+            }
+            $lines[] = [
+                'article_id' => 0,
+                'article_libre_nom' => $name,
+                'stock_compte' => $stock,
+                'commentaire' => $comment,
+            ];
+        }
+
+        $ok = $repository->createInventory($caserneId, $createdBy, $note, $lines);
+        if (!$ok) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&error=inventory_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=inventories&success=inventory_saved');
     }
 
     public function articleSave(): void

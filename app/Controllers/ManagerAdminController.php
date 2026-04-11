@@ -46,9 +46,28 @@ final class ManagerAdminController
         $dashboardAnomaliesOrder = $this->readDashboardOrder('dashboard_anomalies_order', $caserneId, 10);
         $dashboardVerificationsOrder = $this->readDashboardOrder('dashboard_verifications_order', $caserneId, 20);
         $dashboardPharmacyOrder = $this->readDashboardOrder('dashboard_pharmacy_order', $caserneId, 30);
+        $fieldQrPrintHint = $this->getScopedSettingValue(
+            'field_qr_print_hint',
+            'FIELD_QR_PRINT_HINT',
+            $caserneId,
+            'Scanner pour ouvrir le formulaire de verification.'
+        );
+        $pharmacyQrPrintHint = $this->getScopedSettingValue(
+            'pharmacy_qr_print_hint',
+            'PHARMACY_QR_PRINT_HINT',
+            $caserneId,
+            'Pour toute sortie de materiel, merci de la declarer via ce QR code.'
+        );
+        $inventoryQrPrintHint = $this->getScopedSettingValue(
+            'inventory_qr_print_hint',
+            'INVENTORY_QR_PRINT_HINT',
+            $caserneId,
+            'Pour realiser un inventaire mobile, scanner ce QR code.'
+        );
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
+        $inventoryToken = trim($this->getScopedSettingValue('inventory_qr_token', 'INVENTORY_QR_TOKEN', $caserneId, ''));
         $settingsStorage = $this->getSettingsStorageMode();
         $caserneRepository = new CaserneRepository();
         $casernes = $isPlatformAdmin ? $caserneRepository->findAll() : [];
@@ -56,9 +75,11 @@ final class ManagerAdminController
         $caserneParam = $caserneId !== null ? '&caserne_id=' . $caserneId : '';
         $fieldGuestPath = '/index.php?controller=field&action=access' . ($fieldToken !== '' ? '&token=' . rawurlencode($fieldToken) : '') . $caserneParam;
         $pharmacyGuestPath = '/index.php?controller=pharmacy&action=access' . ($pharmacyToken !== '' ? '&token=' . rawurlencode($pharmacyToken) : '') . $caserneParam;
+        $inventoryGuestPath = '/index.php?controller=pharmacy&action=access&next=inventory_form' . ($inventoryToken !== '' ? '&token=' . rawurlencode($inventoryToken) : '') . $caserneParam;
 
         $fieldGuestUrl = $appUrl !== '' ? $appUrl . $fieldGuestPath : $fieldGuestPath;
         $pharmacyGuestUrl = $appUrl !== '' ? $appUrl . $pharmacyGuestPath : $pharmacyGuestPath;
+        $inventoryGuestUrl = $appUrl !== '' ? $appUrl . $inventoryGuestPath : $inventoryGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
     }
@@ -201,6 +222,46 @@ final class ManagerAdminController
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=dashboard_config_saved');
     }
 
+    public function qrPrintHintsSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=qr_hint_save_failed');
+        }
+
+        $fieldHint = trim((string) ($_POST['field_qr_print_hint'] ?? ''));
+        $pharmacyHint = trim((string) ($_POST['pharmacy_qr_print_hint'] ?? ''));
+        $inventoryHint = trim((string) ($_POST['inventory_qr_print_hint'] ?? ''));
+        if ($fieldHint === '' || $pharmacyHint === '' || $inventoryHint === '') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=qr_hint_invalid');
+        }
+        if (mb_strlen($fieldHint) > 180 || mb_strlen($pharmacyHint) > 180 || mb_strlen($inventoryHint) > 180) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=qr_hint_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $saveMap = [
+            'field_qr_print_hint_caserne_' . $caserneId => $fieldHint,
+            'pharmacy_qr_print_hint_caserne_' . $caserneId => $pharmacyHint,
+            'inventory_qr_print_hint_caserne_' . $caserneId => $inventoryHint,
+        ];
+        foreach ($saveMap as $key => $value) {
+            if (!$repository->set($key, $value)) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=qr_hint_save_failed');
+            }
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=qr_hint_saved');
+    }
+
     public function caserneSave(): void
     {
         if (!$this->isPlatformAdmin()) {
@@ -278,6 +339,7 @@ final class ManagerAdminController
         $allowedTargets = [
             'field' => 'field_qr_token',
             'pharmacy' => 'pharmacy_qr_token',
+            'inventory' => 'inventory_qr_token',
         ];
 
         if (!isset($allowedTargets[$target])) {

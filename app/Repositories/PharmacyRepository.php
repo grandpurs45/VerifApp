@@ -17,6 +17,9 @@ final class PharmacyRepository
     private ?bool $freeLabelColumnExists = null;
     private ?bool $articleIdNullable = null;
     private ?bool $ackColumnExists = null;
+    private ?bool $inventoriesTableExists = null;
+    private ?bool $inventoryLinesTableExists = null;
+    private ?bool $inventoryFreeNameColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -577,6 +580,34 @@ final class PharmacyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findArticlesByIds(int $caserneId, array $articleIds): array
+    {
+        if (!$this->hasArticlesTable() || $articleIds === []) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map(static fn($id): int => (int) $id, $articleIds), static fn(int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $connection = Database::getConnection();
+        $sql = '
+            SELECT id, caserne_id, nom, unite, stock_actuel, seuil_alerte, actif
+            FROM pharmacie_articles
+            WHERE caserne_id = ?
+              AND id IN (' . $placeholders . ')
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute(array_merge([$caserneId], $ids));
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function acknowledgeOutputGroup(int $caserneId, string $sortieKey, string $managerName): bool
     {
         if (!$this->hasMovementsTable() || !$this->hasAckColumn()) {
@@ -717,6 +748,163 @@ final class PharmacyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function hasInventoryModule(): bool
+    {
+        return $this->hasInventoriesTable() && $this->hasInventoryLinesTable();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findLastInventories(int $caserneId, int $limit = 12): array
+    {
+        if (!$this->hasInventoryModule()) {
+            return [];
+        }
+
+        $limit = max(1, min(50, $limit));
+        $connection = Database::getConnection();
+        $sql = '
+            SELECT
+                i.id,
+                i.caserne_id,
+                i.cree_par,
+                i.note,
+                i.cree_le,
+                COUNT(l.id) AS total_lignes,
+                SUM(CASE WHEN l.ecart <> 0 THEN 1 ELSE 0 END) AS lignes_ecart,
+                SUM(l.ecart) AS ecart_total
+            FROM pharmacie_inventaires i
+            LEFT JOIN pharmacie_inventaire_lignes l ON l.inventaire_id = i.id
+            WHERE i.caserne_id = :caserne_id
+            GROUP BY i.id, i.caserne_id, i.cree_par, i.note, i.cree_le
+            ORDER BY i.cree_le DESC, i.id DESC
+            LIMIT ' . $limit;
+        $statement = $connection->prepare($sql);
+        $statement->execute(['caserne_id' => $caserneId]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function createInventory(int $caserneId, string $createdBy, ?string $note, array $lines): bool
+    {
+        if (!$this->hasInventoryModule()) {
+            return false;
+        }
+
+        $createdBy = trim($createdBy);
+        if ($createdBy === '') {
+            return false;
+        }
+
+        $articleIds = [];
+        $normalizedLines = [];
+        $supportsExtraLines = $this->hasInventoryFreeNameColumn();
+        foreach ($lines as $line) {
+            $articleId = isset($line['article_id']) ? (int) $line['article_id'] : 0;
+            $countedRaw = isset($line['stock_compte']) ? (string) $line['stock_compte'] : '';
+            $comment = trim((string) ($line['commentaire'] ?? ''));
+            $freeName = trim((string) ($line['article_libre_nom'] ?? ''));
+            if ($articleId <= 0) {
+                if (!$supportsExtraLines || $freeName === '' || mb_strlen($freeName) < 3) {
+                    continue;
+                }
+            }
+            $counted = $this->normalizeIntegerNumber($countedRaw);
+            if ($counted === null || $counted < 0) {
+                continue;
+            }
+            if ($articleId > 0) {
+                $articleIds[] = $articleId;
+            }
+            $normalizedLines[] = [
+                'article_id' => $articleId,
+                'article_libre_nom' => $freeName === '' ? null : $freeName,
+                'stock_compte' => $counted,
+                'commentaire' => $comment === '' ? null : $comment,
+            ];
+        }
+
+        if ($normalizedLines === []) {
+            return false;
+        }
+
+        $articles = $articleIds === [] ? [] : $this->findArticlesByIds($caserneId, $articleIds);
+        $articlesById = [];
+        foreach ($articles as $article) {
+            $articlesById[(int) ($article['id'] ?? 0)] = $article;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $connection->beginTransaction();
+            $insertInventory = $connection->prepare(
+                'INSERT INTO pharmacie_inventaires (caserne_id, cree_par, note) VALUES (:caserne_id, :cree_par, :note)'
+            );
+            $insertInventory->execute([
+                'caserne_id' => $caserneId,
+                'cree_par' => $createdBy,
+                'note' => $note !== null && trim($note) !== '' ? trim($note) : null,
+            ]);
+            $inventoryId = (int) $connection->lastInsertId();
+            if ($inventoryId <= 0) {
+                $connection->rollBack();
+                return false;
+            }
+
+            $insertLine = $supportsExtraLines
+                ? $connection->prepare(
+                    'INSERT INTO pharmacie_inventaire_lignes
+                        (inventaire_id, article_id, article_libre_nom, stock_theorique, stock_compte, ecart, commentaire)
+                     VALUES
+                        (:inventaire_id, :article_id, :article_libre_nom, :stock_theorique, :stock_compte, :ecart, :commentaire)'
+                )
+                : $connection->prepare(
+                    'INSERT INTO pharmacie_inventaire_lignes
+                        (inventaire_id, article_id, stock_theorique, stock_compte, ecart, commentaire)
+                     VALUES
+                        (:inventaire_id, :article_id, :stock_theorique, :stock_compte, :ecart, :commentaire)'
+                );
+
+            $written = 0;
+            foreach ($normalizedLines as $line) {
+                $articleId = (int) $line['article_id'];
+                if ($articleId > 0 && !isset($articlesById[$articleId])) {
+                    continue;
+                }
+                $theoretical = $articleId > 0 ? (float) ($articlesById[$articleId]['stock_actuel'] ?? 0) : 0.0;
+                $counted = (float) ($line['stock_compte'] ?? 0);
+                $diff = $counted - $theoretical;
+                $params = [
+                    'inventaire_id' => $inventoryId,
+                    'article_id' => $articleId > 0 ? $articleId : null,
+                    'stock_theorique' => $theoretical,
+                    'stock_compte' => $counted,
+                    'ecart' => $diff,
+                    'commentaire' => $line['commentaire'],
+                ];
+                if ($supportsExtraLines) {
+                    $params['article_libre_nom'] = $articleId > 0 ? null : (string) ($line['article_libre_nom'] ?? '');
+                }
+                $insertLine->execute($params);
+                $written++;
+            }
+
+            if ($written === 0) {
+                $connection->rollBack();
+                return false;
+            }
+
+            $connection->commit();
+            return true;
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+            return false;
+        }
+    }
+
     private function hasArticlesTable(): bool
     {
         if ($this->articlesTableExists !== null) {
@@ -824,6 +1012,57 @@ final class PharmacyRepository
         }
     }
 
+    private function hasInventoriesTable(): bool
+    {
+        if ($this->inventoriesTableExists !== null) {
+            return $this->inventoriesTableExists;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $statement = $connection->query("SHOW TABLES LIKE 'pharmacie_inventaires'");
+            $this->inventoriesTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->inventoriesTableExists = false;
+        }
+
+        return $this->inventoriesTableExists;
+    }
+
+    private function hasInventoryLinesTable(): bool
+    {
+        if ($this->inventoryLinesTableExists !== null) {
+            return $this->inventoryLinesTableExists;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $statement = $connection->query("SHOW TABLES LIKE 'pharmacie_inventaire_lignes'");
+            $this->inventoryLinesTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->inventoryLinesTableExists = false;
+        }
+
+        return $this->inventoryLinesTableExists;
+    }
+
+    private function hasInventoryFreeNameColumn(): bool
+    {
+        if ($this->inventoryFreeNameColumnExists !== null) {
+            return $this->inventoryFreeNameColumnExists;
+        }
+
+        $connection = Database::getConnection();
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_inventaire_lignes LIKE 'article_libre_nom'");
+            $this->inventoryFreeNameColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->inventoryFreeNameColumnExists = false;
+        }
+
+        return $this->inventoryFreeNameColumnExists;
+    }
+
     private function isMovementArticleIdNullable(): bool
     {
         if ($this->articleIdNullable !== null) {
@@ -850,5 +1089,19 @@ final class PharmacyRepository
         } catch (Throwable $throwable) {
             return 'out_' . str_replace('.', '', (string) microtime(true));
         }
+    }
+
+    private function normalizeIntegerNumber(string $raw): ?int
+    {
+        $raw = str_replace(',', '.', trim($raw));
+        if ($raw === '' || !is_numeric($raw)) {
+            return null;
+        }
+        $value = (float) $raw;
+        if (abs($value - round($value)) > 0.00001) {
+            return null;
+        }
+
+        return (int) round($value);
     }
 }
