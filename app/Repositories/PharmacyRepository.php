@@ -931,6 +931,83 @@ final class PharmacyRepository
     /**
      * @return array<int, array<string, mixed>>
      */
+    public function findMonthlyConsumption(int $caserneId, int $months = 12): array
+    {
+        if (!$this->hasMovementsTable()) {
+            return [];
+        }
+
+        $months = max(1, min(24, $months));
+        $startDate = (new \DateTimeImmutable('first day of this month'))
+            ->sub(new \DateInterval('P' . ($months - 1) . 'M'))
+            ->format('Y-m-d 00:00:00');
+        $connection = Database::getConnection();
+        $sql = '
+            SELECT
+                DATE_FORMAT(m.cree_le, \'%Y-%m\') AS month_key,
+                SUM(m.quantite) AS total_quantite,
+                COUNT(*) AS lignes
+            FROM pharmacie_mouvements m
+            WHERE m.caserne_id = :caserne_id
+              AND m.type = \'sortie\'
+              AND m.cree_le >= :start_date
+            GROUP BY DATE_FORMAT(m.cree_le, \'%Y-%m\')
+            ORDER BY month_key ASC
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute([
+            'caserne_id' => $caserneId,
+            'start_date' => $startDate,
+        ]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findTopConsumedArticles(int $caserneId, int $months = 12, int $limit = 8): array
+    {
+        if (!$this->hasMovementsTable()) {
+            return [];
+        }
+
+        $months = max(1, min(24, $months));
+        $limit = max(1, min(20, $limit));
+        $startDate = (new \DateTimeImmutable('first day of this month'))
+            ->sub(new \DateInterval('P' . ($months - 1) . 'M'))
+            ->format('Y-m-d 00:00:00');
+        $connection = Database::getConnection();
+        $hasFreeLabelColumn = $this->hasFreeLabelColumn();
+        $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
+
+        $sql = '
+            SELECT
+                COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
+                COALESCE(a.unite, \'u\') AS article_unite,
+                SUM(m.quantite) AS total_quantite,
+                COUNT(*) AS lignes
+            FROM pharmacie_mouvements m
+            LEFT JOIN pharmacie_articles a ON a.id = m.article_id
+            WHERE m.caserne_id = :caserne_id
+              AND m.type = \'sortie\'
+              AND m.cree_le >= :start_date
+            GROUP BY COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\'), COALESCE(a.unite, \'u\')
+            ORDER BY total_quantite DESC, lignes DESC
+            LIMIT ' . $limit . '
+        ';
+        $statement = $connection->prepare($sql);
+        $statement->execute([
+            'caserne_id' => $caserneId,
+            'start_date' => $startDate,
+        ]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function findReceptionCandidatesSinceLastOrder(int $caserneId, bool $onlyPendingAcknowledge = false): array
     {
         if (!$this->hasMovementsTable() || !$this->hasArticlesTable()) {

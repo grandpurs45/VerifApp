@@ -104,6 +104,34 @@ final class ManagerPharmacyController
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
     }
 
+    public function statistics(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $monthlyConsumptionRaw = $repository->findMonthlyConsumption($caserneId, 12);
+        $topConsumedArticles = $repository->findTopConsumedArticles($caserneId, 12, 8);
+        $monthlyConsumption = $this->buildMonthlyConsumptionSeries($monthlyConsumptionRaw, 12);
+        $consumptionTotal12m = 0;
+        $consumptionMax = 0;
+        $consumptionPeakLabel = '-';
+        foreach ($monthlyConsumption as $point) {
+            $qty = (int) ($point['total_quantite'] ?? 0);
+            $consumptionTotal12m += $qty;
+            if ($qty > $consumptionMax) {
+                $consumptionMax = $qty;
+                $consumptionPeakLabel = (string) ($point['label'] ?? '-');
+            }
+        }
+        $consumptionAveragePerMonth = (int) round($consumptionTotal12m / max(1, count($monthlyConsumption)));
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_statistics.php';
+    }
+
     public function exportOrderCsv(): void
     {
         $caserneId = $this->resolveManagerCaserneId();
@@ -606,5 +634,65 @@ final class ManagerPharmacyController
         }
 
         return $this->getSettingValue($settingKey, $envKey, $default);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $raw
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildMonthlyConsumptionSeries(array $raw, int $months): array
+    {
+        $months = max(1, min(24, $months));
+        $map = [];
+        foreach ($raw as $row) {
+            $key = (string) ($row['month_key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $map[$key] = [
+                'total_quantite' => (int) round((float) ($row['total_quantite'] ?? 0)),
+                'lignes' => (int) ($row['lignes'] ?? 0),
+            ];
+        }
+
+        $series = [];
+        $cursor = new \DateTimeImmutable('first day of this month');
+        $cursor = $cursor->sub(new \DateInterval('P' . ($months - 1) . 'M'));
+
+        for ($i = 0; $i < $months; $i++) {
+            $monthKey = $cursor->format('Y-m');
+            $data = $map[$monthKey] ?? ['total_quantite' => 0, 'lignes' => 0];
+            $series[] = [
+                'month_key' => $monthKey,
+                'label' => $this->formatMonthLabel($cursor),
+                'total_quantite' => (int) $data['total_quantite'],
+                'lignes' => (int) $data['lignes'],
+            ];
+            $cursor = $cursor->add(new \DateInterval('P1M'));
+        }
+
+        return $series;
+    }
+
+    private function formatMonthLabel(\DateTimeImmutable $date): string
+    {
+        static $months = [
+            '01' => 'Jan',
+            '02' => 'Fev',
+            '03' => 'Mar',
+            '04' => 'Avr',
+            '05' => 'Mai',
+            '06' => 'Juin',
+            '07' => 'Juil',
+            '08' => 'Aou',
+            '09' => 'Sep',
+            '10' => 'Oct',
+            '11' => 'Nov',
+            '12' => 'Dec',
+        ];
+        $monthNum = $date->format('m');
+        $prefix = $months[$monthNum] ?? $monthNum;
+
+        return $prefix . ' ' . $date->format('y');
     }
 }

@@ -136,6 +136,11 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                     'active' => $currentRoute === 'manager_pharmacy/outputs',
                                 ],
                                 [
+                                    'label' => 'Statistiques',
+                                    'route' => '/index.php?controller=manager_pharmacy&action=statistics',
+                                    'active' => $currentRoute === 'manager_pharmacy/statistics',
+                                ],
+                                [
                                     'label' => 'Inventaires',
                                     'route' => '/index.php?controller=manager_pharmacy&action=inventories',
                                     'active' => $currentRoute === 'manager_pharmacy/inventories',
