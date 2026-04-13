@@ -127,6 +127,6 @@ final class FieldController
             }
         }
 
-        $this->redirect('/index.php?controller=home&action=index');
+        $this->redirect('/index.php?controller=home&action=terrain');
     }
 }

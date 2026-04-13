@@ -128,7 +128,7 @@ $managerRoutes = [
 ];
 
 $fieldRoutes = [
-    'home/index',
+    'home/terrain',
     'postes/list',
     'controles/list',
     'verifications/store',
@@ -707,6 +707,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'home' && $action === 'terrain') {
+        $controller = new HomeController();
+        $controller->terrain();
+        return;
+    }
+
     if ($controllerName === 'vehicles' && $action === 'show' && isset($_GET['id'])) {
         $controller = new VehicleController();
         $controller->show((int) $_GET['id']);
@@ -776,7 +782,7 @@ if ($controllerName !== null) {
 
 $page = isset($_GET['page']) ? (string) $_GET['page'] : 'home';
 
-if (!$hasFieldAccess && in_array($page, ['home', 'postes', 'controles'], true)) {
+if (!$hasFieldAccess && in_array($page, ['postes', 'controles'], true)) {
     header('Location: /index.php?controller=field&action=denied');
     exit;
 }

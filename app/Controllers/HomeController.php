@@ -10,6 +10,11 @@ final class HomeController
 {
     public function index(): void
     {
+        require dirname(__DIR__, 2) . '/public/views/landing.php';
+    }
+
+    public function terrain(): void
+    {
         $vehicleRepository = new VehicleRepository();
         $caserneId = $this->resolveActiveCaserneId();
         $vehicles = $vehicleRepository->findAllActive($caserneId);

@@ -17,9 +17,6 @@ declare(strict_types=1);
             <p class="text-slate-600 mt-2">
                 Scanne le QR code officiel de la caserne pour ouvrir l'espace verification.
             </p>
-            <p class="text-slate-500 text-sm mt-2">
-                Exemple de lien QR : /index.php?controller=field&action=access&token=...
-            </p>
             <a href="/index.php?controller=manager_auth&action=login_form" class="inline-flex mt-5 text-sm text-slate-700 underline">
                 Acces gestionnaire
             </a>
