@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $successMap = [
     'zone_created' => 'Zone creee.',
+    'zone_updated' => 'Zone modifiee.',
     'zone_deleted' => 'Zone supprimee.',
     'controle_created' => 'Materiel ajoute.',
     'controle_updated' => 'Materiel modifie.',
@@ -116,11 +117,41 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
     <div class="space-y-2">
         <?php foreach ($zones as $zone): ?>
-            <form method="post" action="/index.php?controller=manager_assets&action=zone_delete" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+            <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
                 <input type="hidden" name="id" value="<?= (int) $zone['id'] ?>">
+                <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
                 <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
-                <input type="text" readonly value="<?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-10">
-                <button type="submit" data-confirm="Supprimer cette zone ?" data-loading-label="Suppression..." class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm md:col-span-2 w-full">Supprimer</button>
+                <select name="parent_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+                    <option value="">Zone parent (racine)</option>
+                    <?php foreach ($zones as $candidateZone): ?>
+                        <?php
+                        $candidateId = (int) $candidateZone['id'];
+                        if ($candidateId === (int) $zone['id']) {
+                            continue;
+                        }
+                        $zoneLevel = isset($candidateZone['niveau']) ? max(1, (int) $candidateZone['niveau']) : 1;
+                        $zonePrefix = $zoneLevel > 1 ? str_repeat('- ', $zoneLevel - 1) : '';
+                        ?>
+                        <option value="<?= $candidateId ?>" <?= (int) ($zone['parent_id'] ?? 0) === $candidateId ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($zonePrefix . (string) ($candidateZone['chemin'] ?? $candidateZone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="text" name="nom" value="<?= htmlspecialchars((string) ($zone['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+                <input type="text" readonly value="<?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2">
+                <div class="md:col-span-2 flex gap-2">
+                    <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm w-full">Enregistrer</button>
+                    <button
+                        type="submit"
+                        formaction="/index.php?controller=manager_assets&action=zone_delete"
+                        formmethod="post"
+                        data-confirm="Supprimer cette zone ?"
+                        data-loading-label="Suppression..."
+                        class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm w-full"
+                    >
+                        Supprimer
+                    </button>
+                </div>
             </form>
         <?php endforeach; ?>
         <?php if ($zones === []): ?>

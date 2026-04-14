@@ -529,6 +529,7 @@ final class ManagerAssetController
             $this->redirect('/index.php?controller=manager_assets&action=vehicles');
         }
 
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         $vehicleId = isset($_POST['vehicule_id']) ? (int) $_POST['vehicule_id'] : 0;
         $returnVehicleId = isset($_POST['return_vehicle_id']) ? (int) $_POST['return_vehicle_id'] : 0;
         $parentId = isset($_POST['parent_id']) ? (int) $_POST['parent_id'] : 0;
@@ -550,8 +551,20 @@ final class ManagerAssetController
         if ($parentId > 0 && !$zoneRepository->belongsToVehicle($parentId, $vehicleId, $caserneId)) {
             $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, 'invalid_zone'));
         }
+        if ($id > 0) {
+            if (!$zoneRepository->belongsToVehicle($id, $vehicleId, $caserneId)) {
+                $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, 'invalid_zone'));
+            }
+            if ($parentId > 0 && $parentId === $id) {
+                $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, 'invalid_zone'));
+            }
+        }
 
         try {
+            if ($id > 0) {
+                $zoneRepository->update($id, $vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
+                $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, '', 'zone_updated'));
+            }
             $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
             $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, '', 'zone_created'));
         } catch (Throwable $throwable) {

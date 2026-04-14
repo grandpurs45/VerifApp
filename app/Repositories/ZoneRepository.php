@@ -106,6 +106,45 @@ final class ZoneRepository
         return $statement->execute($params);
     }
 
+    public function update(int $id, int $vehicleId, string $name, ?int $parentId = null, int $caserneId = 0): bool
+    {
+        if (!$this->hasTable()) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+        if ($this->hasParentColumn()) {
+            $statement = $connection->prepare('
+                UPDATE zones
+                SET nom = :nom, parent_id = :parent_id
+                WHERE id = :id
+                  AND vehicule_id = :vehicule_id
+                  AND caserne_id = :caserne_id
+            ');
+        } else {
+            $statement = $connection->prepare('
+                UPDATE zones
+                SET nom = :nom
+                WHERE id = :id
+                  AND vehicule_id = :vehicule_id
+                  AND caserne_id = :caserne_id
+            ');
+        }
+
+        $params = [
+            'id' => $id,
+            'vehicule_id' => $vehicleId,
+            'caserne_id' => $caserneId,
+            'nom' => $name,
+        ];
+
+        if ($this->hasParentColumn()) {
+            $params['parent_id'] = $parentId;
+        }
+
+        return $statement->execute($params);
+    }
+
     public function delete(int $id, int $caserneId): bool
     {
         if (!$this->hasTable()) {
