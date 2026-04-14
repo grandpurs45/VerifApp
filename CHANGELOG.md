@@ -9,6 +9,18 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.17.1] - 2026-04-14
+
+### Changed
+- Configuration vehicules:
+  - remplacement des formulaires bas de page par une barre d actions de selection au-dessus du tableau (`Activer`, `Desactiver`, `Dupliquer`, `Supprimer`)
+  - passage de la duplication en modale, pour une saisie plus claire
+
+### Fixed
+- Suppression vehicule:
+  - blocage de la suppression simple d un vehicule actif (passage en inactif obligatoire avant suppression)
+  - correction d affichage de la fleche du menu `Supprimer / Supprimer tout`
+
 ## [0.17.0] - 2026-04-14
 
 ### Added

@@ -22,6 +22,7 @@ $errorMap = [
     'vehicle_delete_failed' => 'Suppression vehicule impossible (contraintes).',
     'vehicle_force_delete_failed' => 'Suppression totale impossible.',
     'vehicle_force_requires_inactive' => 'Suppression totale impossible: passe d abord le vehicule en inactif.',
+    'vehicle_delete_requires_inactive' => 'Suppression impossible: passe d abord le vehicule en inactif.',
     'vehicle_in_use' => 'Suppression impossible: ce vehicule est utilise par des controles, zones ou verifications (utiliser Supprimer tout apres passage en inactif).',
     'invalid_zone' => 'Donnees zone invalides.',
     'zones_table_missing' => 'Migration zones non appliquee.',
@@ -101,6 +102,50 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
             </form>
 
+            <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <p class="text-sm text-slate-700">
+                        Selection:
+                        <span id="selected-vehicle-name" class="font-semibold text-slate-900">Aucun vehicule selectionne</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <a id="selected-vehicle-configure-link" href="#" class="rounded-lg border border-slate-300 bg-white text-slate-400 px-3 py-2 text-sm font-semibold pointer-events-none">Configurer engin</a>
+                        <button type="button" id="vehicle-action-activate" class="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Activer
+                        </button>
+                        <button type="button" id="vehicle-action-deactivate" class="rounded-lg bg-amber-500 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Desactiver
+                        </button>
+                        <button type="button" id="vehicle-action-duplicate" class="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Dupliquer
+                        </button>
+                        <form id="vehicle-action-delete-form" method="post" action="/index.php?controller=manager_assets&action=vehicle_delete" class="relative flex items-center">
+                            <input type="hidden" name="id" id="selected-vehicle-delete-id" value="">
+                            <input type="hidden" name="delete_mode" value="safe" data-delete-mode-input>
+                            <button type="submit" id="vehicle-action-delete-safe" data-delete-mode="safe" data-confirm-safe="Supprimer ce vehicule ?" data-loading-label="Suppression..." class="rounded-l-lg bg-red-600 text-white px-3 py-2 text-sm font-semibold border-r border-red-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                Supprimer
+                            </button>
+                            <details id="vehicle-action-delete-details" class="group">
+                                <summary id="vehicle-action-delete-summary" class="list-none cursor-pointer rounded-r-lg bg-red-600 text-white px-2 py-2 text-sm font-semibold select-none opacity-50 pointer-events-none">
+                                    &#9662;
+                                </summary>
+                                <div class="absolute bottom-full right-0 z-30 mb-1 min-w-[180px] rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                                    <button type="submit" id="vehicle-action-delete-force" data-delete-mode="force" data-loading-label="Suppression..." class="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                        Supprimer tout
+                                    </button>
+                                </div>
+                            </details>
+                        </form>
+                    </div>
+                </div>
+                <form id="vehicle-quick-toggle-form" method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="hidden">
+                    <input type="hidden" name="id" id="selected-vehicle-id" value="">
+                    <input type="hidden" name="type_vehicule_id" id="selected-vehicle-type" value="">
+                    <input type="hidden" name="indicatif" id="selected-vehicle-indicatif" value="">
+                    <input type="hidden" name="actif" id="selected-vehicle-active" value="">
+                </form>
+            </div>
+
             <div class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="w-full min-w-[760px] text-sm">
                     <thead class="bg-slate-100 text-slate-700">
@@ -123,7 +168,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 data-vehicle-name="<?= htmlspecialchars(strtolower((string) $vehicle['nom']), ENT_QUOTES, 'UTF-8') ?>"
                                 data-vehicle-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>"
                                 data-vehicle-indicatif="<?= htmlspecialchars((string) ($vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                data-vehicle-active="<?= (int) $vehicle['actif'] ?>">
+                                data-vehicle-active="<?= (int) $vehicle['actif'] ?>"
+                                data-vehicle-zones-url="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= (int) $vehicle['id'] ?>">
                                 <td class="px-3 py-2">
                                     <input type="checkbox" data-vehicle-select class="h-4 w-4 rounded border-slate-300">
                                 </td>
@@ -159,9 +205,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             </button>
                                             <details class="group">
                                                 <summary class="list-none cursor-pointer rounded-r-lg bg-red-600 text-white px-2 py-1.5 text-xs font-semibold select-none">
-                                                    ▼
+                                                    &#9662;
                                                 </summary>
-                                                <div class="absolute right-0 z-30 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                                                <div class="absolute bottom-full right-0 z-30 mb-1 min-w-[180px] rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
                                                     <button type="submit" data-delete-mode="force" data-loading-label="Suppression..." class="w-full rounded-md px-3 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-50">
                                                         Supprimer tout
                                                     </button>
@@ -174,44 +220,6 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            </div>
-
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
-                <form id="vehicle-edit-form" method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-                    <input type="hidden" name="id" id="selected-vehicle-id" value="">
-                    <p class="text-xs text-slate-600">Action selection: <span id="selected-vehicle-name" class="font-semibold text-slate-900">Aucun vehicule selectionne</span></p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <select id="selected-vehicle-type" name="type_vehicule_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <?php foreach ($typesVehicules as $typeVehicule): ?>
-                                <option value="<?= (int) $typeVehicule['id'] ?>"><?= htmlspecialchars($typeVehicule['nom'], ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <input id="selected-vehicle-indicatif" type="text" name="indicatif" placeholder="Indicatif / numero" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <select id="selected-vehicle-active" name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <option value="1">Actif</option>
-                            <option value="0">Inactif</option>
-                        </select>
-                    </div>
-                    <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        Modifier selection
-                    </button>
-                </form>
-
-                <form id="vehicle-duplicate-form" method="post" action="/index.php?controller=manager_assets&action=vehicle_duplicate" class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-                    <input type="hidden" name="source_vehicle_id" id="selected-duplicate-source" value="">
-                    <p class="text-xs text-slate-600">Duplication depuis: <span id="selected-duplicate-name" class="font-semibold text-slate-900">Aucun vehicule selectionne</span></p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <input id="selected-duplicate-indicatif" type="text" name="indicatif" placeholder="Nouvel indicatif / numero" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        <select name="duplicate_scope" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <option value="vehicle_only">Dupliquer vehicule vide</option>
-                            <option value="with_zones">Dupliquer vehicule + zones</option>
-                            <option value="with_zones_controls">Dupliquer vehicule + zones + materiel</option>
-                        </select>
-                    </div>
-                    <button type="submit" data-loading-label="Duplication..." class="rounded-xl border border-slate-300 bg-white text-slate-900 px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        Dupliquer selection
-                    </button>
-                </form>
             </div>
         </section>
 
@@ -230,22 +238,52 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
         </div>
     </div>
+    <div id="vehicle-duplicate-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/70 p-4">
+        <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h3 class="text-xl font-extrabold text-slate-900">Dupliquer l engin</h3>
+            <p class="mt-1 text-sm text-slate-600">Source: <span id="selected-duplicate-name" class="font-semibold text-slate-900">Aucun vehicule selectionne</span></p>
+            <form id="vehicle-duplicate-form" method="post" action="/index.php?controller=manager_assets&action=vehicle_duplicate" class="mt-4 space-y-3">
+                <input type="hidden" name="source_vehicle_id" id="selected-duplicate-source" value="">
+                <input id="selected-duplicate-indicatif" type="text" name="indicatif" placeholder="Nouvel indicatif / numero" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <select name="duplicate_scope" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <option value="vehicle_only">Dupliquer vehicule vide</option>
+                    <option value="with_zones">Dupliquer vehicule + zones</option>
+                    <option value="with_zones_controls">Dupliquer vehicule + zones + materiel</option>
+                </select>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button type="button" id="vehicle-duplicate-cancel" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800">Annuler</button>
+                    <button type="submit" data-loading-label="Duplication..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Dupliquer</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <script>
         (function () {
             const vehiclesSearch = document.getElementById('vehicles-search');
             const vehiclesTypeFilter = document.getElementById('vehicles-type-filter');
             const vehicleRows = Array.from(document.querySelectorAll('#vehicles-list tr[data-vehicle-row]'));
             const vehicleCheckboxes = Array.from(document.querySelectorAll('#vehicles-list input[data-vehicle-select]'));
-            const vehicleEditForm = document.getElementById('vehicle-edit-form');
+            const vehicleQuickToggleForm = document.getElementById('vehicle-quick-toggle-form');
             const vehicleDuplicateForm = document.getElementById('vehicle-duplicate-form');
             const selectedVehicleIdInput = document.getElementById('selected-vehicle-id');
             const selectedVehicleNameLabel = document.getElementById('selected-vehicle-name');
-            const selectedVehicleTypeSelect = document.getElementById('selected-vehicle-type');
+            const selectedVehicleTypeInput = document.getElementById('selected-vehicle-type');
             const selectedVehicleIndicatifInput = document.getElementById('selected-vehicle-indicatif');
-            const selectedVehicleActiveSelect = document.getElementById('selected-vehicle-active');
+            const selectedVehicleActiveInput = document.getElementById('selected-vehicle-active');
+            const selectedVehicleConfigureLink = document.getElementById('selected-vehicle-configure-link');
+            const vehicleActionActivate = document.getElementById('vehicle-action-activate');
+            const vehicleActionDeactivate = document.getElementById('vehicle-action-deactivate');
+            const vehicleActionDuplicate = document.getElementById('vehicle-action-duplicate');
+            const selectedVehicleDeleteIdInput = document.getElementById('selected-vehicle-delete-id');
+            const vehicleActionDeleteSafe = document.getElementById('vehicle-action-delete-safe');
+            const vehicleActionDeleteForce = document.getElementById('vehicle-action-delete-force');
+            const vehicleActionDeleteDetails = document.getElementById('vehicle-action-delete-details');
+            const vehicleActionDeleteSummary = document.getElementById('vehicle-action-delete-summary');
             const selectedDuplicateSourceInput = document.getElementById('selected-duplicate-source');
             const selectedDuplicateNameLabel = document.getElementById('selected-duplicate-name');
             const selectedDuplicateIndicatifInput = document.getElementById('selected-duplicate-indicatif');
+            const vehicleDuplicateModal = document.getElementById('vehicle-duplicate-modal');
+            const vehicleDuplicateCancel = document.getElementById('vehicle-duplicate-cancel');
 
             const dangerDeleteModal = document.getElementById('danger-delete-modal');
             const dangerDeleteConfirm = document.getElementById('danger-delete-confirm');
@@ -277,18 +315,31 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
             function syncSelectedVehicleActions() {
                 const selectedRow = getSelectedVehicleRow();
-                const editSubmit = vehicleEditForm ? vehicleEditForm.querySelector('button[type="submit"]') : null;
-                const duplicateSubmit = vehicleDuplicateForm ? vehicleDuplicateForm.querySelector('button[type="submit"]') : null;
 
                 if (!selectedRow) {
                     if (selectedVehicleIdInput) selectedVehicleIdInput.value = '';
                     if (selectedVehicleNameLabel) selectedVehicleNameLabel.textContent = 'Aucun vehicule selectionne';
                     if (selectedVehicleIndicatifInput) selectedVehicleIndicatifInput.value = '';
+                    if (selectedVehicleTypeInput) selectedVehicleTypeInput.value = '';
+                    if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = '';
+                    if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = '';
+                    if (selectedVehicleConfigureLink) {
+                        selectedVehicleConfigureLink.setAttribute('href', '#');
+                        selectedVehicleConfigureLink.classList.add('text-slate-400', 'pointer-events-none');
+                        selectedVehicleConfigureLink.classList.remove('text-slate-900');
+                    }
                     if (selectedDuplicateSourceInput) selectedDuplicateSourceInput.value = '';
                     if (selectedDuplicateNameLabel) selectedDuplicateNameLabel.textContent = 'Aucun vehicule selectionne';
                     if (selectedDuplicateIndicatifInput) selectedDuplicateIndicatifInput.value = '';
-                    if (editSubmit) editSubmit.disabled = true;
-                    if (duplicateSubmit) duplicateSubmit.disabled = true;
+                    if (vehicleActionActivate) vehicleActionActivate.disabled = true;
+                    if (vehicleActionDeactivate) vehicleActionDeactivate.disabled = true;
+                    if (vehicleActionDuplicate) vehicleActionDuplicate.disabled = true;
+                    if (vehicleActionDeleteSafe) vehicleActionDeleteSafe.disabled = true;
+                    if (vehicleActionDeleteForce) vehicleActionDeleteForce.disabled = true;
+                    if (vehicleActionDeleteSummary) vehicleActionDeleteSummary.classList.add('opacity-50', 'pointer-events-none');
+                    if (vehicleActionDeleteDetails && vehicleActionDeleteDetails.hasAttribute('open')) {
+                        vehicleActionDeleteDetails.removeAttribute('open');
+                    }
                     return;
                 }
 
@@ -297,21 +348,83 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 const vehicleTypeId = selectedRow.dataset.vehicleTypeId || '';
                 const vehicleIndicatif = selectedRow.dataset.vehicleIndicatif || '';
                 const vehicleActive = selectedRow.dataset.vehicleActive || '1';
+                const vehicleZonesUrl = selectedRow.dataset.vehicleZonesUrl || '#';
 
                 if (selectedVehicleIdInput) selectedVehicleIdInput.value = vehicleId;
                 if (selectedVehicleNameLabel) selectedVehicleNameLabel.textContent = vehicleName;
-                if (selectedVehicleTypeSelect) selectedVehicleTypeSelect.value = vehicleTypeId;
+                if (selectedVehicleTypeInput) selectedVehicleTypeInput.value = vehicleTypeId;
                 if (selectedVehicleIndicatifInput) selectedVehicleIndicatifInput.value = vehicleIndicatif;
-                if (selectedVehicleActiveSelect) selectedVehicleActiveSelect.value = vehicleActive;
+                if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = vehicleActive;
+                if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = vehicleId;
+                if (selectedVehicleConfigureLink) {
+                    selectedVehicleConfigureLink.setAttribute('href', vehicleZonesUrl);
+                    selectedVehicleConfigureLink.classList.remove('text-slate-400', 'pointer-events-none');
+                    selectedVehicleConfigureLink.classList.add('text-slate-900');
+                }
 
                 if (selectedDuplicateSourceInput) selectedDuplicateSourceInput.value = vehicleId;
                 if (selectedDuplicateNameLabel) selectedDuplicateNameLabel.textContent = vehicleName;
                 if (selectedDuplicateIndicatifInput) selectedDuplicateIndicatifInput.value = '';
 
-                if (editSubmit) editSubmit.disabled = false;
-                if (duplicateSubmit) duplicateSubmit.disabled = false;
+                if (vehicleActionActivate) vehicleActionActivate.disabled = false;
+                if (vehicleActionDeactivate) vehicleActionDeactivate.disabled = false;
+                if (vehicleActionDuplicate) vehicleActionDuplicate.disabled = false;
+                if (vehicleActionDeleteSafe) vehicleActionDeleteSafe.disabled = false;
+                if (vehicleActionDeleteForce) vehicleActionDeleteForce.disabled = false;
+                if (vehicleActionDeleteSummary) vehicleActionDeleteSummary.classList.remove('opacity-50', 'pointer-events-none');
             }
 
+            if (vehicleActionActivate) {
+                vehicleActionActivate.addEventListener('click', function () {
+                    if (!vehicleQuickToggleForm || !selectedVehicleIdInput || selectedVehicleIdInput.value === '') {
+                        return;
+                    }
+                    if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = '1';
+                    vehicleQuickToggleForm.requestSubmit();
+                });
+            }
+
+            if (vehicleActionDeactivate) {
+                vehicleActionDeactivate.addEventListener('click', function () {
+                    if (!vehicleQuickToggleForm || !selectedVehicleIdInput || selectedVehicleIdInput.value === '') {
+                        return;
+                    }
+                    if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = '0';
+                    vehicleQuickToggleForm.requestSubmit();
+                });
+            }
+
+            if (vehicleActionDuplicate) {
+                vehicleActionDuplicate.addEventListener('click', function () {
+                    if (!selectedDuplicateSourceInput || selectedDuplicateSourceInput.value === '' || !vehicleDuplicateModal) {
+                        return;
+                    }
+                    vehicleDuplicateModal.classList.remove('hidden');
+                    vehicleDuplicateModal.classList.add('flex');
+                    if (selectedDuplicateIndicatifInput) {
+                        selectedDuplicateIndicatifInput.focus();
+                    }
+                });
+            }
+
+            if (vehicleDuplicateCancel) {
+                vehicleDuplicateCancel.addEventListener('click', function () {
+                    if (!vehicleDuplicateModal) {
+                        return;
+                    }
+                    vehicleDuplicateModal.classList.add('hidden');
+                    vehicleDuplicateModal.classList.remove('flex');
+                });
+            }
+
+            if (vehicleDuplicateModal) {
+                vehicleDuplicateModal.addEventListener('click', function (event) {
+                    if (event.target === vehicleDuplicateModal) {
+                        vehicleDuplicateModal.classList.add('hidden');
+                        vehicleDuplicateModal.classList.remove('flex');
+                    }
+                });
+            }
 
             vehicleCheckboxes.forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () {

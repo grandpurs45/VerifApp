@@ -414,8 +414,8 @@ final class ManagerAssetController
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
         }
 
-        if ($forceDelete && (int) ($vehicle['actif'] ?? 1) === 1) {
-            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_force_requires_inactive');
+        if ((int) ($vehicle['actif'] ?? 1) === 1) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_delete_requires_inactive');
         }
 
         try {
