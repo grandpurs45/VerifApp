@@ -9,6 +9,29 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.17.0] - 2026-04-14
+
+### Added
+- Racine publique:
+  - nouvelle page vitrine projet sur `/` (sans exposition de liens operationnels)
+  - lien externe vers le projet GitHub
+- Pharmacie:
+  - nouveau sous-menu `Statistiques`
+  - nouvelle page dediee `manager_pharmacy/statistics` pour la consommation 12 mois
+  - conservation des indicateurs: total 12 mois, moyenne mensuelle, mois de pic, top articles
+
+### Changed
+- Flux terrain QR:
+  - separation des routes `home/index` (vitrine) et `home/terrain` (entree terrain)
+  - redirection QR verification vers `home&action=terrain`
+- Pharmacie:
+  - page `Sorties` recentree sur l operationnel (filtres, synthese, reception, acquittement)
+  - bloc statistiques retire de `Sorties` et deplace dans la page dediee
+
+### Fixed
+- Pages d acces refuse:
+  - suppression des exemples d URL QR affiches publiquement sur la page `field denied`
+
 ## [0.16.9] - 2026-04-11
 
 ### Added
