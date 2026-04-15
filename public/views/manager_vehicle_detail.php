@@ -175,7 +175,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $children = $zonesByParent[$zoneId] ?? [];
             $subtreeCount = $countSubtree($zoneId);
             $excludedParentIds = array_merge([$zoneId], $collectDescendants($zoneId));
-            $detailsOpen = $level <= 1 ? ' open' : '';
+            $detailsOpen = '';
             ?>
             <details class="rounded-xl border border-slate-200 bg-slate-50/70"<?= $detailsOpen ?>>
                 <summary class="list-none cursor-pointer px-3 py-2">

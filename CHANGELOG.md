@@ -9,6 +9,22 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.17.3] - 2026-04-15
+
+### Added
+- Parametres application:
+  - nouveau reglage `Fuseau horaire global` (IANA) pour aligner les horodatages de l application
+
+### Changed
+- Horodatage global:
+  - application du fuseau choisi cote PHP et sur la session SQL (dates/heure coherentes)
+- Configuration engin:
+  - arborescence des zones repliée par defaut au chargement
+
+### Fixed
+- Zones engin:
+  - apres enregistrement d une zone, la page ne redeplie plus automatiquement toute l arborescence
+
 ## [0.17.2] - 2026-04-15
 
 ### Added

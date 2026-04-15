@@ -60,6 +60,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Messages d affiche QR enregistres.
     </section>
+<?php elseif ($success === 'timezone_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Fuseau horaire global enregistre.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -107,6 +111,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'qr_hint_save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement du message d affiche QR impossible.
+    </section>
+<?php elseif ($error === 'timezone_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Fuseau horaire invalide.
+    </section>
+<?php elseif ($error === 'timezone_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement du fuseau horaire impossible.
     </section>
 <?php endif; ?>
 
@@ -209,6 +221,42 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </button>
     </form>
 </section>
+
+<?php if (($isPlatformAdmin ?? false) === true): ?>
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Fuseau horaire global</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Regle l horodatage de l application (affichage + enregistrements SQL).
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=app_timezone_save" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+        <div class="md:col-span-2">
+            <label for="app_timezone" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timezone IANA</label>
+            <input
+                id="app_timezone"
+                type="text"
+                name="app_timezone"
+                list="app_timezone_list"
+                required
+                value="<?= htmlspecialchars((string) $appTimezone, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Europe/Paris"
+            >
+            <datalist id="app_timezone_list">
+                <option value="Europe/Paris"></option>
+                <option value="Europe/Brussels"></option>
+                <option value="Europe/Zurich"></option>
+                <option value="UTC"></option>
+                <option value="America/Montreal"></option>
+                <option value="America/New_York"></option>
+            </datalist>
+        </div>
+        <div>
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold w-full">Enregistrer</button>
+        </div>
+    </form>
+</section>
+<?php endif; ?>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Securite session</h2>

@@ -20,6 +20,7 @@ use App\Controllers\PosteController;
 use App\Controllers\VehicleController;
 use App\Controllers\VerificationController;
 use App\Core\Autoloader;
+use App\Core\Database;
 use App\Core\Env;
 use App\Core\ManagerAccess;
 use App\Repositories\AppSettingRepository;
@@ -28,6 +29,12 @@ require_once dirname(__DIR__) . '/app/Core/Autoloader.php';
 
 Autoloader::register();
 Env::load(dirname(__DIR__) . '/.env');
+
+$bootstrapTimezone = trim((string) (Env::get('APP_TIMEZONE', 'Europe/Paris') ?? 'Europe/Paris'));
+if ($bootstrapTimezone === '' || !in_array($bootstrapTimezone, timezone_identifiers_list(), true)) {
+    $bootstrapTimezone = 'Europe/Paris';
+}
+date_default_timezone_set($bootstrapTimezone);
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -56,6 +63,13 @@ $isFeatureProtected = static function (string $settingPrefix, string $envKey) us
     return $envValue !== '';
 };
 
+$configuredTimezone = $readSetting('app_timezone', 'APP_TIMEZONE', $bootstrapTimezone);
+if ($configuredTimezone === '' || !in_array($configuredTimezone, timezone_identifiers_list(), true)) {
+    $configuredTimezone = $bootstrapTimezone;
+}
+date_default_timezone_set($configuredTimezone);
+Database::setTimezone($configuredTimezone);
+
 $isManagerAuthenticated = isset($_SESSION['manager_user']) && is_array($_SESSION['manager_user']);
 $isFieldAuthenticated = isset($_SESSION['field_user']) && is_array($_SESSION['field_user']);
 $fieldProtected = $isFeatureProtected('field_qr_token', 'FIELD_QR_TOKEN');
@@ -79,6 +93,7 @@ $managerRoutes = [
     'manager_admin/menu',
     'manager_admin/settings',
     'manager_admin/verification_timing_save',
+    'manager_admin/app_timezone_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
     'manager_admin/qr_print_hints_save',
@@ -194,6 +209,7 @@ $managerRoutePermissions = [
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
     'manager_admin/verification_timing_save' => 'users.manage',
+    'manager_admin/app_timezone_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
     'manager_admin/qr_print_hints_save' => 'users.manage',
@@ -431,6 +447,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'verification_timing_save') {
         $controller = new ManagerAdminController();
         $controller->verificationTimingSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'app_timezone_save') {
+        $controller = new ManagerAdminController();
+        $controller->appTimezoneSave();
         return;
     }
 

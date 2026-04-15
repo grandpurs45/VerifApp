@@ -27,6 +27,10 @@ final class ManagerAdminController
         $caserneId = $this->resolveManagerCaserneId();
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $appTimezone = $this->getSettingValue('app_timezone', 'APP_TIMEZONE', 'Europe/Paris');
+        if (!in_array($appTimezone, timezone_identifiers_list(), true)) {
+            $appTimezone = 'Europe/Paris';
+        }
         $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
         $verificationEveningHour = $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
         $terrainMobileDensity = $this->getScopedSettingValue('terrain_mobile_density', 'TERRAIN_MOBILE_DENSITY', $caserneId, 'normal');
@@ -82,6 +86,33 @@ final class ManagerAdminController
         $inventoryGuestUrl = $appUrl !== '' ? $appUrl . $inventoryGuestPath : $inventoryGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
+    }
+
+    public function appTimezoneSave(): void
+    {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $timezone = trim((string) ($_POST['app_timezone'] ?? ''));
+        if ($timezone === '' || !in_array($timezone, timezone_identifiers_list(), true)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timezone_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        if (!$repository->set('app_timezone', $timezone)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=timezone_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=timezone_saved');
     }
 
     public function verificationTimingSave(): void
