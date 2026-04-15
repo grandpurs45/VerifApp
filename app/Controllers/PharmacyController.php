@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\NotificationRepository;
 use App\Repositories\PharmacyRepository;
 
 final class PharmacyController
@@ -182,6 +183,17 @@ final class PharmacyController
             $this->redirect('/index.php?controller=pharmacy&action=form&error=stock');
         }
 
+        $notificationRepository = new NotificationRepository();
+        $notificationRepository->createForCaserneEvent(
+            $caserneId,
+            'pharmacy.output.created',
+            'Sortie pharmacie enregistree',
+            count($lines) . ' ligne(s) enregistree(s) par ' . $declarant,
+            '/index.php?controller=manager_pharmacy&action=outputs',
+            null,
+            $declarant
+        );
+
         $this->redirect('/index.php?controller=pharmacy&action=form&success=1&items=' . count($lines));
     }
 
@@ -285,6 +297,17 @@ final class PharmacyController
         if (!$ok) {
             $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_save_failed');
         }
+
+        $notificationRepository = new NotificationRepository();
+        $notificationRepository->createForCaserneEvent(
+            $caserneId,
+            'pharmacy.inventory.created',
+            'Inventaire pharmacie saisi',
+            count($lines) . ' ligne(s) inventoriee(s) par ' . $declarant,
+            '/index.php?controller=manager_pharmacy&action=inventories',
+            null,
+            $declarant
+        );
 
         $this->redirect('/index.php?controller=pharmacy&action=inventory_form&success=1&items=' . count($lines));
     }

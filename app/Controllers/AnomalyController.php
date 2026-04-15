@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Repositories\AnomalyRepository;
+use App\Repositories\NotificationRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VehicleRepository;
@@ -91,6 +92,23 @@ final class AnomalyController
             $assigneeId,
             $caserneId
         );
+
+        if ($caserneId !== null && $caserneId > 0) {
+            $notificationRepository = new NotificationRepository();
+            $actorId = is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : null;
+            $actorName = is_array($managerUser) ? (string) ($managerUser['nom'] ?? '') : '';
+            $statusLabel = str_replace('_', ' ', $status);
+            $priorityLabel = $priority;
+            $notificationRepository->createForCaserneEvent(
+                $caserneId,
+                'anomaly.updated',
+                'Anomalie #' . $anomalyId . ' mise a jour',
+                'Statut: ' . $statusLabel . ' / Priorite: ' . $priorityLabel,
+                '/index.php?controller=anomalies&action=index',
+                $actorId,
+                $actorName
+            );
+        }
 
         $location = '/index.php?controller=anomalies&action=index&updated=1';
         if ($returnQuery !== '') {

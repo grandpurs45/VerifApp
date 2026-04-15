@@ -14,6 +14,14 @@ if ($managerUserId > 0) {
     $caserneOptions = $caserneRepository->findByUserId($managerUserId);
 }
 $currentRoute = (string) ($_GET['controller'] ?? '') . '/' . (string) ($_GET['action'] ?? '');
+$notificationRepository = new \App\Repositories\NotificationRepository();
+$notificationsAvailable = $notificationRepository->isAvailable();
+$notificationUnreadCount = ($notificationsAvailable && $managerUserId > 0)
+    ? $notificationRepository->getUnreadCount($managerUserId, $managerCaserneId > 0 ? $managerCaserneId : null)
+    : 0;
+$notificationRecent = ($notificationsAvailable && $managerUserId > 0)
+    ? $notificationRepository->findRecentForUser($managerUserId, $managerCaserneId > 0 ? $managerCaserneId : null, 6)
+    : [];
 
 $allModules = [
     [
@@ -195,16 +203,87 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                 <p class="text-slate-200 mt-1 text-sm md:text-base"><?= htmlspecialchars($pageSubtitle, ENT_QUOTES, 'UTF-8') ?></p>
                             <?php endif; ?>
                         </div>
-                        <div class="flex items-center gap-2 lg:hidden">
+                        <div class="flex items-center gap-2">
+                            <?php if ($notificationsAvailable): ?>
+                                <div class="relative">
+                                    <button
+                                        type="button"
+                                        data-notification-toggle
+                                        class="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                                        title="Notifications"
+                                    >
+                                        <span aria-hidden="true">🔔</span>
+                                        <?php if ($notificationUnreadCount > 0): ?>
+                                            <span class="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                                <?= $notificationUnreadCount > 99 ? '99+' : (int) $notificationUnreadCount ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </button>
+                                    <div data-notification-menu class="hidden absolute right-0 z-50 mt-2 w-[340px] max-w-[85vw] rounded-2xl border border-slate-200 bg-white p-3 text-slate-900 shadow-2xl">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <p class="text-sm font-bold">Notifications recentes</p>
+                                            <a href="/index.php?controller=manager_notifications&action=index" class="text-xs font-semibold text-sky-700">Voir tout</a>
+                                        </div>
+                                        <p class="mt-1 text-xs text-slate-500">Non lues: <?= (int) $notificationUnreadCount ?></p>
+                                        <div class="mt-2 space-y-2 max-h-80 overflow-y-auto">
+                                            <?php if ($notificationRecent === []): ?>
+                                                <p class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">Aucune notification.</p>
+                                            <?php else: ?>
+                                                <?php foreach ($notificationRecent as $notificationItem): ?>
+                                                    <?php $notifUnread = (int) ($notificationItem['lu'] ?? 0) !== 1; ?>
+                                                    <article class="rounded-xl border px-3 py-2 <?= $notifUnread ? 'border-sky-200 bg-sky-50' : 'border-slate-200 bg-slate-50' ?>">
+                                                        <p class="text-sm font-semibold"><?= htmlspecialchars((string) ($notificationItem['titre'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                                        <p class="mt-1 text-xs text-slate-700"><?= htmlspecialchars((string) ($notificationItem['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                                        <div class="mt-1 flex items-center justify-between gap-2">
+                                                            <span class="text-[11px] text-slate-500"><?= htmlspecialchars((string) ($notificationItem['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                                            <?php if ((string) ($notificationItem['lien'] ?? '') !== ''): ?>
+                                                                <a href="<?= htmlspecialchars((string) $notificationItem['lien'], ENT_QUOTES, 'UTF-8') ?>" class="text-[11px] font-semibold text-sky-700">Ouvrir</a>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </article>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <form method="post" action="/index.php?controller=manager_notifications&action=mark_all_read" class="mt-2">
+                                            <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">
+                                                Tout marquer lu
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                             <span class="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></span>
-                            <a href="/index.php?controller=manager&action=account" class="rounded-xl border border-white/30 px-3 py-2 text-xs font-semibold text-white whitespace-nowrap">
+                            <a href="/index.php?controller=manager&action=account" class="rounded-xl border border-white/30 px-3 py-2 text-xs font-semibold text-white whitespace-nowrap lg:hidden">
                                 Compte
                             </a>
-                            <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-3 py-2 text-xs font-semibold whitespace-nowrap">
+                            <a href="/index.php?controller=manager_auth&action=logout" class="rounded-xl bg-white text-slate-900 px-3 py-2 text-xs font-semibold whitespace-nowrap lg:hidden">
                                 Deconnexion
                             </a>
                         </div>
                     </div>
                 </header>
+
+                <script>
+                    (function () {
+                        const toggle = document.querySelector('[data-notification-toggle]');
+                        const menu = document.querySelector('[data-notification-menu]');
+                        if (!toggle || !menu) {
+                            return;
+                        }
+
+                        toggle.addEventListener('click', function (event) {
+                            event.stopPropagation();
+                            menu.classList.toggle('hidden');
+                        });
+
+                        menu.addEventListener('click', function (event) {
+                            event.stopPropagation();
+                        });
+
+                        document.addEventListener('click', function () {
+                            menu.classList.add('hidden');
+                        });
+                    })();
+                </script>
 
                 <section class="mt-4 space-y-4">

@@ -9,6 +9,7 @@ use App\Core\ManagerAccess;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\AnomalyRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\NotificationRepository;
 use App\Repositories\PharmacyRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VerificationRepository;
@@ -90,13 +91,19 @@ final class ManagerController
     public function account(): void
     {
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $managerUserId = is_array($managerUser) ? (int) ($managerUser['id'] ?? 0) : 0;
         $caserneOptions = [];
         if (is_array($managerUser) && isset($managerUser['id'])) {
             $caserneRepository = new CaserneRepository();
             $caserneOptions = $caserneRepository->findByUserId((int) $managerUser['id']);
         }
+        $notificationRepository = new NotificationRepository();
+        $notificationCatalog = NotificationRepository::eventCatalog();
+        $notificationSubscriptions = $notificationRepository->findSubscriptionsByUser($managerUserId);
+        $notificationsAvailable = $notificationRepository->isAvailable();
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $updated = isset($_GET['updated']) ? (string) $_GET['updated'] : '';
+        $updatedNotif = isset($_GET['updated_notif']) ? (string) $_GET['updated_notif'] : '';
         $passwordError = isset($_GET['password_error']) ? (string) $_GET['password_error'] : '';
         $passwordChanged = isset($_GET['password_changed']) ? (string) $_GET['password_changed'] : '';
         require dirname(__DIR__, 2) . '/public/views/manager_account.php';

@@ -11,6 +11,7 @@ use App\Controllers\HomeController;
 use App\Controllers\ManagerAdminController;
 use App\Controllers\ManagerAssetController;
 use App\Controllers\ManagerController;
+use App\Controllers\ManagerNotificationController;
 use App\Controllers\ManagerPharmacyController;
 use App\Controllers\ManagerRoleController;
 use App\Controllers\ManagerUserController;
@@ -68,6 +69,12 @@ $managerRoutes = [
     'manager/account',
     'manager/account_save',
     'manager/forbidden',
+    'manager_notifications/index',
+    'manager_notifications/mark_read',
+    'manager_notifications/mark_all_read',
+    'manager_notifications/settings',
+    'manager_notifications/settings_save',
+    'manager_notifications/preferences_save',
     'manager_auth/switch_caserne',
     'manager_admin/menu',
     'manager_admin/settings',
@@ -177,6 +184,12 @@ $managerRoutePermissions = [
     'manager/dashboard' => 'dashboard.view',
     'manager/account' => 'dashboard.view',
     'manager/account_save' => 'dashboard.view',
+    'manager_notifications/index' => 'dashboard.view',
+    'manager_notifications/mark_read' => 'dashboard.view',
+    'manager_notifications/mark_all_read' => 'dashboard.view',
+    'manager_notifications/preferences_save' => 'dashboard.view',
+    'manager_notifications/settings' => 'users.manage',
+    'manager_notifications/settings_save' => 'users.manage',
     'manager_auth/switch_caserne' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
@@ -352,6 +365,42 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager' && $action === 'forbidden') {
         $controller = new ManagerController();
         $controller->forbidden();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'index') {
+        $controller = new ManagerNotificationController();
+        $controller->index();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'mark_read') {
+        $controller = new ManagerNotificationController();
+        $controller->markRead();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'mark_all_read') {
+        $controller = new ManagerNotificationController();
+        $controller->markAllRead();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'settings') {
+        $controller = new ManagerNotificationController();
+        $controller->settings();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'settings_save') {
+        $controller = new ManagerNotificationController();
+        $controller->settingsSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'preferences_save') {
+        $controller = new ManagerNotificationController();
+        $controller->preferencesSave();
         return;
     }
 

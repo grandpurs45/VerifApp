@@ -26,6 +26,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="text-lg font-bold">Utilisateurs</p>
         <p class="text-sm text-slate-600 mt-1">Creer et gerer les comptes, roles et activations.</p>
     </a>
+    <a href="/index.php?controller=manager_notifications&action=settings" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
+        <p class="text-lg font-bold">Notifications</p>
+        <p class="text-sm text-slate-600 mt-1">Canaux, ciblage des roles et regles de diffusion.</p>
+    </a>
 </section>
 
 <?php require __DIR__ . '/partials/backoffice_shell_bottom.php'; ?>

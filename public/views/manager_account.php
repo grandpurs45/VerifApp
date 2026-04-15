@@ -29,6 +29,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         Mot de passe modifie.
     </section>
 <?php endif; ?>
+<?php if (($updatedNotif ?? '') === '1'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Preferences notifications enregistrees.
+    </section>
+<?php endif; ?>
 
 <?php if ($error === 'invalid_profile'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -49,6 +54,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'password'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Impossible de modifier le mot de passe.
+    </section>
+<?php elseif ($error === 'notif_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Impossible d enregistrer les preferences notifications.
     </section>
 <?php endif; ?>
 
@@ -158,6 +167,37 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </div>
     </article>
 </section>
+
+<?php if (($notificationsAvailable ?? false) === true): ?>
+    <section class="rounded-2xl bg-white shadow p-5">
+        <h2 class="text-lg font-bold">Notifications</h2>
+        <p class="text-sm text-slate-600 mt-1">Choisis les notifications que tu veux recevoir dans la cloche.</p>
+        <form method="post" action="/index.php?controller=manager_notifications&action=preferences_save" class="mt-3 space-y-2">
+            <?php foreach (($notificationCatalog ?? []) as $eventCode => $meta): ?>
+                <?php
+                $eventKey = str_replace('.', '_', (string) $eventCode);
+                $isEnabled = (bool) (($notificationSubscriptions[$eventCode]['in_app_enabled'] ?? true) === true);
+                ?>
+                <label class="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+                    <input
+                        type="checkbox"
+                        name="notif_in_app[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>]"
+                        value="1"
+                        class="mt-1 h-4 w-4"
+                        <?= $isEnabled ? 'checked' : '' ?>
+                    >
+                    <span>
+                        <span class="block text-sm font-semibold text-slate-900"><?= htmlspecialchars((string) ($meta['label'] ?? $eventCode), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span class="block text-xs text-slate-500"><?= htmlspecialchars((string) ($meta['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                    </span>
+                </label>
+            <?php endforeach; ?>
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
+                Enregistrer preferences notifications
+            </button>
+        </form>
+    </section>
+<?php endif; ?>
 
 <div id="account-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4">
     <div class="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl">
