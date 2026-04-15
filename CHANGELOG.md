@@ -9,6 +9,26 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.18.0] - 2026-04-15
+
+### Added
+- Notifications (jalon):
+  - centre de notifications (cloche) dans le backoffice
+  - historique des notifications
+  - parametres notifications (application/caserne)
+  - preferences utilisateur dans `Mon compte` (abonnements par type)
+
+### Changed
+- Parametres application:
+  - ajout du reglage `Fuseau horaire global` (IANA)
+  - application du fuseau cote PHP et SQL session pour harmoniser les heures
+- Configuration engin:
+  - arborescence zones repliée par defaut au chargement
+
+### Fixed
+- Zones engin:
+  - apres enregistrement, l arborescence ne se redeplie plus automatiquement
+
 ## [0.17.3] - 2026-04-15
 
 ### Added
