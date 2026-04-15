@@ -9,6 +9,18 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.17.2] - 2026-04-15
+
+### Added
+- Configuration engin (zones):
+  - vue arborescente repliable par niveaux pour mieux lire les structures longues
+  - bouton `+` par zone pour creer directement une sous-zone au bon endroit via modale
+
+### Changed
+- Edition des zones:
+  - actions `Enregistrer` / `Supprimer` alignees et stabilisees pour eviter les glitches visuels
+  - prevention des selections de parent invalides (descendance)
+
 ## [0.17.1] - 2026-04-14
 
 ### Changed

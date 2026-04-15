@@ -49,6 +49,56 @@ foreach ($zones as $zone) {
     $zonesById[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom'] ?? '');
 }
 
+$zonesByParent = [];
+foreach ($zones as $zone) {
+    $parentId = (int) ($zone['parent_id'] ?? 0);
+    if (!isset($zonesByParent[$parentId])) {
+        $zonesByParent[$parentId] = [];
+    }
+    $zonesByParent[$parentId][] = $zone;
+}
+
+$zoneDescendants = [];
+$collectDescendants = function (int $zoneId) use (&$collectDescendants, $zonesByParent, &$zoneDescendants): array {
+    if (isset($zoneDescendants[$zoneId])) {
+        return $zoneDescendants[$zoneId];
+    }
+
+    $descendants = [];
+    foreach (($zonesByParent[$zoneId] ?? []) as $child) {
+        $childId = (int) ($child['id'] ?? 0);
+        if ($childId <= 0) {
+            continue;
+        }
+        $descendants[] = $childId;
+        foreach ($collectDescendants($childId) as $nestedId) {
+            $descendants[] = $nestedId;
+        }
+    }
+
+    $zoneDescendants[$zoneId] = array_values(array_unique($descendants));
+    return $zoneDescendants[$zoneId];
+};
+
+$zoneSubtreeCount = [];
+$countSubtree = function (int $zoneId) use (&$countSubtree, $zonesByParent, &$zoneSubtreeCount): int {
+    if (isset($zoneSubtreeCount[$zoneId])) {
+        return $zoneSubtreeCount[$zoneId];
+    }
+
+    $count = 0;
+    foreach (($zonesByParent[$zoneId] ?? []) as $child) {
+        $childId = (int) ($child['id'] ?? 0);
+        if ($childId <= 0) {
+            continue;
+        }
+        $count += 1 + $countSubtree($childId);
+    }
+
+    $zoneSubtreeCount[$zoneId] = $count;
+    return $count;
+};
+
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
@@ -115,47 +165,101 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </form>
     <p class="mb-3 text-xs text-slate-500">Sous-zones illimitees: ex. Cellule &gt; Sac PS &gt; Sacoche rouge.</p>
 
-    <div class="space-y-2">
-        <?php foreach ($zones as $zone): ?>
-            <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
-                <input type="hidden" name="id" value="<?= (int) $zone['id'] ?>">
-                <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
-                <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
-                <select name="parent_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                    <option value="">Zone parent (racine)</option>
-                    <?php foreach ($zones as $candidateZone): ?>
-                        <?php
-                        $candidateId = (int) $candidateZone['id'];
-                        if ($candidateId === (int) $zone['id']) {
-                            continue;
-                        }
-                        $zoneLevel = isset($candidateZone['niveau']) ? max(1, (int) $candidateZone['niveau']) : 1;
-                        $zonePrefix = $zoneLevel > 1 ? str_repeat('- ', $zoneLevel - 1) : '';
-                        ?>
-                        <option value="<?= $candidateId ?>" <?= (int) ($zone['parent_id'] ?? 0) === $candidateId ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($zonePrefix . (string) ($candidateZone['chemin'] ?? $candidateZone['nom']), ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="text" name="nom" value="<?= htmlspecialchars((string) ($zone['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
-                <input type="text" readonly value="<?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2">
-                <div class="md:col-span-2 flex gap-2">
-                    <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm w-full">Enregistrer</button>
-                    <button
-                        type="submit"
-                        formaction="/index.php?controller=manager_assets&action=zone_delete"
-                        formmethod="post"
-                        data-confirm="Supprimer cette zone ?"
-                        data-loading-label="Suppression..."
-                        class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm w-full"
-                    >
-                        Supprimer
-                    </button>
+    <div class="space-y-3">
+        <?php
+        $renderZoneNode = function (array $zone, int $level) use (&$renderZoneNode, $zonesByParent, $zones, $vehicleId, $collectDescendants, $countSubtree): void {
+            $zoneId = (int) ($zone['id'] ?? 0);
+            $zoneName = (string) ($zone['nom'] ?? '');
+            $zonePath = (string) ($zone['chemin'] ?? $zoneName);
+            $selectedParentId = (int) ($zone['parent_id'] ?? 0);
+            $children = $zonesByParent[$zoneId] ?? [];
+            $subtreeCount = $countSubtree($zoneId);
+            $excludedParentIds = array_merge([$zoneId], $collectDescendants($zoneId));
+            $detailsOpen = $level <= 1 ? ' open' : '';
+            ?>
+            <details class="rounded-xl border border-slate-200 bg-slate-50/70"<?= $detailsOpen ?>>
+                <summary class="list-none cursor-pointer px-3 py-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex rounded-full bg-slate-200 text-slate-700 px-2 py-0.5 text-xs font-semibold">N<?= $level + 1 ?></span>
+                            <span class="text-sm font-semibold text-slate-900"><?= htmlspecialchars($zoneName, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if ($subtreeCount > 0): ?>
+                                <span class="inline-flex rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-semibold"><?= $subtreeCount ?> sous-zone(s)</span>
+                            <?php endif; ?>
+                            <span class="text-xs text-slate-500"><?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?></span>
+                        </div>
+                        <button
+                            type="button"
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white text-base font-bold text-slate-800 hover:bg-slate-100"
+                            data-add-subzone
+                            data-parent-id="<?= $zoneId ?>"
+                            data-parent-name="<?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?>"
+                            title="Ajouter une sous-zone"
+                            aria-label="Ajouter une sous-zone"
+                        >
+                            +
+                        </button>
+                    </div>
+                </summary>
+                <div class="px-3 pb-3">
+                    <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="grid grid-cols-1 md:grid-cols-12 gap-2">
+                        <input type="hidden" name="id" value="<?= $zoneId ?>">
+                        <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
+                        <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
+                        <select name="parent_id" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+                            <option value="">Zone parent (racine)</option>
+                            <?php foreach ($zones as $candidateZone): ?>
+                                <?php
+                                $candidateId = (int) $candidateZone['id'];
+                                if (in_array($candidateId, $excludedParentIds, true)) {
+                                    continue;
+                                }
+                                $candidateLevel = isset($candidateZone['niveau']) ? max(1, (int) $candidateZone['niveau']) : 1;
+                                $candidatePrefix = $candidateLevel > 1 ? str_repeat('- ', $candidateLevel - 1) : '';
+                                ?>
+                                <option value="<?= $candidateId ?>" <?= $selectedParentId === $candidateId ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($candidatePrefix . (string) ($candidateZone['chemin'] ?? $candidateZone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="nom" value="<?= htmlspecialchars($zoneName, ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
+                        <input type="text" readonly value="<?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-5">
+                        <div class="md:col-span-12 flex flex-wrap justify-end gap-2">
+                            <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm min-w-[120px]">Enregistrer</button>
+                            <button
+                                type="submit"
+                                formaction="/index.php?controller=manager_assets&action=zone_delete"
+                                formmethod="post"
+                                data-confirm="Supprimer cette zone ?"
+                                data-loading-label="Suppression..."
+                                class="rounded-xl bg-red-600 text-white px-4 py-2 text-sm min-w-[120px]"
+                            >
+                                Supprimer
+                            </button>
+                        </div>
+                    </form>
+                    <?php if ($children !== []): ?>
+                        <div class="mt-2 ml-2 border-l-2 border-slate-200 pl-2 space-y-2">
+                            <?php foreach ($children as $childZone): ?>
+                                <?php $renderZoneNode($childZone, $level + 1); ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
-            </form>
-        <?php endforeach; ?>
-        <?php if ($zones === []): ?>
+            </details>
+            <?php
+        };
+        ?>
+
+        <?php
+        $rootZones = $zonesByParent[0] ?? [];
+        if ($rootZones === []):
+        ?>
             <p class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">Aucune zone pour cet engin.</p>
+        <?php else: ?>
+            <?php foreach ($rootZones as $rootZone): ?>
+                <?php $renderZoneNode($rootZone, 0); ?>
+            <?php endforeach; ?>
         <?php endif; ?>
     </div>
 </section>
@@ -324,10 +428,31 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <?php endif; ?>
     </div>
 </section>
+<div id="subzone-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+        <h3 class="text-xl font-extrabold text-slate-900">Ajouter une sous-zone</h3>
+        <p class="mt-1 text-sm text-slate-600">Parent: <span id="subzone-parent-label" class="font-semibold text-slate-900">-</span></p>
+        <form method="post" action="/index.php?controller=manager_assets&action=zone_save" class="mt-4 space-y-3">
+            <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
+            <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
+            <input type="hidden" id="subzone-parent-id" name="parent_id" value="">
+            <input type="text" id="subzone-name-input" name="nom" placeholder="Nom sous-zone" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button type="button" id="subzone-modal-cancel" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800">Annuler</button>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Ajouter sous-zone</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
     (function () {
         const toast = document.getElementById('manager-toast');
+        const subzoneModal = document.getElementById('subzone-modal');
+        const subzoneParentIdInput = document.getElementById('subzone-parent-id');
+        const subzoneParentLabel = document.getElementById('subzone-parent-label');
+        const subzoneNameInput = document.getElementById('subzone-name-input');
+        const subzoneModalCancel = document.getElementById('subzone-modal-cancel');
         if (toast) {
             setTimeout(function () {
                 toast.style.transition = 'opacity 240ms ease';
@@ -418,6 +543,43 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         document.addEventListener('click', function () {
             closeAllInfoPanels();
         });
+
+        document.querySelectorAll('[data-add-subzone]').forEach(function (button) {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!subzoneModal || !subzoneParentIdInput || !subzoneParentLabel || !subzoneNameInput) {
+                    return;
+                }
+                const parentId = button.getAttribute('data-parent-id') || '';
+                const parentName = button.getAttribute('data-parent-name') || '-';
+                subzoneParentIdInput.value = parentId;
+                subzoneParentLabel.textContent = parentName;
+                subzoneNameInput.value = '';
+                subzoneModal.classList.remove('hidden');
+                subzoneModal.classList.add('flex');
+                subzoneNameInput.focus();
+            });
+        });
+
+        if (subzoneModalCancel) {
+            subzoneModalCancel.addEventListener('click', function () {
+                if (!subzoneModal) {
+                    return;
+                }
+                subzoneModal.classList.add('hidden');
+                subzoneModal.classList.remove('flex');
+            });
+        }
+
+        if (subzoneModal) {
+            subzoneModal.addEventListener('click', function (event) {
+                if (event.target === subzoneModal) {
+                    subzoneModal.classList.add('hidden');
+                    subzoneModal.classList.remove('flex');
+                }
+            });
+        }
     })();
 </script>
 
