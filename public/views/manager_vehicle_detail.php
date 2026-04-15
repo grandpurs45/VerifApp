@@ -271,6 +271,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </div>
     <p class="mb-3 text-xs text-slate-500">Astuce Presence (check): quantite attendue + reponse terrain Present/Manquant.</p>
 
+    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <input
+            id="vehicle-control-search"
+            type="text"
+            placeholder="Rechercher un materiel (libelle, poste, zone, type)..."
+            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+        >
+        <select id="vehicle-control-zone-filter" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <option value="">Toutes les zones</option>
+            <?php foreach ($zones as $zone): ?>
+                <option value="<?= (int) ($zone['id'] ?? 0) ?>">
+                    <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+
     <?php if ($postes === []): ?>
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
             Aucun poste configure pour le type <strong><?= htmlspecialchars($vehicleType, ENT_QUOTES, 'UTF-8') ?></strong>. Configure d abord les postes dans "Types & postes".
@@ -342,8 +359,25 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $controlId = (int) ($controle['id'] ?? 0);
             $controlType = (string) ($controle['type_saisie'] ?? 'statut');
             $zonePath = $zonesById[(int) ($controle['zone_id'] ?? 0)] ?? (string) ($controle['zone'] ?? '');
+            $posteName = (string) ($postesById[(int) ($controle['poste_id'] ?? 0)] ?? '');
+            $typeLabel = $controlType === 'mesure'
+                ? 'valeur mesuree'
+                : ($controlType === 'quantite' ? 'presence check' : 'fonctionnel non fonctionnel');
+            $searchText = mb_strtolower(trim(implode(' ', [
+                (string) ($controle['libelle'] ?? ''),
+                $posteName,
+                $zonePath,
+                $typeLabel,
+            ])));
             ?>
-            <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="rounded-xl border border-slate-200 p-3 space-y-2" data-control-form>
+            <form
+                method="post"
+                action="/index.php?controller=manager_assets&action=controle_save"
+                class="rounded-xl border border-slate-200 p-3 space-y-2"
+                data-control-form
+                data-control-search-text="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
+                data-control-zone-id="<?= (int) ($controle['zone_id'] ?? 0) ?>"
+            >
                 <input type="hidden" name="id" value="<?= $controlId ?>">
                 <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
                 <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
@@ -426,6 +460,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <?php if ($controles === []): ?>
             <p class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">Aucun materiel configure pour cet engin.</p>
         <?php endif; ?>
+        <p id="vehicle-control-search-empty" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+            Aucun materiel ne correspond a la recherche.
+        </p>
     </div>
 </section>
 <div id="subzone-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/70 p-4">
@@ -453,6 +490,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         const subzoneParentLabel = document.getElementById('subzone-parent-label');
         const subzoneNameInput = document.getElementById('subzone-name-input');
         const subzoneModalCancel = document.getElementById('subzone-modal-cancel');
+        const controlSearchInput = document.getElementById('vehicle-control-search');
+        const controlZoneFilter = document.getElementById('vehicle-control-zone-filter');
+        const controlForms = Array.from(document.querySelectorAll('form[data-control-form][data-control-search-text]'));
+        const controlSearchEmpty = document.getElementById('vehicle-control-search-empty');
         if (toast) {
             setTimeout(function () {
                 toast.style.transition = 'opacity 240ms ease';
@@ -495,6 +536,39 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             }
             syncControlForm(form);
         });
+
+        function applyControlFilter() {
+            if (!controlSearchInput || controlForms.length === 0) {
+                return;
+            }
+
+            const query = (controlSearchInput.value || '').toLowerCase().trim();
+            const selectedZoneId = controlZoneFilter ? (controlZoneFilter.value || '').trim() : '';
+            let visibleCount = 0;
+            controlForms.forEach(function (form) {
+                const haystack = (form.getAttribute('data-control-search-text') || '').toLowerCase();
+                const zoneId = (form.getAttribute('data-control-zone-id') || '').trim();
+                const matchText = query === '' || haystack.includes(query);
+                const matchZone = selectedZoneId === '' || zoneId === selectedZoneId;
+                const match = matchText && matchZone;
+                form.classList.toggle('hidden', !match);
+                if (match) {
+                    visibleCount += 1;
+                }
+            });
+
+            if (controlSearchEmpty) {
+                controlSearchEmpty.classList.toggle('hidden', visibleCount > 0);
+            }
+        }
+
+        if (controlSearchInput) {
+            controlSearchInput.addEventListener('input', applyControlFilter);
+            if (controlZoneFilter) {
+                controlZoneFilter.addEventListener('change', applyControlFilter);
+            }
+            applyControlFilter();
+        }
 
         document.querySelectorAll('form').forEach(function (form) {
             form.addEventListener('submit', function (event) {

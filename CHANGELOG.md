@@ -9,6 +9,17 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.18.1] - 2026-04-15
+
+### Added
+- Configuration engin (materiel):
+  - recherche instantanee dans la liste des materiels (libelle, poste, zone, type)
+  - filtre par zone pour afficher uniquement le materiel d une zone cible
+
+### Changed
+- UX configuration engin:
+  - recherche texte + filtre zone combinables sans rechargement de page
+
 ## [0.18.0] - 2026-04-15
 
 ### Added

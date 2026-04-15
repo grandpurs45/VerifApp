@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.17.2` (voir fichier `VERSION`).
+Version courante: `v0.18.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -53,6 +53,7 @@ VerifApp permet de:
   - types et postes
   - vehicules, zones, sous-zones
   - materiel configure par engin
+  - recherche instantanee du materiel + filtre par zone dans la fiche engin
 - Module pharmacie invite (QR) pour sorties de stock.
 - Module inventaire pharmacie (BO + terrain mobile via QR dedie).
 - Sorties pharmacie:
