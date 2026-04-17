@@ -240,6 +240,21 @@ final class AuthController
         $this->redirect('/index.php?controller=manager&action=dashboard');
     }
 
+    public function ping(): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+
+        if (!$this->isAuthenticated()) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'expired' => true], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $_SESSION['manager_last_activity'] = time();
+        echo json_encode(['ok' => true, 'ts' => (int) $_SESSION['manager_last_activity']], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     private function isAuthenticated(): bool
     {
         return isset($_SESSION['manager_user']) && is_array($_SESSION['manager_user']);
