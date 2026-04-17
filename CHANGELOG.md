@@ -9,6 +9,27 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.19.0] - 2026-04-17
+
+### Added
+- Notifications:
+  - activation du canal email (en plus de la cloche in-app)
+  - preferences utilisateur par evenement: `Cloche (in-app)` et `Email`
+  - nouveaux reglages `.env` pour l envoi email:
+    - `NOTIFICATIONS_EMAIL_ENABLED`
+    - `NOTIFICATIONS_EMAIL_FROM`
+    - `NOTIFICATIONS_EMAIL_FROM_NAME`
+
+### Changed
+- Parametres notifications:
+  - libelles canal clarifies (`Canal principal dans l interface backoffice` / `Canal email (serveur SMTP requis)`)
+- Alerte d expiration de session:
+  - popup plus visible (centre haut, contraste renforce, actions `Fermer` / `Se reconnecter`)
+
+### Fixed
+- Expiration session:
+  - correction du seuil d expiration (`>=` au lieu de `>`) pour eviter la prolongation a la minute exacte.
+
 ## [0.18.1] - 2026-04-15
 
 ### Added

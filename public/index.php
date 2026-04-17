@@ -185,7 +185,7 @@ if ($sessionTimeoutMinutes <= 0) {
 if ($isManagerAuthenticated) {
     $now = time();
     $lastActivity = isset($_SESSION['manager_last_activity']) ? (int) $_SESSION['manager_last_activity'] : $now;
-    if (($now - $lastActivity) > ($sessionTimeoutMinutes * 60)) {
+    if (($now - $lastActivity) >= ($sessionTimeoutMinutes * 60)) {
         unset($_SESSION['manager_user'], $_SESSION['manager_password_reset_user'], $_SESSION['manager_last_activity']);
         $isManagerAuthenticated = false;
         $managerSessionExpired = true;

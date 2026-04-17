@@ -171,26 +171,44 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php if (($notificationsAvailable ?? false) === true): ?>
     <section class="rounded-2xl bg-white shadow p-5">
         <h2 class="text-lg font-bold">Notifications</h2>
-        <p class="text-sm text-slate-600 mt-1">Choisis les notifications que tu veux recevoir dans la cloche.</p>
+        <p class="text-sm text-slate-600 mt-1">Choisis les notifications a recevoir dans la cloche et/ou par email.</p>
         <form method="post" action="/index.php?controller=manager_notifications&action=preferences_save" class="mt-3 space-y-2">
             <?php foreach (($notificationCatalog ?? []) as $eventCode => $meta): ?>
                 <?php
                 $eventKey = str_replace('.', '_', (string) $eventCode);
                 $isEnabled = (bool) (($notificationSubscriptions[$eventCode]['in_app_enabled'] ?? true) === true);
+                $isEmailEnabled = (bool) (($notificationSubscriptions[$eventCode]['email_enabled'] ?? false) === true);
                 ?>
-                <label class="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
-                    <input
-                        type="checkbox"
-                        name="notif_in_app[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>]"
-                        value="1"
-                        class="mt-1 h-4 w-4"
-                        <?= $isEnabled ? 'checked' : '' ?>
-                    >
-                    <span>
-                        <span class="block text-sm font-semibold text-slate-900"><?= htmlspecialchars((string) ($meta['label'] ?? $eventCode), ENT_QUOTES, 'UTF-8') ?></span>
-                        <span class="block text-xs text-slate-500"><?= htmlspecialchars((string) ($meta['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                    </span>
-                </label>
+                <div class="rounded-xl border border-slate-200 p-3">
+                    <div class="flex items-start gap-3">
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-900"><?= htmlspecialchars((string) ($meta['label'] ?? $eventCode), ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="block text-xs text-slate-500"><?= htmlspecialchars((string) ($meta['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                        </span>
+                    </div>
+                    <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                name="notif_in_app[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>]"
+                                value="1"
+                                class="h-4 w-4"
+                                <?= $isEnabled ? 'checked' : '' ?>
+                            >
+                            <span>Cloche (in-app)</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                name="notif_email[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>]"
+                                value="1"
+                                class="h-4 w-4"
+                                <?= $isEmailEnabled ? 'checked' : '' ?>
+                            >
+                            <span>Email</span>
+                        </label>
+                    </div>
+                </div>
             <?php endforeach; ?>
             <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">
                 Enregistrer preferences notifications

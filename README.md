@@ -154,10 +154,16 @@ Reglages notables:
 - expiration session gestionnaire
 - generation QR invites
 - seuil horaire matin/soir des verifications mensuelles par caserne
+- notifications (cloche + email) par evenement et par role
 
 Pharmacie (backoffice):
 - `stock`: `/index.php?controller=manager_pharmacy&action=index`
 - `sorties`: `/index.php?controller=manager_pharmacy&action=outputs`
+
+Notifications email (optionnel):
+- activer `NOTIFICATIONS_EMAIL_ENABLED=1`
+- definir `NOTIFICATIONS_EMAIL_FROM` et `NOTIFICATIONS_EMAIL_FROM_NAME`
+- configurer ensuite les preferences utilisateur dans `Mon compte` (cloche/email)
 
 ## Vue mensuelle des verifications
 URL:

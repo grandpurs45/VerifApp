@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Core\Env;
 use App\Core\Database;
 use PDO;
 
@@ -62,59 +63,75 @@ final class NotificationRepository
         }
 
         $settings = $this->readEventSettings($caserneId, $eventCode);
-        if (!$settings['enabled'] || !$settings['in_app_enabled']) {
+        if (!$settings['enabled']) {
             return true;
         }
 
-        $recipients = $this->findRecipientUserIds($caserneId, $eventCode, $settings['roles'], $actorUserId);
-        if ($recipients === []) {
+        $inAppRecipients = [];
+        if ($settings['in_app_enabled']) {
+            $inAppRecipients = $this->findRecipientUserIds($caserneId, $eventCode, $settings['roles'], 'in_app', $actorUserId);
+        }
+
+        $emailRecipients = [];
+        if ($settings['email_enabled']) {
+            $emailRecipients = $this->findRecipientUsersWithEmail($caserneId, $eventCode, $settings['roles'], $actorUserId);
+        }
+
+        if ($inAppRecipients === [] && $emailRecipients === []) {
             return true;
         }
 
-        $connection = Database::getConnection();
-        try {
-            $connection->beginTransaction();
+        if ($inAppRecipients !== []) {
+            $connection = Database::getConnection();
+            try {
+                $connection->beginTransaction();
 
-            $insertNotif = $connection->prepare('
-                INSERT INTO notifications (caserne_id, event_code, severity, titre, message, lien, acteur_utilisateur_id, acteur_nom)
-                VALUES (:caserne_id, :event_code, :severity, :titre, :message, :lien, :acteur_utilisateur_id, :acteur_nom)
-            ');
-            $insertNotif->execute([
-                'caserne_id' => $caserneId,
-                'event_code' => $eventCode,
-                'severity' => 'info',
-                'titre' => mb_substr(trim($title), 0, 190),
-                'message' => mb_substr(trim($message), 0, 500),
-                'lien' => $link !== null && trim($link) !== '' ? mb_substr(trim($link), 0, 255) : null,
-                'acteur_utilisateur_id' => $actorUserId !== null && $actorUserId > 0 ? $actorUserId : null,
-                'acteur_nom' => $actorName !== null && trim($actorName) !== '' ? mb_substr(trim($actorName), 0, 150) : null,
-            ]);
+                $insertNotif = $connection->prepare('
+                    INSERT INTO notifications (caserne_id, event_code, severity, titre, message, lien, acteur_utilisateur_id, acteur_nom)
+                    VALUES (:caserne_id, :event_code, :severity, :titre, :message, :lien, :acteur_utilisateur_id, :acteur_nom)
+                ');
+                $insertNotif->execute([
+                    'caserne_id' => $caserneId,
+                    'event_code' => $eventCode,
+                    'severity' => 'info',
+                    'titre' => mb_substr(trim($title), 0, 190),
+                    'message' => mb_substr(trim($message), 0, 500),
+                    'lien' => $link !== null && trim($link) !== '' ? mb_substr(trim($link), 0, 255) : null,
+                    'acteur_utilisateur_id' => $actorUserId !== null && $actorUserId > 0 ? $actorUserId : null,
+                    'acteur_nom' => $actorName !== null && trim($actorName) !== '' ? mb_substr(trim($actorName), 0, 150) : null,
+                ]);
 
-            $notificationId = (int) $connection->lastInsertId();
-            if ($notificationId <= 0) {
-                $connection->rollBack();
+                $notificationId = (int) $connection->lastInsertId();
+                if ($notificationId <= 0) {
+                    $connection->rollBack();
+                    return false;
+                }
+
+                $insertRecipient = $connection->prepare('
+                    INSERT INTO notification_recipients (notification_id, utilisateur_id, lu)
+                    VALUES (:notification_id, :utilisateur_id, 0)
+                ');
+                foreach ($inAppRecipients as $userId) {
+                    $insertRecipient->execute([
+                        'notification_id' => $notificationId,
+                        'utilisateur_id' => $userId,
+                    ]);
+                }
+
+                $connection->commit();
+            } catch (\Throwable $throwable) {
+                if (isset($connection) && $connection->inTransaction()) {
+                    $connection->rollBack();
+                }
                 return false;
             }
-
-            $insertRecipient = $connection->prepare('
-                INSERT INTO notification_recipients (notification_id, utilisateur_id, lu)
-                VALUES (:notification_id, :utilisateur_id, 0)
-            ');
-            foreach ($recipients as $userId) {
-                $insertRecipient->execute([
-                    'notification_id' => $notificationId,
-                    'utilisateur_id' => $userId,
-                ]);
-            }
-
-            $connection->commit();
-            return true;
-        } catch (\Throwable $throwable) {
-            if ($connection->inTransaction()) {
-                $connection->rollBack();
-            }
-            return false;
         }
+
+        if ($emailRecipients !== []) {
+            $this->sendEmailNotifications($caserneId, $title, $message, $link, $emailRecipients);
+        }
+
+        return true;
     }
 
     public function getUnreadCount(int $userId, ?int $caserneId = null): int
@@ -338,7 +355,7 @@ final class NotificationRepository
     /**
      * @param array<string, bool> $inAppByEvent
      */
-    public function saveSubscriptionsByUser(int $userId, array $inAppByEvent): bool
+    public function saveSubscriptionsByUser(int $userId, array $inAppByEvent, array $emailByEvent = []): bool
     {
         if (!$this->isAvailable() || $userId <= 0) {
             return false;
@@ -362,7 +379,7 @@ final class NotificationRepository
                     'utilisateur_id' => $userId,
                     'event_code' => $eventCode,
                     'in_app_enabled' => isset($inAppByEvent[$eventCode]) && $inAppByEvent[$eventCode] ? 1 : 0,
-                    'email_enabled' => 0,
+                    'email_enabled' => isset($emailByEvent[$eventCode]) && $emailByEvent[$eventCode] ? 1 : 0,
                 ]);
             }
 
@@ -440,8 +457,68 @@ final class NotificationRepository
      * @param array<int, string> $targetRoles
      * @return array<int, int>
      */
-    private function findRecipientUserIds(int $caserneId, string $eventCode, array $targetRoles, ?int $excludeUserId = null): array
+    private function findRecipientUserIds(
+        int $caserneId,
+        string $eventCode,
+        array $targetRoles,
+        string $channel = 'in_app',
+        ?int $excludeUserId = null
+    ): array
     {
+        $users = $this->findRecipientUsers($caserneId, $eventCode, $targetRoles, $channel, $excludeUserId);
+        $ids = [];
+        foreach ($users as $user) {
+            $id = (int) ($user['id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    /**
+     * @param array<int, string> $targetRoles
+     * @return array<int, array{id:int,email:string,nom:string}>
+     */
+    private function findRecipientUsersWithEmail(
+        int $caserneId,
+        string $eventCode,
+        array $targetRoles,
+        ?int $excludeUserId = null
+    ): array {
+        $users = $this->findRecipientUsers($caserneId, $eventCode, $targetRoles, 'email', $excludeUserId);
+        $result = [];
+        foreach ($users as $user) {
+            $email = trim((string) ($user['email'] ?? ''));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $id = (int) ($user['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $result[$id] = [
+                'id' => $id,
+                'email' => $email,
+                'nom' => trim((string) ($user['nom'] ?? '')),
+            ];
+        }
+
+        return array_values($result);
+    }
+
+    /**
+     * @param array<int, string> $targetRoles
+     * @return array<int, array<string, mixed>>
+     */
+    private function findRecipientUsers(
+        int $caserneId,
+        string $eventCode,
+        array $targetRoles,
+        string $channel = 'in_app',
+        ?int $excludeUserId = null
+    ): array {
         if ($targetRoles === []) {
             return [];
         }
@@ -450,6 +527,11 @@ final class NotificationRepository
         if ($roles === []) {
             return [];
         }
+
+        $channel = strtolower(trim($channel));
+        $channelClause = $channel === 'email'
+            ? 'COALESCE(ns.email_enabled, 0) = 1'
+            : 'COALESCE(ns.in_app_enabled, 1) = 1';
 
         $connection = Database::getConnection();
         $params = [
@@ -464,7 +546,7 @@ final class NotificationRepository
         }
 
         $sql = '
-            SELECT DISTINCT u.id
+            SELECT DISTINCT u.id, u.email, u.nom
             FROM utilisateurs u
             INNER JOIN utilisateur_casernes uc ON uc.utilisateur_id = u.id
             LEFT JOIN notification_subscriptions ns
@@ -480,7 +562,7 @@ final class NotificationRepository
                         )
                     )
                 ) COLLATE utf8mb4_unicode_ci IN (' . implode(',', $placeholders) . ')
-              AND COALESCE(ns.in_app_enabled, 1) = 1
+              AND ' . $channelClause . '
         ';
         if ($excludeUserId !== null && $excludeUserId > 0) {
             $sql .= ' AND u.id <> :exclude_user_id';
@@ -489,17 +571,61 @@ final class NotificationRepository
 
         $statement = $connection->prepare($sql);
         $statement->execute($params);
-        $rows = $statement->fetchAll(PDO::FETCH_COLUMN) ?: [];
 
-        $result = [];
-        foreach ($rows as $value) {
-            $id = (int) $value;
-            if ($id > 0) {
-                $result[$id] = $id;
-            }
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @param array<int, array{id:int,email:string,nom:string}> $recipients
+     */
+    private function sendEmailNotifications(int $caserneId, string $title, string $message, ?string $link, array $recipients): void
+    {
+        $enabled = trim((string) Env::get('NOTIFICATIONS_EMAIL_ENABLED', '0'));
+        if ($enabled !== '1') {
+            return;
         }
 
-        return array_values($result);
+        $from = trim((string) Env::get('NOTIFICATIONS_EMAIL_FROM', 'no-reply@verifapp.local'));
+        $fromName = trim((string) Env::get('NOTIFICATIONS_EMAIL_FROM_NAME', 'VerifApp'));
+        $appUrl = rtrim((string) Env::get('APP_URL', ''), '/');
+
+        $subject = '[VerifApp] ' . trim($title);
+        if (mb_strlen($subject) > 180) {
+            $subject = mb_substr($subject, 0, 180);
+        }
+        $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
+
+        $bodyLines = [
+            trim($title),
+            '',
+            trim($message),
+        ];
+        if ($link !== null && trim($link) !== '') {
+            $href = trim($link);
+            if (str_starts_with($href, '/')) {
+                $href = $appUrl !== '' ? ($appUrl . $href) : $href;
+            }
+            $bodyLines[] = '';
+            $bodyLines[] = 'Lien: ' . $href;
+        }
+        $bodyLines[] = '';
+        $bodyLines[] = 'Caserne #' . $caserneId;
+        $body = implode("\r\n", $bodyLines);
+
+        $headers = [
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'From: ' . ($fromName !== '' ? ($fromName . ' <' . $from . '>') : $from),
+        ];
+        $headerText = implode("\r\n", $headers);
+
+        foreach ($recipients as $recipient) {
+            $email = trim((string) ($recipient['email'] ?? ''));
+            if ($email === '') {
+                continue;
+            }
+            @mail($email, $encodedSubject, $body, $headerText);
+        }
     }
 
     /**

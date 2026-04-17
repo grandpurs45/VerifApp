@@ -318,9 +318,31 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                             }
                             const node = document.createElement('div');
                             node.id = 'session-expiry-warning';
-                            node.className = 'fixed z-[80] bottom-4 right-4 max-w-xs rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-xl';
-                            node.textContent = 'Session bientot expiree. Sauvegarde tes modifications.';
+                            node.className = 'fixed left-1/2 top-4 z-[120] w-[min(680px,calc(100%-1.5rem))] -translate-x-1/2 rounded-2xl border-2 border-red-300 bg-red-50 px-4 py-3 text-red-900 shadow-2xl';
+                            node.innerHTML = ''
+                                + '<div class="flex items-center justify-between gap-3">'
+                                + '  <div class="flex items-start gap-3">'
+                                + '    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-lg text-white font-bold" aria-hidden="true">!</span>'
+                                + '    <div>'
+                                + '      <p class="text-sm md:text-base font-extrabold leading-tight">Session bientot expiree</p>'
+                                + '      <p class="mt-0.5 text-xs md:text-sm font-semibold">Sauvegarde maintenant pour eviter de perdre tes modifications.</p>'
+                                + '    </div>'
+                                + '  </div>'
+                                + '  <div class="flex items-center gap-2">'
+                                + '    <button type="button" data-session-warning-close class="rounded-xl border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Fermer</button>'
+                                + '    <button type="button" data-session-warning-login class="rounded-xl bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800">Se reconnecter</button>'
+                                + '  </div>'
+                                + '</div>';
                             document.body.appendChild(node);
+
+                            const closeButton = node.querySelector('[data-session-warning-close]');
+                            if (closeButton) {
+                                closeButton.addEventListener('click', hideSessionWarning);
+                            }
+                            const loginButton = node.querySelector('[data-session-warning-login]');
+                            if (loginButton) {
+                                loginButton.addEventListener('click', redirectToLogin);
+                            }
                         }
 
                         function hideSessionWarning() {

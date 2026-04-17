@@ -139,13 +139,15 @@ final class ManagerNotificationController
 
         $catalog = NotificationRepository::eventCatalog();
         $inAppByEvent = [];
+        $emailByEvent = [];
         foreach ($catalog as $eventCode => $_meta) {
             $eventKey = str_replace('.', '_', $eventCode);
             $inAppByEvent[$eventCode] = isset($_POST['notif_in_app'][$eventKey]) && (string) $_POST['notif_in_app'][$eventKey] === '1';
+            $emailByEvent[$eventCode] = isset($_POST['notif_email'][$eventKey]) && (string) $_POST['notif_email'][$eventKey] === '1';
         }
 
         $repository = new NotificationRepository();
-        $ok = $repository->saveSubscriptionsByUser($managerUserId, $inAppByEvent);
+        $ok = $repository->saveSubscriptionsByUser($managerUserId, $inAppByEvent, $emailByEvent);
         $this->redirect('/index.php?controller=manager&action=account' . ($ok ? '&updated_notif=1' : '&error=notif_save_failed'));
     }
 

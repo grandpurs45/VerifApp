@@ -30,7 +30,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <input type="checkbox" name="channel_in_app_enabled" value="1" <?= !empty($channels['in_app_enabled']) ? 'checked' : '' ?>>
                 <span>
                     <span class="block text-sm font-semibold">Cloche in-app</span>
-                    <span class="block text-xs text-slate-500">Canal principal, gratuit et immediat.</span>
+                    <span class="block text-xs text-slate-500">Canal principal dans l interface backoffice.</span>
                 </span>
             </label>
             <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
@@ -38,7 +38,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <input type="checkbox" name="channel_email_enabled" value="1" <?= !empty($channels['email_enabled']) ? 'checked' : '' ?>>
                 <span>
                     <span class="block text-sm font-semibold">Email (preparation)</span>
-                    <span class="block text-xs text-slate-500">Canal prevu pour plus tard (SMTP requis).</span>
+                    <span class="block text-xs text-slate-500">Canal email (serveur SMTP requis).</span>
                 </span>
             </label>
         </div>
