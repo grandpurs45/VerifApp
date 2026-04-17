@@ -22,6 +22,25 @@ $notificationUnreadCount = ($notificationsAvailable && $managerUserId > 0)
 $notificationRecent = ($notificationsAvailable && $managerUserId > 0)
     ? $notificationRepository->findRecentForUser($managerUserId, $managerCaserneId > 0 ? $managerCaserneId : null, 6)
     : [];
+$sessionSettingRepository = new \App\Repositories\AppSettingRepository();
+$sessionTimeoutRaw = trim((string) (\App\Core\Env::get('MANAGER_SESSION_TTL_MINUTES', '120') ?? '120'));
+if ($sessionSettingRepository->isAvailable()) {
+    $storedSessionTimeout = null;
+    if ($managerCaserneId > 0) {
+        $storedSessionTimeout = $sessionSettingRepository->get('manager_session_ttl_minutes_caserne_' . $managerCaserneId);
+    }
+    if ($storedSessionTimeout === null || trim((string) $storedSessionTimeout) === '') {
+        $storedSessionTimeout = $sessionSettingRepository->get('manager_session_ttl_minutes');
+    }
+    if ($storedSessionTimeout !== null && trim($storedSessionTimeout) !== '') {
+        $sessionTimeoutRaw = trim($storedSessionTimeout);
+    }
+}
+$managerSessionTimeoutMinutes = ctype_digit($sessionTimeoutRaw) ? (int) $sessionTimeoutRaw : 120;
+if ($managerSessionTimeoutMinutes <= 0) {
+    $managerSessionTimeoutMinutes = 120;
+}
+$managerSessionTimeoutSeconds = max(60, $managerSessionTimeoutMinutes * 60);
 
 $allModules = [
     [
@@ -94,13 +113,16 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                     <?= htmlspecialchars((string) ($managerUser['nom'] ?? 'Gestionnaire'), ENT_QUOTES, 'UTF-8') ?>
                 </p>
                 <?php if ($managerCaserneNom !== ''): ?>
-                    <p class="text-xs text-amber-200 mt-1 font-semibold">
-                        <?= htmlspecialchars($managerCaserneNom, ENT_QUOTES, 'UTF-8') ?>
-                    </p>
+                    <div class="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+                        <p class="text-[10px] uppercase tracking-[0.16em] text-amber-100/90 font-semibold">Caserne active</p>
+                        <p class="mt-1 text-base font-extrabold text-amber-200 leading-tight">
+                            <?= htmlspecialchars($managerCaserneNom, ENT_QUOTES, 'UTF-8') ?>
+                        </p>
+                    </div>
                 <?php endif; ?>
                 <?php if (count($caserneOptions) > 1): ?>
-                    <form method="post" action="/index.php?controller=manager_auth&action=switch_caserne" class="mt-3">
-                        <select name="caserne_id" onchange="this.form.submit()" class="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-2 text-xs text-white">
+                    <form method="post" action="/index.php?controller=manager_auth&action=switch_caserne" class="mt-2">
+                        <select name="caserne_id" onchange="this.form.submit()" class="w-full rounded-lg border border-white/30 bg-white/10 px-2 py-2 text-sm font-semibold text-white">
                             <?php foreach ($caserneOptions as $caserne): ?>
                                 <option
                                     value="<?= (int) ($caserne['id'] ?? 0) ?>"
@@ -265,23 +287,126 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
 
                 <script>
                     (function () {
-                        const toggle = document.querySelector('[data-notification-toggle]');
-                        const menu = document.querySelector('[data-notification-menu]');
-                        if (!toggle || !menu) {
-                            return;
+                        const sessionTimeoutSeconds = <?= (int) $managerSessionTimeoutSeconds ?>;
+                        const loginRedirectUrl = '/index.php?controller=manager_auth&action=login_form&error=session_expired';
+                        const pingUrl = '/index.php?controller=manager_auth&action=ping';
+                        let lastPingAt = Date.now();
+                        let lastActivityProbeAt = 0;
+                        let warningTimer = null;
+                        let expiryTimer = null;
+                        let pingInFlight = false;
+
+                        function redirectToLogin() {
+                            window.location.href = loginRedirectUrl;
                         }
 
-                        toggle.addEventListener('click', function (event) {
-                            event.stopPropagation();
-                            menu.classList.toggle('hidden');
-                        });
+                        function clearTimers() {
+                            if (warningTimer) {
+                                clearTimeout(warningTimer);
+                                warningTimer = null;
+                            }
+                            if (expiryTimer) {
+                                clearTimeout(expiryTimer);
+                                expiryTimer = null;
+                            }
+                        }
 
-                        menu.addEventListener('click', function (event) {
-                            event.stopPropagation();
-                        });
+                        function showSessionWarning() {
+                            const existing = document.getElementById('session-expiry-warning');
+                            if (existing) {
+                                return;
+                            }
+                            const node = document.createElement('div');
+                            node.id = 'session-expiry-warning';
+                            node.className = 'fixed z-[80] bottom-4 right-4 max-w-xs rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-xl';
+                            node.textContent = 'Session bientot expiree. Sauvegarde tes modifications.';
+                            document.body.appendChild(node);
+                        }
 
-                        document.addEventListener('click', function () {
-                            menu.classList.add('hidden');
+                        function hideSessionWarning() {
+                            const existing = document.getElementById('session-expiry-warning');
+                            if (existing) {
+                                existing.remove();
+                            }
+                        }
+
+                        function scheduleSessionTimers() {
+                            clearTimers();
+                            hideSessionWarning();
+
+                            const warningOffset = Math.min(120, Math.max(15, Math.floor(sessionTimeoutSeconds * 0.2)));
+                            const warningInMs = Math.max(1000, (sessionTimeoutSeconds - warningOffset) * 1000);
+                            warningTimer = setTimeout(showSessionWarning, warningInMs);
+                            expiryTimer = setTimeout(redirectToLogin, sessionTimeoutSeconds * 1000);
+                        }
+
+                        function pingSession() {
+                            if (pingInFlight) {
+                                return;
+                            }
+                            const now = Date.now();
+                            if ((now - lastPingAt) < 60000) {
+                                return;
+                            }
+
+                            pingInFlight = true;
+                            fetch(pingUrl, {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(function (response) {
+                                if (!response.ok) {
+                                    throw new Error('session expired');
+                                }
+                                return response.json();
+                            })
+                            .then(function (payload) {
+                                if (!payload || payload.ok !== true) {
+                                    throw new Error('session expired');
+                                }
+                                lastPingAt = Date.now();
+                                scheduleSessionTimers();
+                            })
+                            .catch(function () {
+                                redirectToLogin();
+                            })
+                            .finally(function () {
+                                pingInFlight = false;
+                            });
+                        }
+
+                        function onUserActivity() {
+                            const now = Date.now();
+                            if ((now - lastActivityProbeAt) < 4000) {
+                                return;
+                            }
+                            lastActivityProbeAt = now;
+                            pingSession();
+                        }
+
+                        const toggle = document.querySelector('[data-notification-toggle]');
+                        const menu = document.querySelector('[data-notification-menu]');
+                        if (toggle && menu) {
+                            toggle.addEventListener('click', function (event) {
+                                event.stopPropagation();
+                                menu.classList.toggle('hidden');
+                            });
+
+                            menu.addEventListener('click', function (event) {
+                                event.stopPropagation();
+                            });
+
+                            document.addEventListener('click', function () {
+                                menu.classList.add('hidden');
+                            });
+                        }
+
+                        scheduleSessionTimers();
+                        ['click', 'keydown', 'input', 'touchstart', 'scroll'].forEach(function (eventName) {
+                            document.addEventListener(eventName, onUserActivity, {passive: true});
                         });
                     })();
                 </script>

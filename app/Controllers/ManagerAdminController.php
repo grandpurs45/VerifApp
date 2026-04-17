@@ -31,7 +31,7 @@ final class ManagerAdminController
         if (!in_array($appTimezone, timezone_identifiers_list(), true)) {
             $appTimezone = 'Europe/Paris';
         }
-        $sessionTimeout = $this->getSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
+        $sessionTimeout = $this->getScopedSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', $caserneId, '120');
         $verificationEveningHour = $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
         $terrainMobileDensity = $this->getScopedSettingValue('terrain_mobile_density', 'TERRAIN_MOBILE_DENSITY', $caserneId, 'normal');
         if (!in_array($terrainMobileDensity, ['compact', 'normal'], true)) {
@@ -148,6 +148,40 @@ final class ManagerAdminController
         }
 
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=timing_saved');
+    }
+
+    public function sessionTimeoutSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=session_timeout_save_failed');
+        }
+
+        $ttlRaw = trim((string) ($_POST['manager_session_ttl_minutes'] ?? ''));
+        if ($ttlRaw === '' || ctype_digit($ttlRaw) === false) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=session_timeout_invalid');
+        }
+
+        $ttl = (int) $ttlRaw;
+        if ($ttl < 5 || $ttl > 1440) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=session_timeout_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $key = 'manager_session_ttl_minutes_caserne_' . $caserneId;
+        if (!$repository->set($key, (string) $ttl)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=session_timeout_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=session_timeout_saved');
     }
 
     public function terrainUxSave(): void

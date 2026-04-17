@@ -93,6 +93,7 @@ $managerRoutes = [
     'manager_admin/menu',
     'manager_admin/settings',
     'manager_admin/verification_timing_save',
+    'manager_admin/session_timeout_save',
     'manager_admin/app_timezone_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
@@ -168,7 +169,14 @@ $pharmacyRoutes = [
 $routeKey = ($controllerName ?? '') . '/' . ($action ?? '');
 $managerSessionExpired = false;
 
-$sessionTimeoutRaw = $readSetting('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
+$sessionCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
+$sessionTimeoutRaw = '';
+if ($sessionCaserneId > 0) {
+    $sessionTimeoutRaw = $readSetting('manager_session_ttl_minutes_caserne_' . $sessionCaserneId, 'MANAGER_SESSION_TTL_MINUTES', '');
+}
+if ($sessionTimeoutRaw === '') {
+    $sessionTimeoutRaw = $readSetting('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', '120');
+}
 $sessionTimeoutMinutes = ctype_digit($sessionTimeoutRaw) ? (int) $sessionTimeoutRaw : 120;
 if ($sessionTimeoutMinutes <= 0) {
     $sessionTimeoutMinutes = 120;
@@ -209,6 +217,7 @@ $managerRoutePermissions = [
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
     'manager_admin/verification_timing_save' => 'users.manage',
+    'manager_admin/session_timeout_save' => 'users.manage',
     'manager_admin/app_timezone_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
@@ -334,6 +343,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_auth' && $action === 'ping') {
+        $controller = new AuthController();
+        $controller->ping();
+        return;
+    }
+
     if ($controllerName === 'field_auth' && $action === 'login_form') {
         if (!$hasFieldAccess) {
             header('Location: /index.php?controller=field&action=denied');
@@ -447,6 +462,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'verification_timing_save') {
         $controller = new ManagerAdminController();
         $controller->verificationTimingSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'session_timeout_save') {
+        $controller = new ManagerAdminController();
+        $controller->sessionTimeoutSave();
         return;
     }
 

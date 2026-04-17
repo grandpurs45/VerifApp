@@ -64,6 +64,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Fuseau horaire global enregistre.
     </section>
+<?php elseif ($success === 'session_timeout_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Expiration de session enregistree pour cette caserne.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -119,6 +123,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'timezone_save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement du fuseau horaire impossible.
+    </section>
+<?php elseif ($error === 'session_timeout_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Valeur session invalide (entre 5 et 1440 minutes).
+    </section>
+<?php elseif ($error === 'session_timeout_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement de l expiration de session impossible.
     </section>
 <?php endif; ?>
 
@@ -260,12 +272,26 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Securite session</h2>
-    <p class="text-sm text-slate-600 mt-2">
-        Expiration de session gestionnaire (minutes): <strong><?= htmlspecialchars($sessionTimeout, ENT_QUOTES, 'UTF-8') ?></strong>
-    </p>
-    <p class="text-xs text-slate-500 mt-2">
-        Source actuelle: <?= $settingsStorage === 'database' ? 'base de donnees (app_settings)' : 'fichier d environnement (.env)' ?>.
-    </p>
+    <p class="text-sm text-slate-600 mt-2">Reglage applique a la caserne active.</p>
+    <form method="post" action="/index.php?controller=manager_admin&action=session_timeout_save" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+        <div>
+            <label for="manager_session_ttl_minutes" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Expiration session (minutes)</label>
+            <input
+                id="manager_session_ttl_minutes"
+                type="number"
+                min="5"
+                max="1440"
+                name="manager_session_ttl_minutes"
+                value="<?= htmlspecialchars((string) $sessionTimeout, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+            <p class="mt-1 text-xs text-slate-500">Plage autorisee: 5 a 1440 min.</p>
+        </div>
+        <div class="md:col-span-2">
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Enregistrer</button>
+        </div>
+    </form>
+    <p class="text-xs text-slate-500 mt-2">Source: caserne active (app_settings), fallback sur valeur globale/env si absent.</p>
 </section>
 
 <section class="rounded-2xl bg-white shadow p-5">
