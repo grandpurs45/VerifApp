@@ -68,6 +68,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Expiration de session enregistree pour cette caserne.
     </section>
+<?php elseif ($success === 'email_settings_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Parametres email enregistres.
+    </section>
+<?php elseif ($success === 'email_test_sent'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Email de test envoye (accepte par le transport configure). Verifie aussi le dossier spam/indesirable.
+    </section>
 <?php elseif ($error === 'caserne_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Nom et code caserne obligatoires.
@@ -131,6 +139,31 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'session_timeout_save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement de l expiration de session impossible.
+    </section>
+<?php elseif ($error === 'email_settings_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Parametres email invalides (expediteur ou nom).
+    </section>
+<?php elseif ($error === 'email_settings_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement des parametres email impossible.
+    </section>
+<?php elseif ($error === 'email_test_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Adresse email de test invalide.
+    </section>
+<?php elseif ($error === 'email_test_disabled'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Active d abord le canal email avant de lancer un test.
+    </section>
+<?php elseif ($error === 'email_test_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Echec envoi test email. Verifie la configuration du transport choisi (mail() PHP ou SMTP).
+        <?php if (isset($_GET['detail']) && trim((string) $_GET['detail']) !== ''): ?>
+            <div class="mt-2 text-xs text-red-800">
+                Detail technique: <?= htmlspecialchars((string) $_GET['detail'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -293,6 +326,148 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </form>
     <p class="text-xs text-slate-500 mt-2">Source: caserne active (app_settings), fallback sur valeur globale/env si absent.</p>
 </section>
+
+<?php if (($isPlatformAdmin ?? false) === true): ?>
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Notifications email</h2>
+    <p class="text-sm text-slate-600 mt-2">Reglages globaux de l application pour le canal email (mail PHP ou SMTP direct).</p>
+    <form method="post" action="/index.php?controller=manager_admin&action=notifications_email_save" class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3 md:col-span-3">
+            <input type="checkbox" name="notifications_email_enabled" value="1" <?= !empty($notificationsEmailEnabled) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+            <span>
+                <span class="block text-sm font-semibold text-slate-800">Activer l envoi email</span>
+                <span class="block text-xs text-slate-500">Canal email active pour les notifications cochees par les utilisateurs.</span>
+            </span>
+        </label>
+        <div>
+            <label for="notifications_email_transport" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Transport</label>
+            <select id="notifications_email_transport" name="notifications_email_transport" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <option value="mail" <?= (string) $notificationsEmailTransport === 'mail' ? 'selected' : '' ?>>mail() PHP</option>
+                <option value="smtp" <?= (string) $notificationsEmailTransport === 'smtp' ? 'selected' : '' ?>>SMTP direct</option>
+            </select>
+        </div>
+        <div>
+            <label for="notifications_email_from" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Email expediteur</label>
+            <input
+                id="notifications_email_from"
+                type="email"
+                name="notifications_email_from"
+                required
+                value="<?= htmlspecialchars((string) $notificationsEmailFrom, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="no-reply@exemple.fr"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_from_name" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Nom expediteur</label>
+            <input
+                id="notifications_email_from_name"
+                type="text"
+                name="notifications_email_from_name"
+                required
+                maxlength="120"
+                value="<?= htmlspecialchars((string) $notificationsEmailFromName, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="VerifApp"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_smtp_host" class="text-xs font-semibold uppercase tracking-wide text-slate-500">SMTP host</label>
+            <input
+                id="notifications_email_smtp_host"
+                type="text"
+                name="notifications_email_smtp_host"
+                value="<?= htmlspecialchars((string) $notificationsEmailSmtpHost, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="smtp.exemple.fr"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_smtp_port" class="text-xs font-semibold uppercase tracking-wide text-slate-500">SMTP port</label>
+            <input
+                id="notifications_email_smtp_port"
+                type="number"
+                min="1"
+                max="65535"
+                name="notifications_email_smtp_port"
+                value="<?= htmlspecialchars((string) $notificationsEmailSmtpPort, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="587"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_smtp_security" class="text-xs font-semibold uppercase tracking-wide text-slate-500">SMTP securite</label>
+            <select id="notifications_email_smtp_security" name="notifications_email_smtp_security" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <option value="none" <?= (string) $notificationsEmailSmtpSecurity === 'none' ? 'selected' : '' ?>>Aucune</option>
+                <option value="tls" <?= (string) $notificationsEmailSmtpSecurity === 'tls' ? 'selected' : '' ?>>TLS (STARTTLS)</option>
+                <option value="ssl" <?= (string) $notificationsEmailSmtpSecurity === 'ssl' ? 'selected' : '' ?>>SSL</option>
+            </select>
+        </div>
+        <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+            <input type="checkbox" name="notifications_email_smtp_auth" value="1" <?= !empty($notificationsEmailSmtpAuth) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+            <span>
+                <span class="block text-sm font-semibold text-slate-800">SMTP avec authentification</span>
+                <span class="block text-xs text-slate-500">Decoche pour relais interne sans login.</span>
+            </span>
+        </label>
+        <div>
+            <label for="notifications_email_smtp_user" class="text-xs font-semibold uppercase tracking-wide text-slate-500">SMTP utilisateur</label>
+            <input
+                id="notifications_email_smtp_user"
+                type="text"
+                name="notifications_email_smtp_user"
+                value="<?= htmlspecialchars((string) $notificationsEmailSmtpUser, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="no-reply@exemple.fr"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_smtp_pass" class="text-xs font-semibold uppercase tracking-wide text-slate-500">SMTP mot de passe</label>
+            <input
+                id="notifications_email_smtp_pass"
+                type="password"
+                name="notifications_email_smtp_pass"
+                value=""
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Laisser vide pour conserver"
+            >
+        </div>
+        <div>
+            <label for="notifications_email_smtp_timeout" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timeout SMTP (sec)</label>
+            <input
+                id="notifications_email_smtp_timeout"
+                type="number"
+                min="3"
+                max="60"
+                name="notifications_email_smtp_timeout"
+                value="<?= htmlspecialchars((string) $notificationsEmailSmtpTimeout, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+        </div>
+        <div class="flex items-end md:col-span-4">
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold w-full">Enregistrer</button>
+        </div>
+    </form>
+    <form method="post" action="/index.php?controller=manager_admin&action=notifications_email_test" class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="md:col-span-2">
+            <label for="notifications_email_test_to" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Destinataire test</label>
+            <input
+                id="notifications_email_test_to"
+                type="email"
+                name="notifications_email_test_to"
+                required
+                value="<?= htmlspecialchars((string) $notificationsEmailTestTo, ENT_QUOTES, 'UTF-8') ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                placeholder="destinataire@exemple.fr"
+            >
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 w-full">Envoyer email de test</button>
+        </div>
+    </form>
+    <p class="text-xs text-slate-500 mt-2">Source: base `app_settings`, fallback `.env` si non configure.</p>
+</section>
+<?php endif; ?>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Decoupage des verifications</h2>

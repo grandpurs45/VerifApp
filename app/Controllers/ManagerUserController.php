@@ -287,9 +287,14 @@ final class ManagerUserController
                 }
             }
 
+            $existingByEmail = $userRepository->findByEmail($email);
+            if ($existingByEmail !== null && (int) ($existingByEmail['id'] ?? 0) !== $id) {
+                $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=email_exists');
+            }
+
             $ok = $userRepository->updateProfile($id, $name, $email, $primaryRole, $active);
             if (!$ok) {
-                $this->redirect('/index.php?controller=manager_users&action=index&error=save_failed');
+                $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=save_failed');
             }
 
             if (!$userRepository->syncCasernes($id, $caserneAssignments, $primaryRole)) {

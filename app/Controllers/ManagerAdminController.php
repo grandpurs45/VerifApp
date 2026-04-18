@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\NotificationRepository;
 use App\Repositories\UserRepository;
 use Throwable;
 
@@ -68,6 +69,24 @@ final class ManagerAdminController
             $caserneId,
             'Pour realiser un inventaire mobile, scanner ce QR code.'
         );
+        $notificationsEmailEnabled = $this->getSettingValue('notifications_email_enabled', 'NOTIFICATIONS_EMAIL_ENABLED', '0') === '1';
+        $notificationsEmailFrom = $this->getSettingValue('notifications_email_from', 'NOTIFICATIONS_EMAIL_FROM', 'no-reply@verifapp.local');
+        $notificationsEmailFromName = $this->getSettingValue('notifications_email_from_name', 'NOTIFICATIONS_EMAIL_FROM_NAME', 'VerifApp');
+        $notificationsEmailTransport = strtolower($this->getSettingValue('notifications_email_transport', 'NOTIFICATIONS_EMAIL_TRANSPORT', 'mail'));
+        if (!in_array($notificationsEmailTransport, ['mail', 'smtp'], true)) {
+            $notificationsEmailTransport = 'mail';
+        }
+        $notificationsEmailSmtpHost = $this->getSettingValue('notifications_email_smtp_host', 'NOTIFICATIONS_EMAIL_SMTP_HOST', '');
+        $notificationsEmailSmtpPort = $this->getSettingValue('notifications_email_smtp_port', 'NOTIFICATIONS_EMAIL_SMTP_PORT', '587');
+        $notificationsEmailSmtpSecurity = strtolower($this->getSettingValue('notifications_email_smtp_security', 'NOTIFICATIONS_EMAIL_SMTP_SECURITY', 'tls'));
+        if (!in_array($notificationsEmailSmtpSecurity, ['none', 'tls', 'ssl'], true)) {
+            $notificationsEmailSmtpSecurity = 'tls';
+        }
+        $notificationsEmailSmtpAuth = $this->getSettingValue('notifications_email_smtp_auth', 'NOTIFICATIONS_EMAIL_SMTP_AUTH', '1') === '1';
+        $notificationsEmailSmtpUser = $this->getSettingValue('notifications_email_smtp_user', 'NOTIFICATIONS_EMAIL_SMTP_USER', '');
+        $notificationsEmailSmtpPass = $this->getSettingValue('notifications_email_smtp_pass', 'NOTIFICATIONS_EMAIL_SMTP_PASS', '');
+        $notificationsEmailSmtpTimeout = $this->getSettingValue('notifications_email_smtp_timeout', 'NOTIFICATIONS_EMAIL_SMTP_TIMEOUT', '12');
+        $notificationsEmailTestTo = is_array($managerUser) ? trim((string) ($managerUser['email'] ?? '')) : '';
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
@@ -86,6 +105,135 @@ final class ManagerAdminController
         $inventoryGuestUrl = $appUrl !== '' ? $appUrl . $inventoryGuestPath : $inventoryGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
+    }
+
+    public function notificationsEmailSave(): void
+    {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $enabled = isset($_POST['notifications_email_enabled']) && (string) $_POST['notifications_email_enabled'] === '1';
+        $from = trim((string) ($_POST['notifications_email_from'] ?? ''));
+        $fromName = trim((string) ($_POST['notifications_email_from_name'] ?? ''));
+        $transport = strtolower(trim((string) ($_POST['notifications_email_transport'] ?? 'mail')));
+        $smtpHost = trim((string) ($_POST['notifications_email_smtp_host'] ?? ''));
+        $smtpPortRaw = trim((string) ($_POST['notifications_email_smtp_port'] ?? '587'));
+        $smtpSecurity = strtolower(trim((string) ($_POST['notifications_email_smtp_security'] ?? 'tls')));
+        $smtpAuth = isset($_POST['notifications_email_smtp_auth']) && (string) $_POST['notifications_email_smtp_auth'] === '1';
+        $smtpUser = trim((string) ($_POST['notifications_email_smtp_user'] ?? ''));
+        $smtpPassPosted = (string) ($_POST['notifications_email_smtp_pass'] ?? '');
+        $smtpTimeoutRaw = trim((string) ($_POST['notifications_email_smtp_timeout'] ?? '12'));
+
+        if ($from === '' || filter_var($from, FILTER_VALIDATE_EMAIL) === false || mb_strlen($from) > 190) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if ($fromName === '' || mb_strlen($fromName) > 120) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if (!in_array($transport, ['mail', 'smtp'], true)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if ($smtpPortRaw === '' || !ctype_digit($smtpPortRaw)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        $smtpPort = (int) $smtpPortRaw;
+        if ($smtpPort < 1 || $smtpPort > 65535) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if (!in_array($smtpSecurity, ['none', 'tls', 'ssl'], true)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if ($smtpTimeoutRaw === '' || !ctype_digit($smtpTimeoutRaw)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        $smtpTimeout = (int) $smtpTimeoutRaw;
+        if ($smtpTimeout < 3 || $smtpTimeout > 60) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if ($transport === 'smtp' && $smtpHost === '') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+        if ($transport === 'smtp' && $smtpAuth && $smtpUser === '') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $smtpPass = trim($smtpPassPosted);
+        if ($smtpPass === '') {
+            $existingPass = (string) ($repository->get('notifications_email_smtp_pass') ?? '');
+            $smtpPass = trim($existingPass);
+        }
+        if ($transport === 'smtp' && $smtpAuth && $smtpPass === '') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_invalid');
+        }
+
+        $saveMap = [
+            'notifications_email_enabled' => $enabled ? '1' : '0',
+            'notifications_email_from' => $from,
+            'notifications_email_from_name' => $fromName,
+            'notifications_email_transport' => $transport,
+            'notifications_email_smtp_host' => $smtpHost,
+            'notifications_email_smtp_port' => (string) $smtpPort,
+            'notifications_email_smtp_security' => $smtpSecurity,
+            'notifications_email_smtp_auth' => $smtpAuth ? '1' : '0',
+            'notifications_email_smtp_user' => $smtpUser,
+            'notifications_email_smtp_pass' => $smtpPass,
+            'notifications_email_smtp_timeout' => (string) $smtpTimeout,
+        ];
+        foreach ($saveMap as $key => $value) {
+            if (!$repository->set($key, $value)) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_settings_save_failed');
+            }
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=email_settings_saved');
+    }
+
+    public function notificationsEmailTest(): void
+    {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $recipient = trim((string) ($_POST['notifications_email_test_to'] ?? ''));
+        if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_test_invalid');
+        }
+
+        $enabled = $this->getSettingValue('notifications_email_enabled', 'NOTIFICATIONS_EMAIL_ENABLED', '0') === '1';
+        if (!$enabled) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_test_disabled');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_test_failed');
+        }
+
+        $repository = new NotificationRepository();
+        $ok = $repository->sendTestEmail($caserneId, $recipient);
+        if (!$ok) {
+            $detail = trim($repository->getLastEmailError());
+            if ($detail !== '') {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_test_failed&detail=' . rawurlencode($detail));
+            }
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=email_test_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=email_test_sent');
     }
 
     public function appTimezoneSave(): void

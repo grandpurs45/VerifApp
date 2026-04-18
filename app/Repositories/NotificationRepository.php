@@ -13,6 +13,40 @@ final class NotificationRepository
     private ?bool $notificationsTableExists = null;
     private ?bool $recipientsTableExists = null;
     private ?bool $subscriptionsTableExists = null;
+    private string $lastEmailError = '';
+
+    public function getLastEmailError(): string
+    {
+        return $this->lastEmailError;
+    }
+
+    public function sendTestEmail(int $caserneId, string $recipientEmail): bool
+    {
+        $this->lastEmailError = '';
+        $recipientEmail = trim($recipientEmail);
+        if ($caserneId <= 0 || $recipientEmail === '' || filter_var($recipientEmail, FILTER_VALIDATE_EMAIL) === false) {
+            $this->lastEmailError = 'Destinataire test invalide.';
+            return false;
+        }
+
+        $title = 'Test notifications email';
+        $message = 'Si tu reçois ce message, le canal email VerifApp fonctionne sur ce serveur.';
+
+        return $this->sendEmailNotifications(
+            $caserneId,
+            'anomaly.updated',
+            $title,
+            $message,
+            '/index.php?controller=manager_admin&action=settings',
+            [
+                [
+                    'id' => 0,
+                    'email' => $recipientEmail,
+                    'nom' => 'Test',
+                ],
+            ]
+        );
+    }
 
     /**
      * @return array<string, array{label: string, description: string, default_roles: array<int, string>}>
@@ -50,7 +84,8 @@ final class NotificationRepository
         string $message,
         ?string $link = null,
         ?int $actorUserId = null,
-        ?string $actorName = null
+        ?string $actorName = null,
+        array $context = []
     ): bool {
         if (!$this->isAvailable() || $caserneId <= 0) {
             return false;
@@ -128,7 +163,7 @@ final class NotificationRepository
         }
 
         if ($emailRecipients !== []) {
-            $this->sendEmailNotifications($caserneId, $title, $message, $link, $emailRecipients);
+            $this->sendEmailNotifications($caserneId, $eventCode, $title, $message, $link, $emailRecipients, $context);
         }
 
         return true;
@@ -578,15 +613,16 @@ final class NotificationRepository
     /**
      * @param array<int, array{id:int,email:string,nom:string}> $recipients
      */
-    private function sendEmailNotifications(int $caserneId, string $title, string $message, ?string $link, array $recipients): void
+    private function sendEmailNotifications(int $caserneId, string $eventCode, string $title, string $message, ?string $link, array $recipients, array $context = []): bool
     {
-        $enabled = trim((string) Env::get('NOTIFICATIONS_EMAIL_ENABLED', '0'));
-        if ($enabled !== '1') {
-            return;
+        $this->lastEmailError = '';
+        $config = $this->readEmailConfig();
+        if (!$config['enabled']) {
+            $this->lastEmailError = 'Canal email desactive.';
+            return false;
         }
-
-        $from = trim((string) Env::get('NOTIFICATIONS_EMAIL_FROM', 'no-reply@verifapp.local'));
-        $fromName = trim((string) Env::get('NOTIFICATIONS_EMAIL_FROM_NAME', 'VerifApp'));
+        $from = (string) $config['from'];
+        $fromName = (string) $config['from_name'];
         $appUrl = rtrim((string) Env::get('APP_URL', ''), '/');
 
         $subject = '[VerifApp] ' . trim($title);
@@ -595,37 +631,450 @@ final class NotificationRepository
         }
         $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
 
-        $bodyLines = [
-            trim($title),
-            '',
-            trim($message),
-        ];
-        if ($link !== null && trim($link) !== '') {
-            $href = trim($link);
-            if (str_starts_with($href, '/')) {
-                $href = $appUrl !== '' ? ($appUrl . $href) : $href;
-            }
-            $bodyLines[] = '';
-            $bodyLines[] = 'Lien: ' . $href;
-        }
-        $bodyLines[] = '';
-        $bodyLines[] = 'Caserne #' . $caserneId;
-        $body = implode("\r\n", $bodyLines);
+        $bodies = $this->buildEmailBodies($caserneId, $eventCode, $title, $message, $link, $context, $appUrl);
+        $bodyText = $bodies['text'];
+        $bodyHtml = $bodies['html'];
 
+        $boundary = 'verifapp_' . md5((string) microtime(true) . (string) mt_rand());
         $headers = [
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
             'From: ' . ($fromName !== '' ? ($fromName . ' <' . $from . '>') : $from),
         ];
         $headerText = implode("\r\n", $headers);
+        $mailBody = $this->buildMultipartBody($boundary, $bodyText, $bodyHtml);
+        $hasRecipient = false;
+        $hasSent = false;
 
         foreach ($recipients as $recipient) {
             $email = trim((string) ($recipient['email'] ?? ''));
             if ($email === '') {
                 continue;
             }
-            @mail($email, $encodedSubject, $body, $headerText);
+            $hasRecipient = true;
+            if ((string) $config['transport'] === 'smtp') {
+                $sent = $this->sendViaSmtp((array) $config, $email, $subject, $bodyText, $bodyHtml, $from, $fromName);
+            } else {
+                $sent = @mail($email, $encodedSubject, $mailBody, $headerText);
+                if (!$sent) {
+                    $this->lastEmailError = 'mail() PHP a retourne false.';
+                }
+            }
+            if ($sent) {
+                $hasSent = true;
+            }
         }
+
+        if (!$hasRecipient) {
+            $this->lastEmailError = 'Aucun destinataire email valide.';
+        } elseif (!$hasSent && $this->lastEmailError === '') {
+            $this->lastEmailError = 'Envoi email refuse par le transport.';
+        }
+
+        return $hasRecipient && $hasSent;
+    }
+
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   from: string,
+     *   from_name: string,
+     *   transport: string,
+     *   smtp_host: string,
+     *   smtp_port: int,
+     *   smtp_security: string,
+     *   smtp_auth: bool,
+     *   smtp_user: string,
+     *   smtp_pass: string,
+     *   smtp_timeout: int
+     * }
+     */
+    private function readEmailConfig(): array
+    {
+        $settingRepository = new AppSettingRepository();
+        $read = static function (string $settingKey, string $envKey, string $default = '') use ($settingRepository): string {
+            if ($settingRepository->isAvailable()) {
+                $value = $settingRepository->get($settingKey);
+                if ($value !== null && trim((string) $value) !== '') {
+                    return trim((string) $value);
+                }
+            }
+
+            return trim((string) (Env::get($envKey, $default) ?? $default));
+        };
+
+        $enabled = $read('notifications_email_enabled', 'NOTIFICATIONS_EMAIL_ENABLED', '0') === '1';
+        $from = $read('notifications_email_from', 'NOTIFICATIONS_EMAIL_FROM', 'no-reply@verifapp.local');
+        $fromName = $read('notifications_email_from_name', 'NOTIFICATIONS_EMAIL_FROM_NAME', 'VerifApp');
+        $transport = strtolower($read('notifications_email_transport', 'NOTIFICATIONS_EMAIL_TRANSPORT', 'mail'));
+        if (!in_array($transport, ['mail', 'smtp'], true)) {
+            $transport = 'mail';
+        }
+        $smtpHost = $read('notifications_email_smtp_host', 'NOTIFICATIONS_EMAIL_SMTP_HOST', '');
+        $smtpPortRaw = $read('notifications_email_smtp_port', 'NOTIFICATIONS_EMAIL_SMTP_PORT', '587');
+        $smtpPort = ctype_digit($smtpPortRaw) ? (int) $smtpPortRaw : 587;
+        if ($smtpPort <= 0 || $smtpPort > 65535) {
+            $smtpPort = 587;
+        }
+        $smtpSecurity = strtolower($read('notifications_email_smtp_security', 'NOTIFICATIONS_EMAIL_SMTP_SECURITY', 'tls'));
+        if (!in_array($smtpSecurity, ['none', 'tls', 'ssl'], true)) {
+            $smtpSecurity = 'tls';
+        }
+        $smtpAuth = $read('notifications_email_smtp_auth', 'NOTIFICATIONS_EMAIL_SMTP_AUTH', '1') === '1';
+        $smtpUser = $read('notifications_email_smtp_user', 'NOTIFICATIONS_EMAIL_SMTP_USER', '');
+        $smtpPass = $read('notifications_email_smtp_pass', 'NOTIFICATIONS_EMAIL_SMTP_PASS', '');
+        $smtpTimeoutRaw = $read('notifications_email_smtp_timeout', 'NOTIFICATIONS_EMAIL_SMTP_TIMEOUT', '12');
+        $smtpTimeout = ctype_digit($smtpTimeoutRaw) ? (int) $smtpTimeoutRaw : 12;
+        if ($smtpTimeout < 3 || $smtpTimeout > 60) {
+            $smtpTimeout = 12;
+        }
+
+        return [
+            'enabled' => $enabled,
+            'from' => $from,
+            'from_name' => $fromName,
+            'transport' => $transport,
+            'smtp_host' => $smtpHost,
+            'smtp_port' => $smtpPort,
+            'smtp_security' => $smtpSecurity,
+            'smtp_auth' => $smtpAuth,
+            'smtp_user' => $smtpUser,
+            'smtp_pass' => $smtpPass,
+            'smtp_timeout' => $smtpTimeout,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function sendViaSmtp(array $config, string $toEmail, string $subject, string $bodyText, string $bodyHtml, string $fromEmail, string $fromName): bool
+    {
+        $host = trim((string) ($config['smtp_host'] ?? ''));
+        $port = (int) ($config['smtp_port'] ?? 587);
+        $security = (string) ($config['smtp_security'] ?? 'tls');
+        $authEnabled = (bool) ($config['smtp_auth'] ?? true);
+        $username = trim((string) ($config['smtp_user'] ?? ''));
+        $password = (string) ($config['smtp_pass'] ?? '');
+        $timeout = (int) ($config['smtp_timeout'] ?? 12);
+
+        if ($host === '' || $port <= 0) {
+            $this->lastEmailError = 'SMTP host/port invalide.';
+            return false;
+        }
+        if ($authEnabled && ($username === '' || $password === '')) {
+            $this->lastEmailError = 'SMTP auth active mais user/pass manquants.';
+            return false;
+        }
+
+        $remoteHost = $security === 'ssl' ? 'ssl://' . $host : $host;
+        $socket = @stream_socket_client($remoteHost . ':' . $port, $errno, $errstr, $timeout);
+        if (!is_resource($socket)) {
+            $this->lastEmailError = 'Connexion SMTP impossible: ' . $host . ':' . $port . ' (' . $errstr . ')';
+            return false;
+        }
+
+        stream_set_timeout($socket, $timeout);
+
+        if (!$this->smtpExpect($socket, [220])) {
+            $this->lastEmailError = 'SMTP: banniere serveur invalide.';
+            fclose($socket);
+            return false;
+        }
+
+        $helloHost = parse_url((string) Env::get('APP_URL', ''), PHP_URL_HOST);
+        if (!is_string($helloHost) || trim($helloHost) === '') {
+            $helloHost = 'localhost';
+        }
+
+        if (!$this->smtpCommand($socket, 'EHLO ' . $helloHost, [250])) {
+            $this->lastEmailError = 'SMTP: EHLO refuse.';
+            fclose($socket);
+            return false;
+        }
+
+        if ($security === 'tls') {
+            if (!$this->smtpCommand($socket, 'STARTTLS', [220])) {
+                $this->lastEmailError = 'SMTP: STARTTLS refuse.';
+                fclose($socket);
+                return false;
+            }
+            $cryptoEnabled = @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+            if ($cryptoEnabled !== true) {
+                $this->lastEmailError = 'SMTP: echec negotiation TLS.';
+                fclose($socket);
+                return false;
+            }
+            if (!$this->smtpCommand($socket, 'EHLO ' . $helloHost, [250])) {
+                $this->lastEmailError = 'SMTP: EHLO apres TLS refuse.';
+                fclose($socket);
+                return false;
+            }
+        }
+
+        if ($authEnabled) {
+            $authOk = false;
+            if ($this->smtpCommand($socket, 'AUTH LOGIN', [334])) {
+                if ($this->smtpCommand($socket, base64_encode($username), [334])) {
+                    if ($this->smtpCommand($socket, base64_encode($password), [235])) {
+                        $authOk = true;
+                    }
+                }
+            }
+            if (!$authOk) {
+                $plain = base64_encode("\0" . $username . "\0" . $password);
+                if ($this->smtpCommand($socket, 'AUTH PLAIN ' . $plain, [235])) {
+                    $authOk = true;
+                }
+            }
+            if (!$authOk) {
+                $this->lastEmailError = 'SMTP: authentification refusee (LOGIN/PLAIN).';
+                fclose($socket);
+                return false;
+            }
+        }
+
+        if (!$this->smtpCommand($socket, 'MAIL FROM:<' . $fromEmail . '>', [250])) {
+            $this->lastEmailError = 'SMTP: MAIL FROM refuse.';
+            fclose($socket);
+            return false;
+        }
+        if (!$this->smtpCommand($socket, 'RCPT TO:<' . $toEmail . '>', [250, 251])) {
+            $this->lastEmailError = 'SMTP: RCPT TO refuse pour ' . $toEmail . '.';
+            fclose($socket);
+            return false;
+        }
+        if (!$this->smtpCommand($socket, 'DATA', [354])) {
+            $this->lastEmailError = 'SMTP: DATA refuse.';
+            fclose($socket);
+            return false;
+        }
+
+        $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
+        $displayFrom = $fromName !== '' ? mb_encode_mimeheader($fromName, 'UTF-8') . ' <' . $fromEmail . '>' : $fromEmail;
+        $boundary = 'verifapp_' . md5((string) microtime(true) . (string) mt_rand());
+        $multipartBody = $this->buildMultipartBody($boundary, $bodyText, $bodyHtml);
+        $payload = implode("\r\n", [
+            'Date: ' . date('r'),
+            'From: ' . $displayFrom,
+            'To: <' . $toEmail . '>',
+            'Subject: ' . $encodedSubject,
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+            'Content-Transfer-Encoding: 8bit',
+            '',
+            str_replace(["\r\n", "\r"], "\n", $multipartBody),
+        ]);
+        $payload = str_replace("\n", "\r\n", $payload);
+        fwrite($socket, $payload . "\r\n.\r\n");
+        if (!$this->smtpExpect($socket, [250])) {
+            $this->lastEmailError = 'SMTP: echec validation du message.';
+            fclose($socket);
+            return false;
+        }
+
+        $this->smtpCommand($socket, 'QUIT', [221]);
+        fclose($socket);
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array{text:string,html:string}
+     */
+    private function buildEmailBodies(int $caserneId, string $eventCode, string $title, string $message, ?string $link, array $context, string $appUrl): array
+    {
+        $caserneLabel = $this->resolveCaserneLabel($caserneId);
+        $href = null;
+        if ($link !== null && trim($link) !== '') {
+            $href = trim($link);
+            if (str_starts_with($href, '/')) {
+                $href = $appUrl !== '' ? ($appUrl . $href) : $href;
+            }
+        }
+
+        if ($eventCode === 'pharmacy.output.created' && isset($context['lines']) && is_array($context['lines'])) {
+            $declarant = trim((string) ($context['declarant'] ?? ''));
+            $textRows = [];
+            $htmlRows = [];
+            foreach ($context['lines'] as $line) {
+                if (!is_array($line)) {
+                    continue;
+                }
+                $article = trim((string) ($line['article'] ?? 'Article'));
+                $quantity = isset($line['quantity']) ? (float) $line['quantity'] : 0.0;
+                $comment = trim((string) ($line['comment'] ?? ''));
+                $quantityLabel = $this->formatQuantity($quantity);
+                $textRows[] = '- ' . $article . ' : ' . $quantityLabel . ($comment !== '' ? (' | ' . $comment) : '');
+                $htmlRows[] = '<tr>'
+                    . '<td style="padding:8px;border:1px solid #dbe5f1;">' . $this->escapeHtml($article) . '</td>'
+                    . '<td style="padding:8px;border:1px solid #dbe5f1;text-align:right;white-space:nowrap;">' . $this->escapeHtml($quantityLabel) . '</td>'
+                    . '<td style="padding:8px;border:1px solid #dbe5f1;">' . ($comment !== '' ? $this->escapeHtml($comment) : '-') . '</td>'
+                    . '</tr>';
+            }
+
+            $textLines = [
+                trim($title),
+                '',
+                trim($message),
+            ];
+            if ($declarant !== '') {
+                $textLines[] = 'Declarant: ' . $declarant;
+            }
+            if ($textRows !== []) {
+                $textLines[] = '';
+                $textLines[] = 'Detail des articles:';
+                foreach ($textRows as $row) {
+                    $textLines[] = $row;
+                }
+            }
+            if ($href !== null) {
+                $textLines[] = '';
+                $textLines[] = 'Ouvrir les sorties: ' . $href;
+            }
+            $textLines[] = '';
+            $textLines[] = 'Caserne: ' . $caserneLabel;
+
+            $html = '<!doctype html><html><body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+                . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f1;border-radius:12px;overflow:hidden;">'
+                . '<tr><td style="padding:16px 20px;background:#0f172a;color:#ffffff;">'
+                . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp</div>'
+                . '<div style="font-size:22px;font-weight:700;margin-top:6px;">' . $this->escapeHtml($title) . '</div>'
+                . '</td></tr>'
+                . '<tr><td style="padding:16px 20px;">'
+                . '<p style="margin:0 0 8px 0;font-size:15px;line-height:1.5;">' . $this->escapeHtml($message) . '</p>'
+                . ($declarant !== '' ? ('<p style="margin:0 0 14px 0;font-size:14px;color:#334155;"><strong>Declarant:</strong> ' . $this->escapeHtml($declarant) . '</p>') : '')
+                . ($htmlRows !== [] ? ('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">'
+                    . '<thead><tr>'
+                    . '<th align="left" style="padding:8px;border:1px solid #dbe5f1;background:#f8fafc;">Article</th>'
+                    . '<th align="right" style="padding:8px;border:1px solid #dbe5f1;background:#f8fafc;">Quantite</th>'
+                    . '<th align="left" style="padding:8px;border:1px solid #dbe5f1;background:#f8fafc;">Commentaire</th>'
+                    . '</tr></thead><tbody>' . implode('', $htmlRows) . '</tbody></table>') : '')
+                . ($href !== null ? ('<p style="margin:16px 0 0 0;"><a href="' . $this->escapeHtml($href) . '" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:600;">Ouvrir les sorties</a></p>') : '')
+                . '<p style="margin:16px 0 0 0;font-size:12px;color:#64748b;">Caserne: <strong>' . $this->escapeHtml($caserneLabel) . '</strong></p>'
+                . '</td></tr></table></body></html>';
+
+            return [
+                'text' => implode("\r\n", $textLines),
+                'html' => $html,
+            ];
+        }
+
+        $bodyLines = [
+            trim($title),
+            '',
+            trim($message),
+        ];
+        if ($href !== null) {
+            $bodyLines[] = '';
+            $bodyLines[] = 'Lien: ' . $href;
+        }
+        $bodyLines[] = '';
+        $bodyLines[] = 'Caserne: ' . $caserneLabel;
+
+        $fallbackText = implode("\r\n", $bodyLines);
+        $fallbackHtml = '<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+            . '<h2 style="margin:0 0 12px 0;">' . $this->escapeHtml($title) . '</h2>'
+            . '<p style="margin:0 0 8px 0;">' . nl2br($this->escapeHtml($message)) . '</p>'
+            . ($href !== null ? ('<p style="margin:8px 0;"><a href="' . $this->escapeHtml($href) . '">Ouvrir le lien</a></p>') : '')
+            . '<p style="margin:8px 0 0 0;color:#64748b;font-size:12px;">Caserne: <strong>' . $this->escapeHtml($caserneLabel) . '</strong></p>'
+            . '</body></html>';
+
+        return [
+            'text' => $fallbackText,
+            'html' => $fallbackHtml,
+        ];
+    }
+
+    private function buildMultipartBody(string $boundary, string $bodyText, string $bodyHtml): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $bodyText);
+        $html = str_replace(["\r\n", "\r"], "\n", $bodyHtml);
+
+        $lines = [
+            '--' . $boundary,
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
+            '',
+            $text,
+            '--' . $boundary,
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
+            '',
+            $html,
+            '--' . $boundary . '--',
+            '',
+        ];
+
+        return implode("\r\n", $lines);
+    }
+
+    private function formatQuantity(float $value): string
+    {
+        if (abs($value - round($value)) < 0.00001) {
+            return (string) (int) round($value) . ' u';
+        }
+
+        return number_format($value, 2, ',', ' ') . ' u';
+    }
+
+    private function escapeHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function resolveCaserneLabel(int $caserneId): string
+    {
+        if ($caserneId <= 0) {
+            return 'Non definie';
+        }
+
+        try {
+            $caserne = (new CaserneRepository())->findById($caserneId);
+            if (is_array($caserne)) {
+                $name = trim((string) ($caserne['nom'] ?? ''));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+        } catch (\Throwable $throwable) {
+            // silent fallback on ID label
+        }
+
+        return '#' . $caserneId;
+    }
+
+    /**
+     * @param resource $socket
+     * @param array<int, int> $expectedCodes
+     */
+    private function smtpCommand($socket, string $command, array $expectedCodes): bool
+    {
+        fwrite($socket, $command . "\r\n");
+
+        return $this->smtpExpect($socket, $expectedCodes);
+    }
+
+    /**
+     * @param resource $socket
+     * @param array<int, int> $expectedCodes
+     */
+    private function smtpExpect($socket, array $expectedCodes): bool
+    {
+        $lastCode = null;
+        while (($line = fgets($socket, 515)) !== false) {
+            $line = rtrim($line, "\r\n");
+            if (strlen($line) < 3 || !ctype_digit(substr($line, 0, 3))) {
+                continue;
+            }
+            $lastCode = (int) substr($line, 0, 3);
+            $isLastLine = strlen($line) >= 4 ? $line[3] !== '-' : true;
+            if ($isLastLine) {
+                break;
+            }
+        }
+
+        return $lastCode !== null && in_array($lastCode, $expectedCodes, true);
     }
 
     /**

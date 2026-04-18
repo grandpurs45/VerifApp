@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v0.18.1` (voir fichier `VERSION`).
+Version courante: `v0.19.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -163,7 +163,19 @@ Pharmacie (backoffice):
 Notifications email (optionnel):
 - activer `NOTIFICATIONS_EMAIL_ENABLED=1`
 - definir `NOTIFICATIONS_EMAIL_FROM` et `NOTIFICATIONS_EMAIL_FROM_NAME`
+- choisir le transport:
+  - `NOTIFICATIONS_EMAIL_TRANSPORT=mail` (mail() PHP)
+  - `NOTIFICATIONS_EMAIL_TRANSPORT=smtp` (SMTP direct depuis VerifApp)
+- si `smtp`, configurer:
+  - `NOTIFICATIONS_EMAIL_SMTP_HOST`
+  - `NOTIFICATIONS_EMAIL_SMTP_PORT` (ex: `587`)
+  - `NOTIFICATIONS_EMAIL_SMTP_SECURITY` (`none`, `tls`, `ssl`)
+  - `NOTIFICATIONS_EMAIL_SMTP_AUTH` (`1` ou `0`)
+  - `NOTIFICATIONS_EMAIL_SMTP_USER`
+  - `NOTIFICATIONS_EMAIL_SMTP_PASS`
+  - `NOTIFICATIONS_EMAIL_SMTP_TIMEOUT` (3 a 60 sec)
 - configurer ensuite les preferences utilisateur dans `Mon compte` (cloche/email)
+- utiliser le bouton `Envoyer email de test` dans `Administration -> Parametres application`
 
 ## Vue mensuelle des verifications
 URL:

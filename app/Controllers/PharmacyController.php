@@ -90,6 +90,7 @@ final class PharmacyController
             $articlesById[(int) ($article['id'] ?? 0)] = $article;
         }
         $lines = [];
+        $notificationLines = [];
         $hasOtherLine = false;
 
         $maxRows = max(
@@ -167,6 +168,11 @@ final class PharmacyController
                 'article_libre_nom' => $isOtherArticle ? 'Autre (hors liste)' : null,
                 'commentaire' => $composedComment === '' ? null : $composedComment,
             ];
+            $notificationLines[] = [
+                'article' => $isOtherArticle ? 'Autre (hors liste)' : (string) ($article['nom'] ?? ''),
+                'quantity' => (float) $quantityValue,
+                'comment' => $composedComment,
+            ];
         }
 
         if ($lines === []) {
@@ -191,7 +197,11 @@ final class PharmacyController
             count($lines) . ' ligne(s) enregistree(s) par ' . $declarant,
             '/index.php?controller=manager_pharmacy&action=outputs',
             null,
-            $declarant
+            $declarant,
+            [
+                'declarant' => $declarant,
+                'lines' => $notificationLines,
+            ]
         );
 
         $this->redirect('/index.php?controller=pharmacy&action=form&success=1&items=' . count($lines));

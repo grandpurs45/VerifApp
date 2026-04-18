@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use App\Core\Database;
 use PDO;
+use PDOException;
 
 final class UserRepository
 {
@@ -224,13 +225,17 @@ final class UserRepository
             ');
         }
 
-        return $statement->execute([
-            'nom' => $name,
-            'email' => $email,
-            'mot_de_passe' => $passwordHash,
-            'role' => $role,
-            'actif' => $active ? 1 : 0,
-        ]);
+        try {
+            return $statement->execute([
+                'nom' => $name,
+                'email' => $email,
+                'mot_de_passe' => $passwordHash,
+                'role' => $role,
+                'actif' => $active ? 1 : 0,
+            ]);
+        } catch (PDOException $exception) {
+            return false;
+        }
     }
 
     public function updateProfile(int $id, string $name, string $email, string $role, bool $active): bool
@@ -250,13 +255,17 @@ final class UserRepository
             WHERE id = :id
         ');
 
-        return $statement->execute([
-            'id' => $id,
-            'nom' => $name,
-            'email' => $email,
-            'role' => $role,
-            'actif' => $active ? 1 : 0,
-        ]);
+        try {
+            return $statement->execute([
+                'id' => $id,
+                'nom' => $name,
+                'email' => $email,
+                'role' => $role,
+                'actif' => $active ? 1 : 0,
+            ]);
+        } catch (PDOException $exception) {
+            return false;
+        }
     }
 
     public function deactivate(int $id): bool

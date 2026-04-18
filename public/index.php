@@ -94,6 +94,8 @@ $managerRoutes = [
     'manager_admin/settings',
     'manager_admin/verification_timing_save',
     'manager_admin/session_timeout_save',
+    'manager_admin/notifications_email_save',
+    'manager_admin/notifications_email_test',
     'manager_admin/app_timezone_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
@@ -218,6 +220,8 @@ $managerRoutePermissions = [
     'manager_admin/settings' => 'users.manage',
     'manager_admin/verification_timing_save' => 'users.manage',
     'manager_admin/session_timeout_save' => 'users.manage',
+    'manager_admin/notifications_email_save' => 'users.manage',
+    'manager_admin/notifications_email_test' => 'users.manage',
     'manager_admin/app_timezone_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
@@ -468,6 +472,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'session_timeout_save') {
         $controller = new ManagerAdminController();
         $controller->sessionTimeoutSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'notifications_email_save') {
+        $controller = new ManagerAdminController();
+        $controller->notificationsEmailSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'notifications_email_test') {
+        $controller = new ManagerAdminController();
+        $controller->notificationsEmailTest();
         return;
     }
 

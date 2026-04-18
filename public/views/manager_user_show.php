@@ -38,7 +38,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php endif; ?>
 <?php if (isset($_GET['error'])): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Operation refusee. Verifie les donnees saisies.
+        <?php if ((string) $_GET['error'] === 'email_exists'): ?>
+            Cet email est deja utilise par un autre compte.
+        <?php else: ?>
+            Operation refusee. Verifie les donnees saisies.
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 

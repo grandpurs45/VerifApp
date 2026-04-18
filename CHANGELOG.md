@@ -9,6 +9,31 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.19.1] - 2026-04-18
+
+### Added
+- Notifications email:
+  - configuration SMTP complete dans `Parametres application` (transport, host, port, securite, auth, user/pass, timeout)
+  - bouton d envoi de mail de test depuis l administration
+  - details d erreur plus explicites sur les echecs d envoi
+- Notifications sorties pharmacie:
+  - emails formates en HTML (multipart texte + HTML)
+  - tableau detaille des lignes sorties (article, quantite, commentaire)
+  - affichage explicite du nom de la caserne dans le contenu
+
+### Changed
+- Canal email:
+  - prise en charge `mail()` PHP ou SMTP direct selon les reglages
+  - conservation du mot de passe SMTP existant si le champ reste vide lors de la sauvegarde
+- Documentation:
+  - mise a jour README + exemples d environnement pour la configuration notifications email
+
+### Fixed
+- Notifications:
+  - correction de l envoi sur evenement `pharmacy.output.created` avec rendu detaille
+- Utilisateurs:
+  - prevention du crash sur collision d email (retour erreur geree au lieu d erreur fatale SQL)
+
 ## [0.19.0] - 2026-04-17
 
 ### Added
