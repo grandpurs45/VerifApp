@@ -15,6 +15,8 @@ if (!isset($roleOptions[$defaultRoleCode])) {
     $firstRoleCode = array_key_first($roleOptions);
     $defaultRoleCode = is_string($firstRoleCode) ? $firstRoleCode : '';
 }
+$passwordPolicy = \App\Core\PasswordPolicy::policy();
+$passwordMinLength = (int) ($passwordPolicy['min_length'] ?? 12);
 
 $managerUser = $_SESSION['manager_user'] ?? [];
 $selectedIsCurrent = isset($managerUser['id']) && (int) $managerUser['id'] === (int) ($user['id'] ?? 0);
@@ -85,7 +87,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </div>
         <div class="md:col-span-2">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reset MDP</label>
-            <input type="password" name="password" minlength="12" placeholder="Nouveau mot de passe (min 12 + complexe)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <input type="password" name="password" minlength="<?= $passwordMinLength ?>" placeholder="Nouveau mot de passe (min <?= $passwordMinLength ?> + complexe)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
         </div>
 
         <div class="md:col-span-12 rounded-xl border border-slate-200 p-3">

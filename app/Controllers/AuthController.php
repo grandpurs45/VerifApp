@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\ManagerAccess;
 use App\Core\PasswordPolicy;
 use App\Repositories\CaserneRepository;
+use App\Repositories\LoginEventRepository;
 use App\Repositories\LoginAttemptRepository;
 use App\Repositories\UserRepository;
 
@@ -37,8 +38,10 @@ final class AuthController
         $identifier = trim((string) ($_POST['identifier'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
         $ipAddress = $this->resolveClientIp();
+        $userAgent = $this->resolveUserAgent();
 
         if ($identifier === '' || $password === '') {
+            $this->logLoginEvent(null, null, $identifier !== '' ? $identifier : 'missing', $ipAddress, $userAgent, 'failure', 'missing_fields');
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=missing_fields');
         }
 
@@ -46,6 +49,7 @@ final class AuthController
         $lockStatus = $loginAttemptRepository->checkLock($identifier, $ipAddress);
         if (($lockStatus['locked'] ?? false) === true) {
             $retryIn = max(1, (int) ($lockStatus['remaining_seconds'] ?? 0));
+            $this->logLoginEvent(null, null, $identifier, $ipAddress, $userAgent, 'failure', 'locked');
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=too_many_attempts&retry_in=' . $retryIn);
         }
 
@@ -57,9 +61,21 @@ final class AuthController
             (int) $user['actif'] !== 1 ||
             !password_verify($password, (string) $user['mot_de_passe'])
         ) {
+            $resolvedUserId = is_array($user) ? (int) ($user['id'] ?? 0) : 0;
+            $reason = $user === null ? 'invalid_credentials' : ((int) ($user['actif'] ?? 0) !== 1 ? 'inactive_user' : 'invalid_credentials');
+            $this->logLoginEvent(
+                null,
+                $resolvedUserId > 0 ? $resolvedUserId : null,
+                $identifier,
+                $ipAddress,
+                $userAgent,
+                'failure',
+                $reason
+            );
             $failure = $loginAttemptRepository->registerFailure($identifier, $ipAddress);
             if (($failure['locked'] ?? false) === true) {
                 $retryIn = max(1, (int) ($failure['remaining_seconds'] ?? 0));
+                $this->logLoginEvent(null, $resolvedUserId > 0 ? $resolvedUserId : null, $identifier, $ipAddress, $userAgent, 'failure', 'locked');
                 $this->redirect('/index.php?controller=manager_auth&action=login_form&error=too_many_attempts&retry_in=' . $retryIn);
             }
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
@@ -68,13 +84,22 @@ final class AuthController
         $loginAttemptRepository->clearOnSuccess($identifier, $ipAddress);
 
         if ((int) ($user['must_change_password'] ?? 0) === 1) {
+            $this->logLoginEvent(
+                null,
+                (int) ($user['id'] ?? 0),
+                $identifier,
+                $ipAddress,
+                $userAgent,
+                'success',
+                'password_change_required'
+            );
             $_SESSION['manager_password_reset_user'] = [
                 'id' => (int) $user['id'],
             ];
             $this->redirect('/index.php?controller=manager_auth&action=change_password_form');
         }
 
-        $this->startManagerSessionForUser((int) $user['id'], false);
+        $this->startManagerSessionForUser((int) $user['id'], false, $identifier, $ipAddress, $userAgent);
     }
 
     public function logout(): void
@@ -208,6 +233,25 @@ final class AuthController
         if (!is_array($selectedCaserne)) {
             $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form&error=invalid_caserne');
         }
+        $ipAddress = $this->resolveClientIp();
+        $userAgent = $this->resolveUserAgent();
+        $identifier = trim((string) ($pending['login_identifier'] ?? ''));
+        if ($identifier === '') {
+            $identifier = trim((string) ($pending['email'] ?? '')) !== '' ? (string) $pending['email'] : (string) ($pending['nom'] ?? 'select-caserne');
+        }
+        $ipAddress = trim((string) ($pending['login_ip_address'] ?? $ipAddress));
+        $userAgent = trim((string) ($pending['login_user_agent'] ?? $userAgent));
+        $resolvedUserId = (int) ($pending['user_id'] ?? 0);
+        $selectedCaserneId = (int) ($selectedCaserne['id'] ?? 0);
+        $this->logLoginEvent(
+            $selectedCaserneId > 0 ? $selectedCaserneId : null,
+            $resolvedUserId > 0 ? $resolvedUserId : null,
+            $identifier,
+            $ipAddress,
+            $userAgent,
+            'success',
+            'login_ok'
+        );
 
         $sessionUser = [
             'id' => (int) $pending['user_id'],
@@ -284,7 +328,13 @@ final class AuthController
         exit;
     }
 
-    private function startManagerSessionForUser(int $userId, bool $afterPasswordChange): void
+    private function startManagerSessionForUser(
+        int $userId,
+        bool $afterPasswordChange,
+        string $identifier = '',
+        string $ipAddress = '0.0.0.0',
+        string $userAgent = ''
+    ): void
     {
         $userRepository = new UserRepository();
         $caserneRepository = new CaserneRepository();
@@ -313,6 +363,16 @@ final class AuthController
         }
 
         if (count($accessibleCasernes) === 1) {
+            $onlyCaserneId = (int) ($accessibleCasernes[0]['id'] ?? 0);
+            $this->logLoginEvent(
+                $onlyCaserneId > 0 ? $onlyCaserneId : null,
+                (int) ($user['id'] ?? 0),
+                $identifier !== '' ? $identifier : (string) ($user['email'] ?? $user['nom'] ?? 'manager'),
+                $ipAddress,
+                $userAgent,
+                'success',
+                'login_ok'
+            );
             $this->createAuthenticatedSession($user, $accessibleCasernes[0]);
             $this->redirect('/index.php?controller=manager&action=dashboard' . ($afterPasswordChange ? '&password_changed=1' : ''));
         }
@@ -322,6 +382,9 @@ final class AuthController
             'nom' => (string) $user['nom'],
             'email' => (string) $user['email'],
             'role' => (string) $user['role'],
+            'login_identifier' => $identifier,
+            'login_ip_address' => $ipAddress,
+            'login_user_agent' => $userAgent,
             'casernes' => $accessibleCasernes,
             'after_password_change' => $afterPasswordChange ? 1 : 0,
         ];
@@ -377,5 +440,60 @@ final class AuthController
         }
 
         return '0.0.0.0';
+    }
+
+    private function resolveUserAgent(): string
+    {
+        $userAgent = trim((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        if ($userAgent === '') {
+            return '';
+        }
+
+        return mb_substr($userAgent, 0, 500);
+    }
+
+    private function resolvePreferredCaserneId(array $user): ?int
+    {
+        $preferred = isset($user['caserne_prioritaire_id']) ? (int) $user['caserne_prioritaire_id'] : 0;
+        if ($preferred > 0) {
+            return $preferred;
+        }
+
+        return null;
+    }
+
+    private function resolveAuditCaserneIdForUser(array $user, int $userId): ?int
+    {
+        $preferred = $this->resolvePreferredCaserneId($user);
+        if ($preferred !== null && $preferred > 0) {
+            return $preferred;
+        }
+
+        if ($userId > 0) {
+            $caserneRepository = new CaserneRepository();
+            $casernes = $caserneRepository->findByUserId($userId);
+            if ($casernes !== []) {
+                $first = $casernes[0];
+                $caserneId = (int) ($first['id'] ?? 0);
+                if ($caserneId > 0) {
+                    return $caserneId;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function logLoginEvent(
+        ?int $caserneId,
+        ?int $userId,
+        string $identifier,
+        string $ipAddress,
+        string $userAgent,
+        string $eventType,
+        string $reason
+    ): void {
+        $repository = new LoginEventRepository();
+        $repository->logEvent($caserneId, $userId, $identifier, $ipAddress, $userAgent, $eventType, $reason);
     }
 }

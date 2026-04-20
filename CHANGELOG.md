@@ -9,6 +9,17 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [0.19.2] - 2026-04-20
+
+### Fixed
+- Audit securite login:
+  - les tentatives avant selection de caserne restent en `undefined` (pas de rattachement force a une caserne)
+  - les audits caserne incluent bien les evenements `undefined` des utilisateurs rattaches a la caserne
+  - affichage explicite `undefined` dans la vue globale
+- Permissions administration:
+  - suppression du contournement legacy qui donnait `users.manage` au role `responsable_materiel`
+  - acces au module Administration de nouveau strictement controle par les permissions du role
+
 ## [0.19.1] - 2026-04-18
 
 ### Added

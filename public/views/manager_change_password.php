@@ -4,11 +4,27 @@ declare(strict_types=1);
 
 $errorMessage = null;
 $successMessage = null;
+$passwordPolicy = \App\Core\PasswordPolicy::policy();
+$passwordMinLength = (int) ($passwordPolicy['min_length'] ?? 12);
+$passwordRules = [];
+if (!empty($passwordPolicy['require_lower'])) {
+    $passwordRules[] = 'minuscule';
+}
+if (!empty($passwordPolicy['require_upper'])) {
+    $passwordRules[] = 'majuscule';
+}
+if (!empty($passwordPolicy['require_digit'])) {
+    $passwordRules[] = 'chiffre';
+}
+if (!empty($passwordPolicy['require_special'])) {
+    $passwordRules[] = 'caractere special';
+}
+$passwordRulesText = $passwordRules !== [] ? implode(', ', $passwordRules) : 'regles minimales';
 
 if ($error === 'missing_fields') {
     $errorMessage = 'Tous les champs sont obligatoires.';
 } elseif ($error === 'password_policy') {
-    $errorMessage = 'Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.';
+    $errorMessage = 'Le mot de passe doit contenir au moins ' . $passwordMinLength . ' caracteres, avec ' . $passwordRulesText . '.';
 } elseif ($error === 'password_mismatch') {
     $errorMessage = 'La confirmation ne correspond pas au nouveau mot de passe.';
 } elseif ($error === 'invalid_current_password') {
@@ -63,12 +79,12 @@ if ($success === 'updated') {
 
                 <div>
                     <label for="new_password" class="text-sm font-medium text-slate-700">Nouveau mot de passe</label>
-                    <input id="new_password" name="new_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    <input id="new_password" name="new_password" type="password" minlength="<?= $passwordMinLength ?>" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 
                 <div>
                     <label for="confirm_password" class="text-sm font-medium text-slate-700">Confirmation</label>
-                    <input id="confirm_password" name="confirm_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    <input id="confirm_password" name="confirm_password" type="password" minlength="<?= $passwordMinLength ?>" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 
                 <button type="submit" class="w-full rounded-xl bg-slate-900 text-white px-5 py-3 text-sm font-semibold">

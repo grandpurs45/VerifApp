@@ -140,6 +140,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement de l expiration de session impossible.
     </section>
+<?php elseif ($success === 'password_policy_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Politique mot de passe enregistree.
+    </section>
+<?php elseif ($error === 'password_policy_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Politique mot de passe invalide.
+    </section>
+<?php elseif ($error === 'password_policy_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement de la politique mot de passe impossible.
+    </section>
 <?php elseif ($error === 'email_settings_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Parametres email invalides (expediteur ou nom).
@@ -328,6 +340,46 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <?php if (($isPlatformAdmin ?? false) === true): ?>
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Politique mot de passe</h2>
+    <p class="text-sm text-slate-600 mt-2">Regles globales appliquees a tous les comptes gestionnaire.</p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=password_policy_save" class="mt-4 space-y-3">
+        <div class="max-w-xs">
+            <label for="password_min_length" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Longueur minimale</label>
+            <input
+                id="password_min_length"
+                type="number"
+                min="<?= (int) \App\Core\PasswordPolicy::MIN_MIN_LENGTH ?>"
+                max="<?= (int) \App\Core\PasswordPolicy::MAX_MIN_LENGTH ?>"
+                name="password_min_length"
+                value="<?= (int) ($passwordPolicy['min_length'] ?? 12) ?>"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="password_require_lower" value="1" <?= !empty($passwordPolicy['require_lower']) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span class="text-sm text-slate-700">Exiger une minuscule</span>
+            </label>
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="password_require_upper" value="1" <?= !empty($passwordPolicy['require_upper']) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span class="text-sm text-slate-700">Exiger une majuscule</span>
+            </label>
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="password_require_digit" value="1" <?= !empty($passwordPolicy['require_digit']) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span class="text-sm text-slate-700">Exiger un chiffre</span>
+            </label>
+            <label class="rounded-xl border border-slate-200 p-3 flex items-start gap-3">
+                <input type="checkbox" name="password_require_special" value="1" <?= !empty($passwordPolicy['require_special']) ? 'checked' : '' ?> class="mt-1 h-4 w-4">
+                <span class="text-sm text-slate-700">Exiger un caractere special</span>
+            </label>
+        </div>
+        <p class="text-xs text-slate-500">Au moins une regle de complexite doit rester active.</p>
+        <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Enregistrer politique</button>
+    </form>
+</section>
+
 <section class="rounded-2xl bg-white shadow p-5">
     <h2 class="text-lg font-bold">Notifications email</h2>
     <p class="text-sm text-slate-600 mt-2">Reglages globaux de l application pour le canal email (mail PHP ou SMTP direct).</p>

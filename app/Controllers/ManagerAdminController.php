@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Core\PasswordPolicy;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
+use App\Repositories\LoginEventRepository;
 use App\Repositories\NotificationRepository;
 use App\Repositories\UserRepository;
 use Throwable;
@@ -87,6 +89,7 @@ final class ManagerAdminController
         $notificationsEmailSmtpPass = $this->getSettingValue('notifications_email_smtp_pass', 'NOTIFICATIONS_EMAIL_SMTP_PASS', '');
         $notificationsEmailSmtpTimeout = $this->getSettingValue('notifications_email_smtp_timeout', 'NOTIFICATIONS_EMAIL_SMTP_TIMEOUT', '12');
         $notificationsEmailTestTo = is_array($managerUser) ? trim((string) ($managerUser['email'] ?? '')) : '';
+        $passwordPolicy = PasswordPolicy::policy();
         $appUrl = $this->resolvePublicBaseUrl();
         $fieldToken = trim($this->getScopedSettingValue('field_qr_token', 'FIELD_QR_TOKEN', $caserneId, ''));
         $pharmacyToken = trim($this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, ''));
@@ -105,6 +108,156 @@ final class ManagerAdminController
         $inventoryGuestUrl = $appUrl !== '' ? $appUrl . $inventoryGuestPath : $inventoryGuestPath;
 
         require dirname(__DIR__, 2) . '/public/views/manager_app_settings.php';
+    }
+
+    public function passwordPolicySave(): void
+    {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $minLengthRaw = trim((string) ($_POST['password_min_length'] ?? ''));
+        if (!ctype_digit($minLengthRaw)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=password_policy_invalid');
+        }
+        $minLength = (int) $minLengthRaw;
+        if ($minLength < PasswordPolicy::MIN_MIN_LENGTH || $minLength > PasswordPolicy::MAX_MIN_LENGTH) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=password_policy_invalid');
+        }
+
+        $requireLower = isset($_POST['password_require_lower']) && (string) $_POST['password_require_lower'] === '1';
+        $requireUpper = isset($_POST['password_require_upper']) && (string) $_POST['password_require_upper'] === '1';
+        $requireDigit = isset($_POST['password_require_digit']) && (string) $_POST['password_require_digit'] === '1';
+        $requireSpecial = isset($_POST['password_require_special']) && (string) $_POST['password_require_special'] === '1';
+        if (!$requireLower && !$requireUpper && !$requireDigit && !$requireSpecial) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=password_policy_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        $saveMap = [
+            'password_min_length' => (string) $minLength,
+            'password_require_lower' => $requireLower ? '1' : '0',
+            'password_require_upper' => $requireUpper ? '1' : '0',
+            'password_require_digit' => $requireDigit ? '1' : '0',
+            'password_require_special' => $requireSpecial ? '1' : '0',
+        ];
+
+        foreach ($saveMap as $key => $value) {
+            if (!$repository->set($key, $value)) {
+                $this->redirect('/index.php?controller=manager_admin&action=settings&error=password_policy_save_failed');
+            }
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=password_policy_saved');
+    }
+
+    public function securityAudit(): void
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        $isPlatformAdmin = $this->isPlatformAdmin();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
+        }
+
+        $scopeCaserneId = $isPlatformAdmin ? null : $caserneId;
+        $selectedCaserneId = $scopeCaserneId;
+        if ($isPlatformAdmin) {
+            $requestedCaserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
+            $selectedCaserneId = $requestedCaserneId > 0 ? $requestedCaserneId : null;
+            $scopeCaserneId = $selectedCaserneId;
+        }
+
+        $filters = [
+            'date_from' => trim((string) ($_GET['date_from'] ?? '')),
+            'date_to' => trim((string) ($_GET['date_to'] ?? '')),
+            'event_type' => trim((string) ($_GET['event_type'] ?? '')),
+            'identifier' => trim((string) ($_GET['identifier'] ?? '')),
+            'ip_address' => trim((string) ($_GET['ip_address'] ?? '')),
+        ];
+
+        $repository = new LoginEventRepository();
+        $events = $repository->findAll($filters, $scopeCaserneId, 400);
+
+        $casernes = [];
+        if ($isPlatformAdmin) {
+            $casernes = (new CaserneRepository())->findAll();
+        }
+
+        $summary = [
+            'total' => count($events),
+            'success' => 0,
+            'failure' => 0,
+        ];
+        foreach ($events as $event) {
+            if ((string) ($event['event_type'] ?? '') === 'success') {
+                $summary['success']++;
+            } else {
+                $summary['failure']++;
+            }
+        }
+
+        require dirname(__DIR__, 2) . '/public/views/manager_security_audit.php';
+    }
+
+    public function securityAuditExportCsv(): void
+    {
+        $isPlatformAdmin = $this->isPlatformAdmin();
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
+        }
+
+        $scopeCaserneId = $isPlatformAdmin ? null : $caserneId;
+        if ($isPlatformAdmin) {
+            $requestedCaserneId = isset($_GET['caserne_id']) ? (int) $_GET['caserne_id'] : 0;
+            if ($requestedCaserneId > 0) {
+                $scopeCaserneId = $requestedCaserneId;
+            }
+        }
+
+        $filters = [
+            'date_from' => trim((string) ($_GET['date_from'] ?? '')),
+            'date_to' => trim((string) ($_GET['date_to'] ?? '')),
+            'event_type' => trim((string) ($_GET['event_type'] ?? '')),
+            'identifier' => trim((string) ($_GET['identifier'] ?? '')),
+            'ip_address' => trim((string) ($_GET['ip_address'] ?? '')),
+        ];
+
+        $repository = new LoginEventRepository();
+        $events = $repository->findAll($filters, $scopeCaserneId, 2000);
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="audit_connexions.csv"');
+        $output = fopen('php://output', 'wb');
+        if ($output === false) {
+            exit;
+        }
+        fwrite($output, "\xEF\xBB\xBF");
+        fputcsv($output, ['date_heure', 'caserne', 'type', 'identifiant_saisi', 'utilisateur', 'email', 'ip', 'raison', 'user_agent'], ';');
+        foreach ($events as $event) {
+            fputcsv($output, [
+                (string) ($event['created_at'] ?? ''),
+                (string) ($event['caserne_nom'] ?? ''),
+                (string) ($event['event_type'] ?? ''),
+                (string) ($event['identifier'] ?? ''),
+                (string) ($event['user_nom'] ?? ''),
+                (string) ($event['user_email'] ?? ''),
+                (string) ($event['ip_address'] ?? ''),
+                (string) ($event['reason'] ?? ''),
+                (string) ($event['user_agent'] ?? ''),
+            ], ';');
+        }
+        fclose($output);
+        exit;
     }
 
     public function notificationsEmailSave(): void

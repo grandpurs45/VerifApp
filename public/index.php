@@ -97,11 +97,14 @@ $managerRoutes = [
     'manager_admin/notifications_email_save',
     'manager_admin/notifications_email_test',
     'manager_admin/app_timezone_save',
+    'manager_admin/password_policy_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
     'manager_admin/qr_print_hints_save',
     'manager_admin/caserne_save',
     'manager_admin/regenerate_qr_token',
+    'manager_admin/security_audit',
+    'manager_admin/security_audit_export_csv',
     'verifications/history',
     'verifications/monthly',
     'verifications/show',
@@ -223,11 +226,14 @@ $managerRoutePermissions = [
     'manager_admin/notifications_email_save' => 'users.manage',
     'manager_admin/notifications_email_test' => 'users.manage',
     'manager_admin/app_timezone_save' => 'users.manage',
+    'manager_admin/password_policy_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
     'manager_admin/qr_print_hints_save' => 'users.manage',
     'manager_admin/caserne_save' => 'users.manage',
     'manager_admin/regenerate_qr_token' => 'users.manage',
+    'manager_admin/security_audit' => 'users.manage',
+    'manager_admin/security_audit_export_csv' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/monthly' => 'verifications.history',
     'verifications/show' => 'verifications.history',
@@ -493,6 +499,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_admin' && $action === 'password_policy_save') {
+        $controller = new ManagerAdminController();
+        $controller->passwordPolicySave();
+        return;
+    }
+
     if ($controllerName === 'manager_admin' && $action === 'terrain_ux_save') {
         $controller = new ManagerAdminController();
         $controller->terrainUxSave();
@@ -508,6 +520,18 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'qr_print_hints_save') {
         $controller = new ManagerAdminController();
         $controller->qrPrintHintsSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'security_audit') {
+        $controller = new ManagerAdminController();
+        $controller->securityAudit();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'security_audit_export_csv') {
+        $controller = new ManagerAdminController();
+        $controller->securityAuditExportCsv();
         return;
     }
 

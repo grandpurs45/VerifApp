@@ -30,6 +30,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="text-lg font-bold">Notifications</p>
         <p class="text-sm text-slate-600 mt-1">Canaux, ciblage des roles et regles de diffusion.</p>
     </a>
+    <a href="/index.php?controller=manager_admin&action=security_audit" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
+        <p class="text-lg font-bold">Audit securite</p>
+        <p class="text-sm text-slate-600 mt-1">Historique connexions (succes/echecs), filtres et export CSV.</p>
+    </a>
 </section>
 
 <?php require __DIR__ . '/partials/backoffice_shell_bottom.php'; ?>

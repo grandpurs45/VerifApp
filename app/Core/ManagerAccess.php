@@ -21,10 +21,6 @@ final class ManagerAccess
             return true;
         }
 
-        if ($roleCode === 'responsable_materiel' && $permissionCode === 'users.manage') {
-            return true;
-        }
-
         $repository = new RoleRepository();
 
         if (!$repository->isAvailable()) {
@@ -53,7 +49,6 @@ final class ManagerAccess
                 'anomalies.manage',
                 'assets.manage',
                 'pharmacy.manage',
-                'users.manage',
             ],
             'resp_pharma' => [
                 'dashboard.view',

@@ -15,6 +15,22 @@ $currentCaserneId = is_array($managerUser) ? (int) ($managerUser['caserne_id'] ?
 $startEditing = $error !== '';
 $passwordError = isset($passwordError) ? (string) $passwordError : '';
 $passwordChanged = isset($passwordChanged) ? (string) $passwordChanged : '';
+$passwordPolicy = \App\Core\PasswordPolicy::policy();
+$passwordMinLength = (int) ($passwordPolicy['min_length'] ?? 12);
+$passwordRules = [];
+if (!empty($passwordPolicy['require_lower'])) {
+    $passwordRules[] = 'minuscule';
+}
+if (!empty($passwordPolicy['require_upper'])) {
+    $passwordRules[] = 'majuscule';
+}
+if (!empty($passwordPolicy['require_digit'])) {
+    $passwordRules[] = 'chiffre';
+}
+if (!empty($passwordPolicy['require_special'])) {
+    $passwordRules[] = 'caractere special';
+}
+$passwordRulesText = $passwordRules !== [] ? implode(', ', $passwordRules) : 'regles minimales';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
@@ -67,7 +83,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </section>
 <?php elseif ($passwordError === 'password_policy'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
-        Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.
+        Le mot de passe doit contenir au moins <?= $passwordMinLength ?> caracteres, avec <?= htmlspecialchars($passwordRulesText, ENT_QUOTES, 'UTF-8') ?>.
     </section>
 <?php elseif ($passwordError === 'password_mismatch'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -227,7 +243,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </section>
         <?php elseif ($passwordError === 'password_policy'): ?>
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
-                Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.
+                Le mot de passe doit contenir au moins <?= $passwordMinLength ?> caracteres, avec <?= htmlspecialchars($passwordRulesText, ENT_QUOTES, 'UTF-8') ?>.
             </section>
         <?php elseif ($passwordError === 'password_mismatch'): ?>
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
@@ -245,11 +261,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
             <div>
                 <label for="modal_new_password" class="text-sm font-medium text-slate-700">Nouveau mot de passe</label>
-                <input id="modal_new_password" name="new_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                <input id="modal_new_password" name="new_password" type="password" minlength="<?= $passwordMinLength ?>" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
             </div>
             <div>
                 <label for="modal_confirm_password" class="text-sm font-medium text-slate-700">Confirmation</label>
-                <input id="modal_confirm_password" name="confirm_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                <input id="modal_confirm_password" name="confirm_password" type="password" minlength="<?= $passwordMinLength ?>" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
             </div>
             <div class="flex items-center justify-end gap-2">
                 <button type="button" id="close-password-modal-btn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
