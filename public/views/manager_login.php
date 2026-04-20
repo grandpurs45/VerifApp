@@ -14,6 +14,11 @@ if ($error === 'missing_fields') {
     $errorMessage = 'Session expiree. Merci de vous reconnecter.';
 } elseif ($error === 'no_caserne') {
     $errorMessage = 'Aucune caserne associee a ce compte. Contacte un administrateur.';
+} elseif ($error === 'too_many_attempts') {
+    $retryIn = isset($_GET['retry_in']) ? (int) $_GET['retry_in'] : 0;
+    $retryIn = $retryIn > 0 ? $retryIn : 60;
+    $retryMinutes = (int) ceil($retryIn / 60);
+    $errorMessage = 'Trop de tentatives de connexion. Reessaie dans ' . $retryMinutes . ' min.';
 }
 ?>
 <!DOCTYPE html>

@@ -829,6 +829,12 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'home' && $action === 'features') {
+        $controller = new HomeController();
+        $controller->features();
+        return;
+    }
+
     if ($controllerName === 'vehicles' && $action === 'show' && isset($_GET['id'])) {
         $controller = new VehicleController();
         $controller->show((int) $_GET['id']);

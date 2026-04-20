@@ -65,9 +65,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Tous les champs mot de passe sont obligatoires.
     </section>
-<?php elseif ($passwordError === 'password_too_short'): ?>
+<?php elseif ($passwordError === 'password_policy'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
-        Le nouveau mot de passe doit contenir au moins 8 caracteres.
+        Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.
     </section>
 <?php elseif ($passwordError === 'password_mismatch'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -225,9 +225,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
                 Tous les champs mot de passe sont obligatoires.
             </section>
-        <?php elseif ($passwordError === 'password_too_short'): ?>
+        <?php elseif ($passwordError === 'password_policy'): ?>
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
-                Le nouveau mot de passe doit contenir au moins 8 caracteres.
+                Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.
             </section>
         <?php elseif ($passwordError === 'password_mismatch'): ?>
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
@@ -245,11 +245,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
             <div>
                 <label for="modal_new_password" class="text-sm font-medium text-slate-700">Nouveau mot de passe</label>
-                <input id="modal_new_password" name="new_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                <input id="modal_new_password" name="new_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
             </div>
             <div>
                 <label for="modal_confirm_password" class="text-sm font-medium text-slate-700">Confirmation</label>
-                <input id="modal_confirm_password" name="confirm_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                <input id="modal_confirm_password" name="confirm_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
             </div>
             <div class="flex items-center justify-end gap-2">
                 <button type="button" id="close-password-modal-btn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">

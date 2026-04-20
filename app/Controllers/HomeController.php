@@ -13,6 +13,11 @@ final class HomeController
         require dirname(__DIR__, 2) . '/public/views/landing.php';
     }
 
+    public function features(): void
+    {
+        require dirname(__DIR__, 2) . '/public/views/landing_features.php';
+    }
+
     public function terrain(): void
     {
         $vehicleRepository = new VehicleRepository();

@@ -7,8 +7,8 @@ $successMessage = null;
 
 if ($error === 'missing_fields') {
     $errorMessage = 'Tous les champs sont obligatoires.';
-} elseif ($error === 'password_too_short') {
-    $errorMessage = 'Le nouveau mot de passe doit contenir au moins 8 caracteres.';
+} elseif ($error === 'password_policy') {
+    $errorMessage = 'Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.';
 } elseif ($error === 'password_mismatch') {
     $errorMessage = 'La confirmation ne correspond pas au nouveau mot de passe.';
 } elseif ($error === 'invalid_current_password') {
@@ -63,12 +63,12 @@ if ($success === 'updated') {
 
                 <div>
                     <label for="new_password" class="text-sm font-medium text-slate-700">Nouveau mot de passe</label>
-                    <input id="new_password" name="new_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    <input id="new_password" name="new_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 
                 <div>
                     <label for="confirm_password" class="text-sm font-medium text-slate-700">Confirmation</label>
-                    <input id="confirm_password" name="confirm_password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    <input id="confirm_password" name="confirm_password" type="password" minlength="12" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 
                 <button type="submit" class="w-full rounded-xl bg-slate-900 text-white px-5 py-3 text-sm font-semibold">

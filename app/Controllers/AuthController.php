@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\ManagerAccess;
+use App\Core\PasswordPolicy;
 use App\Repositories\CaserneRepository;
+use App\Repositories\LoginAttemptRepository;
 use App\Repositories\UserRepository;
 
 final class AuthController
@@ -34,9 +36,17 @@ final class AuthController
 
         $identifier = trim((string) ($_POST['identifier'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
+        $ipAddress = $this->resolveClientIp();
 
         if ($identifier === '' || $password === '') {
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=missing_fields');
+        }
+
+        $loginAttemptRepository = new LoginAttemptRepository();
+        $lockStatus = $loginAttemptRepository->checkLock($identifier, $ipAddress);
+        if (($lockStatus['locked'] ?? false) === true) {
+            $retryIn = max(1, (int) ($lockStatus['remaining_seconds'] ?? 0));
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=too_many_attempts&retry_in=' . $retryIn);
         }
 
         $userRepository = new UserRepository();
@@ -47,8 +57,15 @@ final class AuthController
             (int) $user['actif'] !== 1 ||
             !password_verify($password, (string) $user['mot_de_passe'])
         ) {
+            $failure = $loginAttemptRepository->registerFailure($identifier, $ipAddress);
+            if (($failure['locked'] ?? false) === true) {
+                $retryIn = max(1, (int) ($failure['remaining_seconds'] ?? 0));
+                $this->redirect('/index.php?controller=manager_auth&action=login_form&error=too_many_attempts&retry_in=' . $retryIn);
+            }
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
         }
+
+        $loginAttemptRepository->clearOnSuccess($identifier, $ipAddress);
 
         if ((int) ($user['must_change_password'] ?? 0) === 1) {
             $_SESSION['manager_password_reset_user'] = [
@@ -110,11 +127,12 @@ final class AuthController
             );
         }
 
-        if (strlen($newPassword) < 8) {
+        $policy = PasswordPolicy::validate($newPassword);
+        if (($policy['ok'] ?? false) !== true) {
             $this->redirect(
                 $isForcedChange
-                    ? '/index.php?controller=manager_auth&action=change_password_form&error=password_too_short'
-                    : '/index.php?controller=manager&action=account&password_error=password_too_short'
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=password_policy'
+                    : '/index.php?controller=manager&action=account&password_error=password_policy'
             );
         }
 
@@ -335,5 +353,29 @@ final class AuthController
     {
         $role = trim((string) ($caserne['resolved_role'] ?? $caserne['role_code'] ?? $user['role'] ?? ''));
         return $role;
+    }
+
+    private function resolveClientIp(): string
+    {
+        $candidates = [
+            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null,
+            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (!is_string($candidate) || trim($candidate) === '') {
+                continue;
+            }
+            $parts = explode(',', $candidate);
+            foreach ($parts as $part) {
+                $ip = trim($part);
+                if ($ip !== '') {
+                    return $ip;
+                }
+            }
+        }
+
+        return '0.0.0.0';
     }
 }

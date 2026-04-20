@@ -46,6 +46,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Seul un administrateur plateforme peut attribuer ou modifier le role admin.
         <?php elseif ((string) $_GET['error'] === 'email_exists'): ?>
             Cet email est deja utilise par un autre compte.
+        <?php elseif ((string) $_GET['error'] === 'password_policy'): ?>
+            Le mot de passe doit contenir au moins 12 caracteres, avec minuscule, majuscule, chiffre et caractere special.
+        <?php elseif ((string) $_GET['error'] === 'bulk_password_mismatch'): ?>
+            Confirmation de mot de passe differente: reessaie l action "Changer mot de passe".
+        <?php elseif ((string) $_GET['error'] === 'bulk_no_selection'): ?>
+            Aucune selection detectee: coche au moins un compte avant l action.
+        <?php elseif ((string) $_GET['error'] === 'bulk_no_target'): ?>
+            Aucun compte modifiable dans la selection (droits ou comptes proteges).
         <?php else: ?>
             Operation refusee. Verifie les donnees (ou droits proteges admin).
         <?php endif; ?>
@@ -59,7 +67,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <input type="text" name="nom" required placeholder="Nom complet" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
         <input type="email" name="email" required placeholder="email@exemple.fr" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
         <input type="hidden" name="role" value="<?= htmlspecialchars($defaultRoleCode, ENT_QUOTES, 'UTF-8') ?>">
-        <input type="password" name="password" required placeholder="Mot de passe initial (min 8)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+        <input type="password" name="password" required minlength="12" placeholder="Mot de passe initial (min 12 + complexe)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
         <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-1">
             <option value="1">Actif</option>
             <option value="0">Inactif</option>
@@ -125,6 +133,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <button type="button" class="bulk-password-btn rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white" disabled>Changer mot de passe</button>
             </div>
         </div>
+        <p class="mt-2 text-xs text-slate-500">Astuce: 1) coche un ou plusieurs comptes 2) clique l action voulue.</p>
     </div>
     <div class="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200">
         <div class="col-span-1">
@@ -195,8 +204,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="mt-2 text-sm text-slate-700">Le nouveau mot de passe sera applique a tous les comptes selectionnes.</p>
         <form id="bulk-password-form" method="post" action="/index.php?controller=manager_users&action=bulk_password" class="mt-4 space-y-3">
             <input id="bulk-password-ids" type="hidden" name="ids_csv" value="">
-            <input id="bulk-password-input" type="password" name="password" required minlength="8" placeholder="Nouveau mot de passe (min 8)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-            <input id="bulk-password-confirm" type="password" name="password_confirm" required minlength="8" placeholder="Confirmer le mot de passe" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <input id="bulk-password-input" type="password" name="password" required minlength="12" placeholder="Nouveau mot de passe (min 12 + complexe)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <input id="bulk-password-confirm" type="password" name="password_confirm" required minlength="12" placeholder="Confirmer le mot de passe" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <div class="flex items-center justify-end gap-2">
                 <button type="button" id="bulk-password-cancel" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Annuler</button>
                 <button type="submit" id="bulk-password-submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Appliquer</button>

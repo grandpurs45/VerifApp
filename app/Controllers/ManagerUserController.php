@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\PasswordPolicy;
 use App\Repositories\CaserneRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
@@ -302,8 +303,9 @@ final class ManagerUserController
             }
 
             if ($password !== '') {
-                if (strlen($password) < 8) {
-                    $this->redirect('/index.php?controller=manager_users&action=index&error=password_short');
+                $passwordPolicy = PasswordPolicy::validate($password);
+                if (($passwordPolicy['ok'] ?? false) !== true) {
+                    $this->redirect('/index.php?controller=manager_users&action=index&error=password_policy');
                 }
 
                 $userRepository->resetPasswordWithFlag($id, password_hash($password, PASSWORD_BCRYPT));
@@ -312,8 +314,9 @@ final class ManagerUserController
             $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&success=updated');
         }
 
-        if (strlen($password) < 8) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=password_short');
+        $passwordPolicy = PasswordPolicy::validate($password);
+        if (($passwordPolicy['ok'] ?? false) !== true) {
+            $this->redirect('/index.php?controller=manager_users&action=index&error=password_policy');
         }
 
         $existingByEmail = $userRepository->findByEmail($email);
@@ -432,7 +435,7 @@ final class ManagerUserController
         $targetState = isset($_POST['target_state']) && (string) $_POST['target_state'] === '1';
         $ids = $this->parseSelectedUserIds($_POST['ids_csv'] ?? '');
         if ($ids === []) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+            $this->redirect('/index.php?controller=manager_users&action=index&error=bulk_no_selection');
         }
 
         $userRepository = new UserRepository();
@@ -465,7 +468,7 @@ final class ManagerUserController
         }
 
         if ($updated <= 0) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+            $this->redirect('/index.php?controller=manager_users&action=index&error=bulk_no_target');
         }
 
         $this->redirect('/index.php?controller=manager_users&action=index&success=updated');
@@ -480,8 +483,15 @@ final class ManagerUserController
         $ids = $this->parseSelectedUserIds($_POST['ids_csv'] ?? '');
         $password = (string) ($_POST['password'] ?? '');
         $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
-        if ($ids === [] || strlen($password) < 8 || $password !== $passwordConfirm) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+        if ($ids === []) {
+            $this->redirect('/index.php?controller=manager_users&action=index&error=bulk_no_selection');
+        }
+        if ($password !== $passwordConfirm) {
+            $this->redirect('/index.php?controller=manager_users&action=index&error=bulk_password_mismatch');
+        }
+        $passwordPolicy = PasswordPolicy::validate($password);
+        if (($passwordPolicy['ok'] ?? false) !== true) {
+            $this->redirect('/index.php?controller=manager_users&action=index&error=password_policy');
         }
 
         $hash = password_hash($password, PASSWORD_BCRYPT);
@@ -513,7 +523,7 @@ final class ManagerUserController
         }
 
         if ($updated <= 0) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+            $this->redirect('/index.php?controller=manager_users&action=index&error=bulk_no_target');
         }
 
         $this->redirect('/index.php?controller=manager_users&action=index&success=updated');
