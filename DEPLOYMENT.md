@@ -41,6 +41,19 @@ php scripts/migrate.php
 
 Le script applique automatiquement les migrations non executees et garde l'historique dans `schema_migrations`.
 
+## 4bis) Backup avant upgrade (recommande)
+Creer un backup complet (data + conf):
+
+```bash
+php scripts/backup.php --out=backups --name=pre_upgrade
+```
+
+Le backup contient:
+- `db.sql` (dump complet)
+- `app_settings.json` (lecture rapide des settings)
+- `manifest.json` (meta version/date)
+- `env.snapshot` (si present, sauf option `--no-env`)
+
 ## 5) (Optionnel) Charger les seeds de demo
 Uniquement en environnement de test/demo.
 
@@ -58,7 +71,21 @@ Uniquement en environnement de test/demo.
 
 ## 7) Rollback rapide
 - Replacer l'archive de la version precedente.
-- Restaurer snapshot DB si une migration incompatible a ete appliquee.
+- Restaurer le backup applicatif:
+
+```bash
+php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force
+```
+
+- Si necessaire, restaurer aussi `.env`:
+
+```bash
+php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore-env
+```
+
+- Redemarrer PHP/Apache (ou conteneurs Docker) apres restore.
+- Rejouer `php scripts/migrate.php` uniquement si la version restauree contient des migrations absentes en base.
+- Procedure detaillee: voir `docs/ROLLBACK.md`.
 
 ## Notes
 - Ne pas versionner `.env`.

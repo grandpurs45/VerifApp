@@ -17,6 +17,7 @@ Version courante: `v0.19.2` (voir fichier `VERSION`).
 - Configuration administration
 - Vue mensuelle des verifications
 - Scripts utiles
+- Backup / Restore
 - Deploiement et release
 - Depannage
 - Documentation associee
@@ -189,6 +190,12 @@ Comportement:
 ## Scripts utiles
 - Migrations:
   - `php scripts/migrate.php`
+- Backup complet (data + conf):
+  - `php scripts/backup.php --out=backups --name=manual`
+- Restore complet:
+  - `php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force`
+- Restore + `.env`:
+  - `php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore-env`
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
@@ -236,3 +243,8 @@ Comportement:
 - Changelog: `CHANGELOG.md`
 - Politique de versionning: `VERSIONING.md`
 - Guide de deploiement: `DEPLOYMENT.md`
+- Guide rollback: `docs/ROLLBACK.md`
+- Guide admin: `docs/ADMIN_GUIDE.md`
+- Guide utilisateur: `docs/USER_GUIDE.md`
+- Runbook incident: `docs/RUNBOOK_INCIDENT.md`
+- Onboarding nouvelle caserne: `docs/ONBOARDING_CASERNE.md`

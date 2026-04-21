@@ -64,6 +64,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Fuseau horaire global enregistre.
     </section>
+<?php elseif ($success === 'debug_mode_saved'): ?>
+    <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
+        Mode debug global enregistre.
+    </section>
 <?php elseif ($success === 'session_timeout_saved'): ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 text-sm">
         Expiration de session enregistree pour cette caserne.
@@ -131,6 +135,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php elseif ($error === 'timezone_save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Enregistrement du fuseau horaire impossible.
+    </section>
+<?php elseif ($error === 'debug_mode_invalid'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Valeur debug invalide.
+    </section>
+<?php elseif ($error === 'debug_mode_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Enregistrement du mode debug impossible.
     </section>
 <?php elseif ($error === 'session_timeout_invalid'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -307,6 +319,29 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <option value="America/Montreal"></option>
                 <option value="America/New_York"></option>
             </datalist>
+        </div>
+        <div>
+            <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold w-full">Enregistrer</button>
+        </div>
+    </form>
+</section>
+<?php endif; ?>
+
+<?php if (($isPlatformAdmin ?? false) === true): ?>
+<section class="rounded-2xl bg-white shadow p-5">
+    <h2 class="text-lg font-bold">Debug global application</h2>
+    <p class="text-sm text-slate-600 mt-2">
+        Desactive (recommande): masque les details techniques et affiche un code incident.
+        Active: affiche les details techniques complets en cas d erreur.
+    </p>
+
+    <form method="post" action="/index.php?controller=manager_admin&action=debug_mode_save" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+        <div class="md:col-span-2">
+            <label for="app_debug_mode" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mode debug</label>
+            <select id="app_debug_mode" name="app_debug_mode" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <option value="0" <?= !empty($appDebugMode) ? '' : 'selected' ?>>Desactive (production)</option>
+                <option value="1" <?= !empty($appDebugMode) ? 'selected' : '' ?>>Active (diagnostic)</option>
+            </select>
         </div>
         <div>
             <button type="submit" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold w-full">Enregistrer</button>

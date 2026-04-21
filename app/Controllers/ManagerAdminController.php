@@ -34,6 +34,7 @@ final class ManagerAdminController
         if (!in_array($appTimezone, timezone_identifiers_list(), true)) {
             $appTimezone = 'Europe/Paris';
         }
+        $appDebugMode = $this->getSettingValue('app_debug_mode', 'APP_DEBUG', '0') === '1';
         $sessionTimeout = $this->getScopedSettingValue('manager_session_ttl_minutes', 'MANAGER_SESSION_TTL_MINUTES', $caserneId, '120');
         $verificationEveningHour = $this->getScopedSettingValue('verification_evening_hour', 'VERIFICATION_EVENING_HOUR', $caserneId, '18');
         $terrainMobileDensity = $this->getScopedSettingValue('terrain_mobile_density', 'TERRAIN_MOBILE_DENSITY', $caserneId, 'normal');
@@ -414,6 +415,33 @@ final class ManagerAdminController
         }
 
         $this->redirect('/index.php?controller=manager_admin&action=settings&success=timezone_saved');
+    }
+
+    public function debugModeSave(): void
+    {
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager&action=forbidden');
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_admin&action=settings');
+        }
+
+        $debugModeRaw = trim((string) ($_POST['app_debug_mode'] ?? ''));
+        if (!in_array($debugModeRaw, ['0', '1'], true)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=debug_mode_invalid');
+        }
+
+        $repository = new AppSettingRepository();
+        if (!$repository->isAvailable()) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=settings_store_unavailable');
+        }
+
+        if (!$repository->set('app_debug_mode', $debugModeRaw)) {
+            $this->redirect('/index.php?controller=manager_admin&action=settings&error=debug_mode_save_failed');
+        }
+
+        $this->redirect('/index.php?controller=manager_admin&action=settings&success=debug_mode_saved');
     }
 
     public function verificationTimingSave(): void

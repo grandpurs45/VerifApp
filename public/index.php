@@ -36,6 +36,115 @@ if ($bootstrapTimezone === '' || !in_array($bootstrapTimezone, timezone_identifi
 }
 date_default_timezone_set($bootstrapTimezone);
 
+$isDebugMode = false;
+try {
+    $debugEnv = trim((string) (Env::get('APP_DEBUG', '0') ?? '0'));
+    $isDebugMode = in_array(strtolower($debugEnv), ['1', 'true', 'yes', 'on'], true);
+
+    $debugSettingRepository = new AppSettingRepository();
+    if ($debugSettingRepository->isAvailable()) {
+        $debugStored = $debugSettingRepository->get('app_debug_mode');
+        if ($debugStored !== null && trim($debugStored) !== '') {
+            $isDebugMode = trim($debugStored) === '1';
+        }
+    }
+} catch (Throwable $throwable) {
+    // Keep env-based mode if app_settings is unavailable.
+}
+
+if ($isDebugMode) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    error_reporting(E_ALL);
+}
+
+$renderUnhandledError = static function (string $code, string $publicTitle, string $publicMessage, ?Throwable $throwable = null) use ($isDebugMode): void {
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=utf-8');
+    }
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+    $safeTitle = htmlspecialchars($publicTitle, ENT_QUOTES, 'UTF-8');
+    $safeMessage = htmlspecialchars($publicMessage, ENT_QUOTES, 'UTF-8');
+    $debugDetails = '';
+    if ($isDebugMode && $throwable !== null) {
+        $debugDetails = '<pre style="margin-top:12px;white-space:pre-wrap;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:10px;">'
+            . htmlspecialchars(
+                get_class($throwable) . ': ' . $throwable->getMessage()
+                . ' in ' . $throwable->getFile() . ':' . $throwable->getLine()
+                . "\n\n" . $throwable->getTraceAsString(),
+                ENT_QUOTES,
+                'UTF-8'
+            )
+            . '</pre>';
+    }
+
+    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Erreur VerifApp</title>'
+        . '<meta name="viewport" content="width=device-width, initial-scale=1"></head>'
+        . '<body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a;">'
+        . '<main style="max-width:760px;margin:48px auto;padding:0 16px;">'
+        . '<section style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">'
+        . '<p style="margin:0 0 10px;color:#475569;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">VerifApp</p>'
+        . '<h1 style="margin:0 0 12px;font-size:28px;line-height:1.2;">' . $safeTitle . '</h1>'
+        . '<p style="margin:0 0 16px;color:#334155;">' . $safeMessage . '</p>'
+        . '<p style="margin:0;color:#64748b;font-size:13px;">Code incident: <strong>' . $safeCode . '</strong></p>'
+        . '<div style="margin-top:16px;"><a href="/index.php?controller=manager_auth&action=login_form" '
+        . 'style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;">Acces gestionnaire</a></div>'
+        . $debugDetails
+        . '</section></main></body></html>';
+    exit;
+};
+
+set_exception_handler(static function (Throwable $throwable) use ($renderUnhandledError): void {
+    $errorCode = 'ERR-' . date('Ymd-His') . '-' . substr(sha1(uniqid((string) mt_rand(), true)), 0, 6);
+    error_log(sprintf(
+        '[%s] Unhandled exception %s: %s in %s:%d',
+        $errorCode,
+        get_class($throwable),
+        $throwable->getMessage(),
+        $throwable->getFile(),
+        $throwable->getLine()
+    ));
+    $renderUnhandledError($errorCode, 'Erreur interne', 'Une erreur inattendue est survenue. Merci de reessayer.', $throwable);
+});
+
+register_shutdown_function(static function () use ($renderUnhandledError): void {
+    $error = error_get_last();
+    if ($error === null) {
+        return;
+    }
+
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR];
+    if (!in_array((int) $error['type'], $fatalTypes, true)) {
+        return;
+    }
+
+    $errorCode = 'ERR-' . date('Ymd-His') . '-' . substr(sha1(uniqid((string) mt_rand(), true)), 0, 6);
+    error_log(sprintf(
+        '[%s] Fatal error type=%d message=%s in %s:%d',
+        $errorCode,
+        (int) $error['type'],
+        (string) ($error['message'] ?? ''),
+        (string) ($error['file'] ?? ''),
+        (int) ($error['line'] ?? 0)
+    ));
+
+    $renderUnhandledError(
+        $errorCode,
+        'Erreur interne',
+        'Une erreur critique est survenue. Merci de reessayer ou de contacter l administrateur.'
+    );
+});
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -97,6 +206,7 @@ $managerRoutes = [
     'manager_admin/notifications_email_save',
     'manager_admin/notifications_email_test',
     'manager_admin/app_timezone_save',
+    'manager_admin/debug_mode_save',
     'manager_admin/password_policy_save',
     'manager_admin/terrain_ux_save',
     'manager_admin/dashboard_config_save',
@@ -226,6 +336,7 @@ $managerRoutePermissions = [
     'manager_admin/notifications_email_save' => 'users.manage',
     'manager_admin/notifications_email_test' => 'users.manage',
     'manager_admin/app_timezone_save' => 'users.manage',
+    'manager_admin/debug_mode_save' => 'users.manage',
     'manager_admin/password_policy_save' => 'users.manage',
     'manager_admin/terrain_ux_save' => 'users.manage',
     'manager_admin/dashboard_config_save' => 'users.manage',
@@ -496,6 +607,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_admin' && $action === 'app_timezone_save') {
         $controller = new ManagerAdminController();
         $controller->appTimezoneSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_admin' && $action === 'debug_mode_save') {
+        $controller = new ManagerAdminController();
+        $controller->debugModeSave();
         return;
     }
 
