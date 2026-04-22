@@ -9,6 +9,32 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.1] - 2026-04-22
+
+### Added
+- Outils d exploitation:
+  - script de backup complet (`scripts/backup.php`)
+  - script de restore complet (`scripts/restore.php`)
+- Documentation v1:
+  - `docs/ADMIN_GUIDE.md`
+  - `docs/USER_GUIDE.md`
+  - `docs/RUNBOOK_INCIDENT.md`
+  - `docs/ONBOARDING_CASERNE.md`
+  - `docs/ROLLBACK.md`
+- Landing publique modernisee:
+  - page vitrine `/` enrichie (fonctionnalites, captures, architecture, roadmap)
+  - page `Fonctionnalites avancees` refondue
+  - footer pro et navigation coherente
+
+### Changed
+- Durcissement application:
+  - gestion centralisee des erreurs fatales avec code incident
+  - mode debug global configurable en BO (`Parametres application`)
+- Healthcheck enrichi:
+  - ajout details `smtp` et `timezone`
+- Login gestionnaire:
+  - suppression du lien `Retour terrain` sur l ecran de connexion
+
 ## [0.19.2] - 2026-04-20
 
 ### Fixed
