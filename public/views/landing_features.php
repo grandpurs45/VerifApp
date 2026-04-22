@@ -34,11 +34,10 @@ $appVersion = \App\Core\AppVersion::current();
             <p class="brand-font text-xs uppercase tracking-[0.24em] text-amber-300">VerifApp - Fonctionnalites avancees</p>
             <h1 class="brand-font mt-3 text-4xl font-bold leading-tight text-white md:text-5xl">
                 Une plateforme operationnelle
-                <span class="block text-cyan-300">pensée casernes et terrain</span>
+                <span class="block text-cyan-300">pensee pour casernes et terrain</span>
             </h1>
             <p class="mt-4 max-w-3xl text-base leading-relaxed text-slate-200 md:text-lg">
-                VerifApp couvre la verification engins, les anomalies, la pharmacie, les inventaires et les notifications
-                sur un socle multi-casernes avec permissions fines.
+                Vue detaillee des modules metier, capacites de securite, exploitation et gouvernance multi-casernes.
             </p>
         </section>
 
@@ -64,48 +63,57 @@ $appVersion = \App\Core\AppVersion::current();
         </section>
 
         <section class="mt-6 rounded-3xl border border-slate-700 bg-slate-900/60 p-6">
-            <h2 class="brand-font text-2xl font-bold text-white">Captures et exemples d ecrans</h2>
-            <p class="mt-2 text-sm text-slate-300">Apercu des grands modules pour une lecture rapide du projet.</p>
-
-            <div class="mt-4 grid gap-4 md:grid-cols-3">
+            <h2 class="brand-font text-2xl font-bold text-white">Points forts techniques</h2>
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
                 <article class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-                    <p class="text-xs uppercase tracking-wider text-emerald-300">Capture 1</p>
-                    <h3 class="mt-1 text-sm font-bold text-white">Dashboard multi-modules</h3>
-                    <div class="mt-3 h-36 rounded-lg border border-slate-600 bg-slate-900/80 p-3 text-xs text-slate-300">
-                        Vue indicateurs: anomalies, verifications, pharmacie, notifications.
-                    </div>
+                    <h3 class="text-sm font-bold uppercase tracking-wide text-cyan-300">Securite et robustesse</h3>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+                        <li>Rate-limit login et verrou temporaire</li>
+                        <li>Audit securite connexions + exports CSV</li>
+                        <li>Mode debug global controlable en BO</li>
+                        <li>Gestion d erreur standardisee avec code incident</li>
+                    </ul>
                 </article>
                 <article class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-                    <p class="text-xs uppercase tracking-wider text-cyan-300">Capture 2</p>
-                    <h3 class="mt-1 text-sm font-bold text-white">Checklist terrain mobile</h3>
-                    <div class="mt-3 h-36 rounded-lg border border-slate-600 bg-slate-900/80 p-3 text-xs text-slate-300">
-                        Progression, zones, boutons gros doigts, validation rapide.
-                    </div>
-                </article>
-                <article class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-                    <p class="text-xs uppercase tracking-wider text-amber-300">Capture 3</p>
-                    <h3 class="mt-1 text-sm font-bold text-white">Pharmacie: stock & sorties</h3>
-                    <div class="mt-3 h-36 rounded-lg border border-slate-600 bg-slate-900/80 p-3 text-xs text-slate-300">
-                        Stocks, alertes, sorties QR, inventaires et statistiques 12 mois.
-                    </div>
+                    <h3 class="text-sm font-bold uppercase tracking-wide text-emerald-300">Exploitation</h3>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+                        <li>Healthcheck complet: DB, SMTP, timezone, version</li>
+                        <li>Backup/restore CLI complet (data + conf)</li>
+                        <li>Guide rollback, runbook incident, onboarding caserne</li>
+                        <li>Compatibilite Docker et installation locale XAMPP</li>
+                    </ul>
                 </article>
             </div>
         </section>
 
         <section class="mt-6 rounded-3xl border border-slate-700 bg-slate-900/60 p-6">
-            <h2 class="brand-font text-2xl font-bold text-white">Liens projet</h2>
-            <div class="mt-4 flex flex-wrap gap-3">
-                <a href="https://github.com/grandpurs45/VerifApp" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300">
-                    GitHub
-                </a>
-                <a href="https://github.com/grandpurs45/VerifApp#readme" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-xl border border-slate-500 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-100 hover:bg-slate-700">
-                    README
-                </a>
-                <a href="/index.php?controller=manager_auth&action=login_form" class="inline-flex rounded-xl border border-slate-500 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-100 hover:bg-slate-700">
-                    Espace gestionnaire
-                </a>
+            <h2 class="brand-font text-2xl font-bold text-white">Roadmap court terme</h2>
+            <div class="mt-4 grid gap-3 md:grid-cols-3">
+                <div class="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                    <p class="text-xs uppercase tracking-wider text-violet-300">v1.0</p>
+                    <p class="mt-2 text-sm text-slate-200">Stabilite prod, securite, docs complete et deployment reproductible.</p>
+                </div>
+                <div class="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                    <p class="text-xs uppercase tracking-wider text-violet-300">v1.1</p>
+                    <p class="mt-2 text-sm text-slate-200">Status page BO, audit usage avance, ameliorations UX terrain.</p>
+                </div>
+                <div class="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                    <p class="text-xs uppercase tracking-wider text-violet-300">v1.2+</p>
+                    <p class="mt-2 text-sm text-slate-200">Comparaison referentiel SDIS, modules et reporting operationnel etendu.</p>
+                </div>
             </div>
         </section>
+
+        <footer class="mt-6 rounded-2xl border border-slate-700/80 bg-slate-950/55 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-slate-400">VerifApp - projet open source pour casernes (verifications, anomalies, pharmacie).</p>
+                <div class="flex flex-wrap gap-2 text-sm font-semibold">
+                    <a href="https://github.com/grandpurs45/VerifApp" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-600 px-3 py-2 text-slate-200 hover:bg-slate-800">GitHub</a>
+                    <a href="https://github.com/grandpurs45/VerifApp#readme" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-600 px-3 py-2 text-slate-200 hover:bg-slate-800">README</a>
+                    <a href="/index.php?controller=manager_auth&action=login_form" class="rounded-lg border border-slate-600 px-3 py-2 text-slate-200 hover:bg-slate-800">Espace gestionnaire</a>
+                </div>
+            </div>
+        </footer>
     </main>
 </body>
 </html>
