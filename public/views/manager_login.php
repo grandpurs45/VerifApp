@@ -32,10 +32,7 @@ if ($error === 'missing_fields') {
 <body class="bg-slate-100 min-h-screen text-slate-900">
     <main class="max-w-md mx-auto p-4 md:p-8">
         <header class="mb-6">
-            <a href="/index.php?controller=home&action=index" class="text-sm text-slate-500 hover:text-slate-700">
-                <- Retour terrain
-            </a>
-            <h1 class="text-3xl font-bold mt-2">Espace gestionnaire</h1>
+            <h1 class="text-3xl font-bold">Espace gestionnaire</h1>
         </header>
 
         <?php if ($errorMessage !== null): ?>
