@@ -57,3 +57,7 @@ services:
 
 volumes:
   verifapp_db_data:
+
+networks:
+  proxy:
+    external: true
