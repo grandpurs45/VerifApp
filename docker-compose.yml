@@ -15,6 +15,16 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - proxy
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.verifapp.rule=Host(`verifapp.oudard-lab.fr`)"
+      - "traefik.http.routers.verifapp.entrypoints=websecure"
+      - "traefik.http.routers.verifapp.tls=true"
+      - "traefik.http.routers.verifapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.verifapp.loadbalancer.server.port=80"
 
   db:
     image: mariadb:11
