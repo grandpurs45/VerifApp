@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Core\PasswordPolicy;
+use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
 use App\Repositories\LoginEventRepository;
@@ -762,17 +763,7 @@ final class ManagerAdminController
 
     private function resolvePublicBaseUrl(): string
     {
-        $requestHost = isset($_SERVER['HTTP_HOST']) ? trim((string) $_SERVER['HTTP_HOST']) : '';
-        if ($requestHost !== '') {
-            $isHttps =
-                (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off') ||
-                (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443');
-            $scheme = $isHttps ? 'https' : 'http';
-
-            return $scheme . '://' . $requestHost;
-        }
-
-        return rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
+        return UrlHelper::resolvePublicBaseUrl((string) (Env::get('APP_URL', '') ?? ''));
     }
 
     private function redirect(string $location): void

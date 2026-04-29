@@ -23,12 +23,14 @@ use App\Core\Autoloader;
 use App\Core\Database;
 use App\Core\Env;
 use App\Core\ManagerAccess;
+use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 
 require_once dirname(__DIR__) . '/app/Core/Autoloader.php';
 
 Autoloader::register();
 Env::load(dirname(__DIR__) . '/.env');
+UrlHelper::redirectToHttpsIfNeeded();
 
 $bootstrapTimezone = trim((string) (Env::get('APP_TIMEZONE', 'Europe/Paris') ?? 'Europe/Paris'));
 if ($bootstrapTimezone === '' || !in_array($bootstrapTimezone, timezone_identifiers_list(), true)) {

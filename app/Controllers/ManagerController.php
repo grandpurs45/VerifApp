@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Core\UrlHelper;
 use App\Core\ManagerAccess;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\AnomalyRepository;
@@ -185,17 +186,7 @@ final class ManagerController
 
     private function resolvePublicBaseUrl(): string
     {
-        $requestHost = isset($_SERVER['HTTP_HOST']) ? trim((string) $_SERVER['HTTP_HOST']) : '';
-        if ($requestHost !== '') {
-            $isHttps =
-                (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off') ||
-                (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443');
-            $scheme = $isHttps ? 'https' : 'http';
-
-            return $scheme . '://' . $requestHost;
-        }
-
-        return rtrim((string) (Env::get('APP_URL', '') ?? ''), '/');
+        return UrlHelper::resolvePublicBaseUrl((string) (Env::get('APP_URL', '') ?? ''));
     }
 
     private function redirect(string $location): void

@@ -91,6 +91,7 @@ VerifApp permet de:
 
 Important:
 - Laisser `APP_VERSION` vide pour utiliser automatiquement le fichier `VERSION`.
+- En reverse proxy HTTPS (Traefik, Nginx Proxy, etc.), renseigner `APP_URL` en `https://...` et activer `APP_FORCE_HTTPS=1`.
 
 ## Installation locale (XAMPP / PHP)
 1. Configurer la base dans `.env`.
