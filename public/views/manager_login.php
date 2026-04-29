@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+$appVersion = \App\Core\AppVersion::current();
 $errorMessage = null;
 
 if ($error === 'missing_fields') {
@@ -31,8 +32,11 @@ if ($error === 'missing_fields') {
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-900">
     <main class="max-w-md mx-auto p-4 md:p-8">
-        <header class="mb-6">
+        <header class="mb-6 flex items-center justify-between gap-3">
             <h1 class="text-3xl font-bold">Espace gestionnaire</h1>
+            <span class="inline-flex rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-white">
+                v<?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?>
+            </span>
         </header>
 
         <?php if ($errorMessage !== null): ?>
