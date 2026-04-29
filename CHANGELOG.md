@@ -9,6 +9,20 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.2] - 2026-04-29
+
+### Fixed
+- Generation des URLs publiques/QR en environnement reverse proxy:
+  - detection HTTPS compatible `X-Forwarded-Proto` / `X-Forwarded-Host`
+  - correction des liens QR qui passaient en `http` derriere Traefik
+- Option de forçage HTTPS global:
+  - ajout `APP_FORCE_HTTPS` pour redirection automatique vers HTTPS
+- Harmonisation de la resolution d URL publique dans les ecrans BO (admin, dashboard, pharmacie, engins).
+
+### Changed
+- Documentation installation:
+  - ajout de la recommandation `APP_URL=https://...` + `APP_FORCE_HTTPS=1` en reverse proxy.
+
 ## [1.0.0-rc.1] - 2026-04-22
 
 ### Added
