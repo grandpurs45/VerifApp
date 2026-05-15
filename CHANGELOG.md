@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.4] - 2026-05-15
+
+### Fixed
+- Connexion gestionnaire:
+  - affichage de la version applicative sur l ecran de connexion.
+- Historique des verifications:
+  - correction de la vue mensuelle matin/soir qui pouvait generer une erreur interne selon la configuration SQL du serveur.
+
 ## [1.0.0-rc.2] - 2026-04-29
 
 ### Fixed

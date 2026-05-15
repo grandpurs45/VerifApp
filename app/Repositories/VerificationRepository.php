@@ -384,7 +384,6 @@ final class VerificationRepository
             'start_date' => $start . ' 00:00:00',
             'end_date' => $end . ' 00:00:00',
             'evening_start_hour_a' => $eveningStartHour,
-            'evening_start_hour_b' => $eveningStartHour,
         ];
 
         if ($caserneId !== null) {
@@ -399,15 +398,21 @@ final class VerificationRepository
 
         $sql = '
             SELECT
-                DATE(v.date_heure) AS jour,
-                CASE WHEN HOUR(v.date_heure) < :evening_start_hour_a THEN \'matin\' ELSE \'soir\' END AS creneau,
+                monthly_stats.jour,
+                monthly_stats.creneau,
                 COUNT(*) AS total_verifs,
-                SUM(CASE WHEN v.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
-                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes
-            FROM verifications v
-            WHERE ' . implode(' AND ', $where) . '
-            GROUP BY DATE(v.date_heure), CASE WHEN HOUR(v.date_heure) < :evening_start_hour_b THEN \'matin\' ELSE \'soir\' END
-            ORDER BY jour ASC, creneau ASC
+                SUM(CASE WHEN monthly_stats.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
+                SUM(CASE WHEN monthly_stats.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes
+            FROM (
+                SELECT
+                    DATE(v.date_heure) AS jour,
+                    CASE WHEN HOUR(v.date_heure) < :evening_start_hour_a THEN \'matin\' ELSE \'soir\' END AS creneau,
+                    v.statut_global
+                FROM verifications v
+                WHERE ' . implode(' AND ', $where) . '
+            ) monthly_stats
+            GROUP BY monthly_stats.jour, monthly_stats.creneau
+            ORDER BY monthly_stats.jour ASC, monthly_stats.creneau ASC
         ';
 
         $statement = $connection->prepare($sql);
