@@ -9,6 +9,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.6] - 2026-05-16
+
+### Fixed
+- Vue mensuelle matin/soir:
+  - suppression de la dependance PHP `calendar` pour eviter une erreur interne sur les environnements Docker/prod qui ne fournissent pas `cal_days_in_month()`.
+
 ## [1.0.0-rc.5] - 2026-05-16
 
 ### Added

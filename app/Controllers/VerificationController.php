@@ -183,7 +183,7 @@ final class VerificationController
             $selectedVehicleId > 0 ? $selectedVehicleId : null
         );
 
-        $daysInMonth = (int) cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $daysInMonth = (int) (new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
         $slotsByDay = [];
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
