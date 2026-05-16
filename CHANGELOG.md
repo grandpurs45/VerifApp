@@ -9,6 +9,11 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.5] - 2026-05-16
+
+### Added
+- Menu backoffice `Carburant` reserve pour le futur module de suivi de distribution carburant.
+
 ## [1.0.0-rc.4] - 2026-05-15
 
 ### Fixed

@@ -11,6 +11,7 @@ use App\Controllers\HomeController;
 use App\Controllers\ManagerAdminController;
 use App\Controllers\ManagerAssetController;
 use App\Controllers\ManagerController;
+use App\Controllers\ManagerFuelController;
 use App\Controllers\ManagerNotificationController;
 use App\Controllers\ManagerPharmacyController;
 use App\Controllers\ManagerRoleController;
@@ -256,6 +257,7 @@ $managerRoutes = [
     'manager_pharmacy/order_receive',
     'manager_pharmacy/inventory_save',
     'manager_pharmacy/inventory_apply',
+    'manager_fuel/index',
     'manager_roles/index',
     'manager_roles/role_save',
     'manager_roles/role_delete',
@@ -386,6 +388,7 @@ $managerRoutePermissions = [
     'manager_pharmacy/order_receive' => 'pharmacy.manage',
     'manager_pharmacy/inventory_save' => 'pharmacy.manage',
     'manager_pharmacy/inventory_apply' => 'pharmacy.manage',
+    'manager_fuel/index' => 'fuel.manage',
     'manager_roles/index' => 'users.manage',
     'manager_roles/role_save' => 'users.manage',
     'manager_roles/role_delete' => 'users.manage',
@@ -849,6 +852,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'inventory_apply') {
         $controller = new ManagerPharmacyController();
         $controller->inventoryApply();
+        return;
+    }
+
+    if ($controllerName === 'manager_fuel' && $action === 'index') {
+        $controller = new ManagerFuelController();
+        $controller->index();
         return;
     }
 

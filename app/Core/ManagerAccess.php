@@ -49,6 +49,7 @@ final class ManagerAccess
                 'anomalies.manage',
                 'assets.manage',
                 'pharmacy.manage',
+                'fuel.manage',
             ],
             'resp_pharma' => [
                 'dashboard.view',

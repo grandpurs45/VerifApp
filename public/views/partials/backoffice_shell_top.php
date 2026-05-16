@@ -74,6 +74,12 @@ $allModules = [
         'permission' => 'pharmacy.manage',
     ],
     [
+        'label' => 'Carburant',
+        'route' => '/index.php?controller=manager_fuel&action=index',
+        'route_key' => 'manager_fuel/index',
+        'permission' => 'fuel.manage',
+    ],
+    [
         'label' => 'Administration',
         'route' => '/index.php?controller=manager_admin&action=menu',
         'route_key' => 'manager_admin/menu',

@@ -24,6 +24,7 @@ final class RoleRepository
             'anomalies.manage' => 'Consultation et suivi des anomalies',
             'assets.manage' => 'Configuration parc, zones, postes et materiel',
             'pharmacy.manage' => 'Gestion du module pharmacie',
+            'fuel.manage' => 'Gestion du module carburant',
             'users.manage' => 'Gestion des roles et acces',
         ];
     }
