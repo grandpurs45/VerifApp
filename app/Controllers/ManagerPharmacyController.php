@@ -444,6 +444,7 @@ final class ManagerPharmacyController
         $alertRaw = str_replace(',', '.', trim((string) ($_POST['seuil_alerte'] ?? '')));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
         $outputReasonRequired = isset($_POST['motif_sortie_obligatoire']) && (string) $_POST['motif_sortie_obligatoire'] === '1';
+        $thresholdWarningEnabled = isset($_POST['surveiller_seuil']) && (string) $_POST['surveiller_seuil'] === '1';
 
         $stockValue = $this->parseNonNegativeInteger($stockRaw);
         if ($name === '' || $unit === '' || $stockValue === null) {
@@ -476,7 +477,8 @@ final class ManagerPharmacyController
                 (float) $stockValue,
                 $alertThreshold,
                 $active,
-                $outputReasonRequired
+                $outputReasonRequired,
+                $thresholdWarningEnabled
             );
         } catch (Throwable $throwable) {
             $message = strtolower($throwable->getMessage());

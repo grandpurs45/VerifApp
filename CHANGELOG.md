@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.9] - 2026-05-18
+
+### Added
+- Module pharmacie:
+  - ajout d un parametrage par article pour activer ou non le warning lorsque le stock est exactement au seuil
+  - ajout de la colonne `Surv. seuil` dans la gestion des articles
+
+### Changed
+- Module pharmacie:
+  - les warnings au seuil sont desactives par defaut pour reduire le bruit operationnel
+  - le compteur `Au seuil` et le filtre `Warnings uniquement` ne tiennent compte que des articles explicitement surveilles au seuil
+  - ajustement de la mise en page du tableau des articles pour garder les actions visibles
+
 ## [1.0.0-rc.8] - 2026-05-18
 
 ### Added

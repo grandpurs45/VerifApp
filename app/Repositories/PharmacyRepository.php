@@ -22,6 +22,7 @@ final class PharmacyRepository
     private ?bool $inventoryFreeNameColumnExists = null;
     private ?bool $inventoryAppliedAtColumnExists = null;
     private ?bool $inventoryAppliedByColumnExists = null;
+    private ?bool $thresholdWarningColumnExists = null;
 
     public function isAvailable(): bool
     {
@@ -40,6 +41,7 @@ final class PharmacyRepository
 
         $connection = Database::getConnection();
         $hasMovements = $this->hasMovementsTable();
+        $thresholdWarningSelect = $this->hasThresholdWarningColumn() ? 'a.surveiller_seuil' : '0 AS surveiller_seuil';
         $recentStatsJoin = '';
         $recentStatsSelect = '0 AS sorties_6m, NULL AS derniere_sortie_le';
         if ($hasMovements) {
@@ -78,6 +80,7 @@ final class PharmacyRepository
                 a.unite,
                 a.stock_actuel,
                 a.seuil_alerte,
+                ' . $thresholdWarningSelect . ',
                 a.actif,
                 a.motif_sortie_obligatoire,
                 ' . $recentStatsSelect . '
@@ -102,15 +105,18 @@ final class PharmacyRepository
         float $stock,
         ?float $alertThreshold,
         bool $active,
-        bool $outputReasonRequired = false
+        bool $outputReasonRequired = false,
+        bool $thresholdWarningEnabled = false
     ): bool {
         if (!$this->hasArticlesTable()) {
             return false;
         }
 
         $connection = Database::getConnection();
+        $hasThresholdWarning = $this->hasThresholdWarningColumn();
 
         if ($id > 0) {
+            $thresholdWarningSet = $hasThresholdWarning ? 'surveiller_seuil = :surveiller_seuil,' : '';
             $sql = '
                 UPDATE pharmacie_articles
                 SET
@@ -118,6 +124,7 @@ final class PharmacyRepository
                     unite = :unite,
                     stock_actuel = :stock_actuel,
                     seuil_alerte = :seuil_alerte,
+                    ' . $thresholdWarningSet . '
                     actif = :actif,
                     motif_sortie_obligatoire = :motif_sortie_obligatoire
                 WHERE id = :id
@@ -125,7 +132,7 @@ final class PharmacyRepository
             ';
             $statement = $connection->prepare($sql);
 
-            return $statement->execute([
+            $params = [
                 'id' => $id,
                 'caserne_id' => $caserneId,
                 'nom' => $name,
@@ -134,16 +141,23 @@ final class PharmacyRepository
                 'seuil_alerte' => $alertThreshold,
                 'actif' => $active ? 1 : 0,
                 'motif_sortie_obligatoire' => $outputReasonRequired ? 1 : 0,
-            ]);
+            ];
+            if ($hasThresholdWarning) {
+                $params['surveiller_seuil'] = $thresholdWarningEnabled ? 1 : 0;
+            }
+
+            return $statement->execute($params);
         }
 
+        $thresholdWarningColumn = $hasThresholdWarning ? ', surveiller_seuil' : '';
+        $thresholdWarningValue = $hasThresholdWarning ? ', :surveiller_seuil' : '';
         $sql = '
-            INSERT INTO pharmacie_articles (caserne_id, nom, unite, stock_actuel, seuil_alerte, actif, motif_sortie_obligatoire)
-            VALUES (:caserne_id, :nom, :unite, :stock_actuel, :seuil_alerte, :actif, :motif_sortie_obligatoire)
+            INSERT INTO pharmacie_articles (caserne_id, nom, unite, stock_actuel, seuil_alerte' . $thresholdWarningColumn . ', actif, motif_sortie_obligatoire)
+            VALUES (:caserne_id, :nom, :unite, :stock_actuel, :seuil_alerte' . $thresholdWarningValue . ', :actif, :motif_sortie_obligatoire)
         ';
         $statement = $connection->prepare($sql);
 
-        return $statement->execute([
+        $params = [
             'caserne_id' => $caserneId,
             'nom' => $name,
             'unite' => $unit,
@@ -151,7 +165,12 @@ final class PharmacyRepository
             'seuil_alerte' => $alertThreshold,
             'actif' => $active ? 1 : 0,
             'motif_sortie_obligatoire' => $outputReasonRequired ? 1 : 0,
-        ]);
+        ];
+        if ($hasThresholdWarning) {
+            $params['surveiller_seuil'] = $thresholdWarningEnabled ? 1 : 0;
+        }
+
+        return $statement->execute($params);
     }
 
     public function deleteArticle(int $caserneId, int $articleId): string
@@ -433,6 +452,9 @@ final class PharmacyRepository
         }
 
         $connection = Database::getConnection();
+        $thresholdWarningCondition = $this->hasThresholdWarningColumn()
+            ? 'AND surveiller_seuil = 1'
+            : 'AND 0 = 1';
         $sql = '
             SELECT
                 COUNT(*) AS total_articles,
@@ -450,6 +472,7 @@ final class PharmacyRepository
                         WHEN actif = 1
                              AND seuil_alerte IS NOT NULL
                              AND seuil_alerte > 0
+                             ' . $thresholdWarningCondition . '
                              AND stock_actuel = seuil_alerte THEN 1
                         ELSE 0
                     END
@@ -1703,6 +1726,24 @@ final class PharmacyRepository
         }
 
         return $this->inventoryAppliedByColumnExists;
+    }
+
+    private function hasThresholdWarningColumn(): bool
+    {
+        if ($this->thresholdWarningColumnExists !== null) {
+            return $this->thresholdWarningColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_articles LIKE 'surveiller_seuil'");
+            $this->thresholdWarningColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->thresholdWarningColumnExists = false;
+        }
+
+        return $this->thresholdWarningColumnExists;
     }
 
     private function isMovementArticleIdNullable(): bool

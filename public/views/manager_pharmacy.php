@@ -104,6 +104,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <input type="text" name="unite" required placeholder="Unite (u, boite, ml...)" value="u" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
         <input type="number" min="0" step="1" name="stock_actuel" required placeholder="Stock (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
         <input type="number" min="0" step="1" name="seuil_alerte" placeholder="Seuil alerte (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        <select name="surveiller_seuil" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+            <option value="0">Surveiller seuil: Non</option>
+            <option value="1">Surveiller seuil: Oui</option>
+        </select>
         <select name="motif_sortie_obligatoire" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
             <option value="0">Sortie libre</option>
             <option value="1">Motif obligatoire</option>
@@ -140,15 +144,16 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </div>
 
     <div class="mt-3 overflow-x-auto">
-        <table class="min-w-[980px] w-full table-fixed text-sm">
+        <table class="min-w-full w-full table-fixed text-sm">
             <colgroup>
-                <col style="width:27%">
+                <col style="width:25%">
+                <col style="width:8%">
+                <col style="width:10%">
+                <col style="width:10%">
+                <col style="width:11%">
+                <col style="width:11%">
                 <col style="width:9%">
-                <col style="width:13%">
-                <col style="width:13%">
-                <col style="width:13%">
-                <col style="width:12%">
-                <col style="width:13%">
+                <col style="width:16%">
             </colgroup>
             <thead>
                 <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -170,6 +175,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <th class="py-2 px-2 text-center">
                         <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="threshold" data-sort-type="number">
                             Seuil <span class="text-[10px]" data-sort-indicator="threshold">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="threshold_watch" data-sort-type="text">
+                            Surv. seuil <span class="text-[10px]" data-sort-indicator="threshold_watch">↕</span>
                         </button>
                     </th>
                     <th class="py-2 px-2 text-center">
@@ -196,6 +206,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     $isWarning = (int) ($article['actif'] ?? 0) === 1
                         && !$isAlert
                         && $article['seuil_alerte'] !== null
+                        && (int) ($article['surveiller_seuil'] ?? 0) === 1
                         && (float) $article['seuil_alerte'] > 0
                         && (float) $article['stock_actuel'] === (float) $article['seuil_alerte'];
                     $formId = 'pharmacy-article-' . (int) $article['id'];
@@ -210,6 +221,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         data-sort-unit="<?= htmlspecialchars(mb_strtolower((string) $article['unite']), ENT_QUOTES, 'UTF-8') ?>"
                         data-sort-quantity="<?= htmlspecialchars((string) (float) $article['stock_actuel'], ENT_QUOTES, 'UTF-8') ?>"
                         data-sort-threshold="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (float) $article['seuil_alerte'] : -1), ENT_QUOTES, 'UTF-8') ?>"
+                        data-sort-threshold_watch="<?= (int) ($article['surveiller_seuil'] ?? 0) === 1 ? 'oui' : 'non' ?>"
                         data-sort-cr="<?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? 'oui' : 'non' ?>"
                         data-sort-state="<?= (int) ($article['actif'] ?? 0) === 1 ? 'actif' : 'inactif' ?>"
                     >
@@ -251,6 +263,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </td>
                         <td class="px-2 py-2 text-center">
                             <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="number" min="0" step="1" name="seuil_alerte" value="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (int) round((float) $article['seuil_alerte']) : ''), ENT_QUOTES, 'UTF-8') ?>" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        </td>
+                        <td class="px-2 py-2 text-center">
+                            <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="surveiller_seuil" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <option value="0" <?= (int) ($article['surveiller_seuil'] ?? 0) === 0 ? 'selected' : '' ?>>Non</option>
+                                <option value="1" <?= (int) ($article['surveiller_seuil'] ?? 0) === 1 ? 'selected' : '' ?>>Oui</option>
+                            </select>
                         </td>
                         <td class="px-2 py-2 text-center">
                             <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="motif_sortie_obligatoire" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
