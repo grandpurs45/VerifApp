@@ -9,6 +9,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.10] - 2026-05-18
+
+### Changed
+- Module pharmacie:
+  - le formulaire terrain de sortie trie maintenant les articles par nombre de sorties sur les 6 derniers mois avant la date de derniere sortie
+
 ## [1.0.0-rc.9] - 2026-05-18
 
 ### Added

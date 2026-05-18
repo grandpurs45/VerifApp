@@ -65,9 +65,8 @@ final class PharmacyRepository
         if ($orderByRecentOutput && $hasMovements) {
             $orderBy = '
                 ORDER BY
-                    CASE WHEN sortie_stats.derniere_sortie_le IS NULL THEN 1 ELSE 0 END ASC,
-                    sortie_stats.derniere_sortie_le DESC,
                     COALESCE(sortie_stats.sorties_6m, 0) DESC,
+                    sortie_stats.derniere_sortie_le DESC,
                     a.nom ASC
             ';
         }
