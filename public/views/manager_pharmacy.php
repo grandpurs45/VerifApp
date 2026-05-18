@@ -75,7 +75,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </div>
 </section>
 
-<section class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<section class="grid grid-cols-1 md:grid-cols-4 gap-3">
     <article class="rounded-2xl bg-white shadow p-4">
         <p class="text-xs uppercase tracking-wide text-slate-500">Articles actifs</p>
         <p class="text-3xl font-extrabold mt-1"><?= (int) ($stats['total_articles'] ?? 0) ?></p>
@@ -83,7 +83,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <article class="rounded-2xl bg-red-50 border border-red-200 shadow p-4">
         <p class="text-xs uppercase tracking-wide text-red-700">En alerte stock</p>
         <p class="text-3xl font-extrabold mt-1 text-red-700"><?= (int) ($stats['alert_articles'] ?? 0) ?></p>
-        <p class="mt-2 text-xs font-semibold text-red-700">Priorite de reappro immediate</p>
+        <p class="mt-2 text-xs font-semibold text-red-700">Sous le seuil</p>
+    </article>
+    <article class="rounded-2xl bg-amber-50 border border-amber-200 shadow p-4">
+        <p class="text-xs uppercase tracking-wide text-amber-700">Au seuil</p>
+        <p class="text-3xl font-extrabold mt-1 text-amber-700"><?= (int) ($stats['warning_articles'] ?? 0) ?></p>
+        <p class="mt-2 text-xs font-semibold text-amber-700">A surveiller</p>
     </article>
     <article class="rounded-2xl bg-white shadow p-4">
         <p class="text-xs uppercase tracking-wide text-slate-500">Sorties (7 jours)</p>
@@ -120,7 +125,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 id="pharmacyAlertOnlyToggle"
                 class="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800"
             >
-                Voir erreurs uniquement
+                Voir alertes / seuil
             </button>
             <input
                 id="pharmacyArticleSearch"
@@ -162,13 +167,19 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         && $article['seuil_alerte'] !== null
                         && (float) $article['seuil_alerte'] > 0
                         && (float) $article['stock_actuel'] < (float) $article['seuil_alerte'];
+                    $isWarning = (int) ($article['actif'] ?? 0) === 1
+                        && !$isAlert
+                        && $article['seuil_alerte'] !== null
+                        && (float) $article['seuil_alerte'] > 0
+                        && (float) $article['stock_actuel'] === (float) $article['seuil_alerte'];
                     $formId = 'pharmacy-article-' . (int) $article['id'];
                     ?>
                     <tr
-                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?> <?= $isInactive ? 'bg-slate-100/90' : '' ?>"
+                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?> <?= $isWarning ? 'bg-amber-100/70' : '' ?> <?= $isInactive ? 'bg-slate-100/90' : '' ?>"
                         data-article-row
                         data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
                         data-article-alert="<?= $isAlert ? '1' : '0' ?>"
+                        data-article-warning="<?= $isWarning ? '1' : '0' ?>"
                     >
                         <td class="px-2 py-2">
                             <form id="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" method="post" action="/index.php?controller=manager_pharmacy&action=article_save">
@@ -178,6 +189,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-200/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-red-800">
                                     <span class="inline-block h-2.5 w-2.5 rounded-full bg-red-600"></span>
                                     Alerte stock
+                                </span>
+                            <?php elseif ($isWarning): ?>
+                                <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-200/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                                    Au seuil
                                 </span>
                             <?php elseif ($isInactive): ?>
                                 <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-200/90 px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-700">
@@ -332,8 +348,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             rows.forEach((row) => {
                 const name = normalize(row.getAttribute('data-article-name') || '');
                 const isAlert = (row.getAttribute('data-article-alert') || '0') === '1';
+                const isWarning = (row.getAttribute('data-article-warning') || '0') === '1';
                 const matchSearch = needle === '' || name.includes(needle);
-                const matchAlert = !alertOnly || isAlert;
+                const matchAlert = !alertOnly || isAlert || isWarning;
                 const match = matchSearch && matchAlert;
                 row.classList.toggle('hidden', !match);
                 if (match) {
@@ -347,7 +364,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         if (alertOnlyButton) {
             alertOnlyButton.addEventListener('click', function () {
                 alertOnly = !alertOnly;
-                alertOnlyButton.textContent = alertOnly ? 'Afficher tous les articles' : 'Voir erreurs uniquement';
+                alertOnlyButton.textContent = alertOnly ? 'Afficher tous les articles' : 'Voir alertes / seuil';
                 alertOnlyButton.classList.toggle('bg-red-600', alertOnly);
                 alertOnlyButton.classList.toggle('text-white', alertOnly);
                 alertOnlyButton.classList.toggle('border-red-600', alertOnly);

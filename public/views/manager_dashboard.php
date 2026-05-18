@@ -14,6 +14,7 @@ $hasQrSection = $canVerificationDashboard || $canPharmacy;
 $openAnomaliesCount = (int) ($anomalyStats['ouverte'] ?? 0);
 $nonConformesCount = (int) ($stats['non_conformes_today'] ?? 0);
 $pharmacyAlertCount = (int) ($pharmacyStats['alert_articles'] ?? 0);
+$pharmacyWarningCount = (int) ($pharmacyStats['warning_articles'] ?? 0);
 $monthlyCoverageRate = (int) ($stats['month_coverage_rate'] ?? 0);
 $monthlySlotsDone = (int) ($stats['month_slots_done'] ?? 0);
 $monthlySlotsExpected = (int) ($stats['month_slots_expected'] ?? 0);
@@ -108,7 +109,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             <h3 class="font-bold text-slate-900">Pharmacie</h3>
                             <span class="text-xs uppercase tracking-wide text-slate-500">Stock</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <article class="bg-slate-50 rounded-2xl border border-slate-200 p-4">
                                 <p class="text-xs uppercase tracking-wide text-slate-500">Articles actifs</p>
                                 <p class="text-2xl font-bold mt-1"><?= (int) ($pharmacyStats['total_articles'] ?? 0) ?></p>
@@ -116,6 +117,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             <article class="rounded-2xl p-4 <?= $pharmacyAlertCount === 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200' ?>">
                                 <p class="text-xs uppercase tracking-wide <?= $pharmacyAlertCount === 0 ? 'text-emerald-700' : 'text-red-700' ?>">En alerte stock</p>
                                 <p class="text-2xl font-bold mt-1 <?= $pharmacyAlertCount === 0 ? 'text-emerald-700' : 'text-red-700' ?>"><?= $pharmacyAlertCount ?></p>
+                            </article>
+                            <article class="rounded-2xl p-4 <?= $pharmacyWarningCount === 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200' ?>">
+                                <p class="text-xs uppercase tracking-wide <?= $pharmacyWarningCount === 0 ? 'text-emerald-700' : 'text-amber-700' ?>">Au seuil</p>
+                                <p class="text-2xl font-bold mt-1 <?= $pharmacyWarningCount === 0 ? 'text-emerald-700' : 'text-amber-700' ?>"><?= $pharmacyWarningCount ?></p>
                             </article>
                             <article class="bg-slate-50 rounded-2xl border border-slate-200 p-4">
                                 <p class="text-xs uppercase tracking-wide text-slate-500">Sorties (7 jours)</p>

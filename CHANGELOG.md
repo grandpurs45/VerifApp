@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.7] - 2026-05-18
+
+### Changed
+- Module pharmacie:
+  - distinction visuelle entre les articles sous le seuil (alerte rouge) et les articles exactement au seuil (warning orange)
+  - ajout du compteur `Au seuil` dans la page pharmacie et le dashboard
+  - le filtre rapide inclut maintenant les alertes et les warnings au seuil
+
 ## [1.0.0-rc.6] - 2026-05-16
 
 ### Fixed

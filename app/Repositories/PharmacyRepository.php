@@ -427,6 +427,7 @@ final class PharmacyRepository
             return [
                 'total_articles' => 0,
                 'alert_articles' => 0,
+                'warning_articles' => 0,
                 'outputs_last_7_days' => 0,
             ];
         }
@@ -443,7 +444,16 @@ final class PharmacyRepository
                              AND stock_actuel < seuil_alerte THEN 1
                         ELSE 0
                     END
-                ) AS alert_articles
+                ) AS alert_articles,
+                SUM(
+                    CASE
+                        WHEN actif = 1
+                             AND seuil_alerte IS NOT NULL
+                             AND seuil_alerte > 0
+                             AND stock_actuel = seuil_alerte THEN 1
+                        ELSE 0
+                    END
+                ) AS warning_articles
             FROM pharmacie_articles
             WHERE actif = 1
               AND caserne_id = :caserne_id
@@ -480,6 +490,7 @@ final class PharmacyRepository
         return [
             'total_articles' => (int) ($row['total_articles'] ?? 0),
             'alert_articles' => (int) ($row['alert_articles'] ?? 0),
+            'warning_articles' => (int) ($row['warning_articles'] ?? 0),
             'outputs_last_7_days' => $outputsLast7Days,
         ];
     }
