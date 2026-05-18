@@ -119,14 +119,16 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-xl font-bold">Articles existants</h2>
-        <div class="flex items-center gap-2">
-            <button
-                type="button"
-                id="pharmacyAlertOnlyToggle"
-                class="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800"
+        <div class="flex flex-wrap items-center gap-2">
+            <select
+                id="pharmacyStockFilter"
+                class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
             >
-                Voir alertes / seuil
-            </button>
+                <option value="all">Tous les articles</option>
+                <option value="alert">Alertes uniquement</option>
+                <option value="warning">Warnings uniquement</option>
+                <option value="attention">Alertes + warnings</option>
+            </select>
             <input
                 id="pharmacyArticleSearch"
                 type="search"
@@ -150,12 +152,36 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </colgroup>
             <thead>
                 <tr class="text-left text-slate-500 border-b border-slate-200">
-                    <th class="py-2 px-2">Nom</th>
-                    <th class="py-2 px-2 text-center">Unite</th>
-                    <th class="py-2 px-2 text-center">Quantite</th>
-                    <th class="py-2 px-2 text-center">Seuil</th>
-                    <th class="py-2 px-2 text-center">Sortie CR</th>
-                    <th class="py-2 px-2 text-center">Etat</th>
+                    <th class="py-2 px-2">
+                        <button type="button" class="inline-flex items-center gap-1 font-semibold hover:text-slate-900" data-sort-key="name" data-sort-type="text">
+                            Nom <span class="text-[10px]" data-sort-indicator="name">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="unit" data-sort-type="text">
+                            Unite <span class="text-[10px]" data-sort-indicator="unit">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="quantity" data-sort-type="number">
+                            Quantite <span class="text-[10px]" data-sort-indicator="quantity">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="threshold" data-sort-type="number">
+                            Seuil <span class="text-[10px]" data-sort-indicator="threshold">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="cr" data-sort-type="text">
+                            Sortie CR <span class="text-[10px]" data-sort-indicator="cr">↕</span>
+                        </button>
+                    </th>
+                    <th class="py-2 px-2 text-center">
+                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="state" data-sort-type="text">
+                            Etat <span class="text-[10px]" data-sort-indicator="state">↕</span>
+                        </button>
+                    </th>
                     <th class="py-2 px-2 text-center">Action</th>
                 </tr>
             </thead>
@@ -180,6 +206,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
                         data-article-alert="<?= $isAlert ? '1' : '0' ?>"
                         data-article-warning="<?= $isWarning ? '1' : '0' ?>"
+                        data-sort-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
+                        data-sort-unit="<?= htmlspecialchars(mb_strtolower((string) $article['unite']), ENT_QUOTES, 'UTF-8') ?>"
+                        data-sort-quantity="<?= htmlspecialchars((string) (float) $article['stock_actuel'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-sort-threshold="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (float) $article['seuil_alerte'] : -1), ENT_QUOTES, 'UTF-8') ?>"
+                        data-sort-cr="<?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? 'oui' : 'non' ?>"
+                        data-sort-state="<?= (int) ($article['actif'] ?? 0) === 1 ? 'actif' : 'inactif' ?>"
                     >
                         <td class="px-2 py-2">
                             <form id="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" method="post" action="/index.php?controller=manager_pharmacy&action=article_save">
@@ -328,13 +360,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <script>
     (function () {
         const searchInput = document.getElementById('pharmacyArticleSearch');
-        const alertOnlyButton = document.getElementById('pharmacyAlertOnlyToggle');
+        const stockFilter = document.getElementById('pharmacyStockFilter');
         const rows = Array.from(document.querySelectorAll('[data-article-row]'));
         const count = document.getElementById('pharmacyArticleCount');
         if (!searchInput || rows.length === 0 || !count) {
             return;
         }
-        let alertOnly = false;
+        const sortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
+        const tableBody = rows[0].parentElement;
+        let currentSort = null;
 
         const normalize = (value) => (value || '')
             .toString()
@@ -342,16 +376,71 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '');
 
+        const getStockFilterMode = () => stockFilter ? stockFilter.value : 'all';
+
+        const matchesStockFilter = (row) => {
+            const mode = getStockFilterMode();
+            const isAlert = (row.getAttribute('data-article-alert') || '0') === '1';
+            const isWarning = (row.getAttribute('data-article-warning') || '0') === '1';
+
+            if (mode === 'alert') {
+                return isAlert;
+            }
+            if (mode === 'warning') {
+                return isWarning;
+            }
+            if (mode === 'attention') {
+                return isAlert || isWarning;
+            }
+
+            return true;
+        };
+
+        const compareRows = (left, right) => {
+            if (!currentSort) {
+                return 0;
+            }
+            const attribute = 'data-sort-' + currentSort.key;
+            const leftRaw = left.getAttribute(attribute) || '';
+            const rightRaw = right.getAttribute(attribute) || '';
+            let result = 0;
+
+            if (currentSort.type === 'number') {
+                result = (Number.parseFloat(leftRaw) || 0) - (Number.parseFloat(rightRaw) || 0);
+            } else {
+                result = normalize(leftRaw).localeCompare(normalize(rightRaw), 'fr', { numeric: true });
+            }
+
+            return currentSort.direction === 'asc' ? result : -result;
+        };
+
+        const updateSortIndicators = () => {
+            document.querySelectorAll('[data-sort-indicator]').forEach((indicator) => {
+                const key = indicator.getAttribute('data-sort-indicator');
+                if (!currentSort || key !== currentSort.key) {
+                    indicator.textContent = '↕';
+                    return;
+                }
+                indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+            });
+        };
+
+        const applySort = () => {
+            if (!tableBody || !currentSort) {
+                updateSortIndicators();
+                return;
+            }
+            rows.sort(compareRows).forEach((row) => tableBody.appendChild(row));
+            updateSortIndicators();
+        };
+
         const applyFilter = () => {
             const needle = normalize(searchInput.value.trim());
             let visible = 0;
             rows.forEach((row) => {
                 const name = normalize(row.getAttribute('data-article-name') || '');
-                const isAlert = (row.getAttribute('data-article-alert') || '0') === '1';
-                const isWarning = (row.getAttribute('data-article-warning') || '0') === '1';
                 const matchSearch = needle === '' || name.includes(needle);
-                const matchAlert = !alertOnly || isAlert || isWarning;
-                const match = matchSearch && matchAlert;
+                const match = matchSearch && matchesStockFilter(row);
                 row.classList.toggle('hidden', !match);
                 if (match) {
                     visible += 1;
@@ -361,19 +450,25 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         };
 
         searchInput.addEventListener('input', applyFilter);
-        if (alertOnlyButton) {
-            alertOnlyButton.addEventListener('click', function () {
-                alertOnly = !alertOnly;
-                alertOnlyButton.textContent = alertOnly ? 'Afficher tous les articles' : 'Voir alertes / seuil';
-                alertOnlyButton.classList.toggle('bg-red-600', alertOnly);
-                alertOnlyButton.classList.toggle('text-white', alertOnly);
-                alertOnlyButton.classList.toggle('border-red-600', alertOnly);
-                alertOnlyButton.classList.toggle('bg-red-50', !alertOnly);
-                alertOnlyButton.classList.toggle('text-red-800', !alertOnly);
-                alertOnlyButton.classList.toggle('border-red-300', !alertOnly);
+        if (stockFilter) {
+            stockFilter.addEventListener('change', function () {
                 applyFilter();
             });
         }
+        sortButtons.forEach((button) => {
+            button.addEventListener('click', function () {
+                const key = button.getAttribute('data-sort-key') || 'name';
+                const type = button.getAttribute('data-sort-type') || 'text';
+                if (currentSort && currentSort.key === key) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = { key, type, direction: 'asc' };
+                }
+                applySort();
+                applyFilter();
+            });
+        });
+        updateSortIndicators();
 
         const menuToggles = Array.from(document.querySelectorAll('[data-delete-menu-toggle]'));
         const menus = Array.from(document.querySelectorAll('[data-delete-menu]'));

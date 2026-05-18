@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.8] - 2026-05-18
+
+### Added
+- Module pharmacie:
+  - ajout du tri cliquable sur les colonnes des articles existants
+  - ajout d un filtre stock: tous, alertes, warnings, alertes + warnings
+  - conservation du champ de recherche rapide avec combinaison recherche + filtre
+
 ## [1.0.0-rc.7] - 2026-05-18
 
 ### Changed
