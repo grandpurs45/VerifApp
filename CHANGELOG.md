@@ -9,6 +9,15 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.11] - 2026-05-19
+
+### Added
+- Gestion utilisateurs:
+  - ajout des champs `nom`, `prenom` et `login`
+  - generation automatique du login a la creation: initiales du prenom + nom
+  - gestion automatique des doublons de login avec suffixe numerique
+  - connexion gestionnaire possible avec login ou email
+
 ## [1.0.0-rc.10] - 2026-05-18
 
 ### Changed

@@ -156,6 +156,8 @@ final class ManagerUserController
 
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         $name = trim((string) ($_POST['nom'] ?? ''));
+        $firstName = trim((string) ($_POST['prenom'] ?? ''));
+        $login = $this->normalizeLogin((string) ($_POST['login'] ?? ''));
         $email = trim((string) ($_POST['email'] ?? ''));
         $role = trim((string) ($_POST['role'] ?? ''));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
@@ -252,7 +254,12 @@ final class ManagerUserController
             $caserneAssignments[$currentCaserneId] = (string) ($_SESSION['manager_user']['role'] ?? 'verificateur');
         }
 
-        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $caserneAssignments === []) {
+        $userRepository = new UserRepository();
+        if ($login === '') {
+            $login = $this->generateAvailableLogin($userRepository, $firstName, $name, $id);
+        }
+
+        if ($name === '' || $firstName === '' || !$this->isValidLogin($login) || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $caserneAssignments === []) {
             $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
         }
 
@@ -260,8 +267,6 @@ final class ManagerUserController
         if ($primaryRole === '' || !isset($validRoleCodes[$primaryRole])) {
             $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
         }
-
-        $userRepository = new UserRepository();
 
         if ($id > 0) {
             $existing = $userRepository->findById($id);
@@ -293,7 +298,12 @@ final class ManagerUserController
                 $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=email_exists');
             }
 
-            $ok = $userRepository->updateProfile($id, $name, $email, $primaryRole, $active);
+            $existingByLogin = $userRepository->findByLogin($login);
+            if ($existingByLogin !== null && (int) ($existingByLogin['id'] ?? 0) !== $id) {
+                $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=login_exists');
+            }
+
+            $ok = $userRepository->updateProfile($id, $name, $firstName, $login, $email, $primaryRole, $active);
             if (!$ok) {
                 $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=save_failed');
             }
@@ -354,8 +364,12 @@ final class ManagerUserController
             $this->redirect('/index.php?controller=manager_users&action=index&success=attached_existing');
         }
 
+        $login = $this->generateAvailableLogin($userRepository, $firstName, $name);
+
         $ok = $userRepository->create(
             $name,
+            $firstName,
+            $login,
             $email,
             password_hash($password, PASSWORD_BCRYPT),
             $primaryRole,
@@ -549,6 +563,74 @@ final class ManagerUserController
         }
 
         return array_values($ids);
+    }
+
+    private function normalizeLogin(string $login): string
+    {
+        return $this->slugify($login);
+    }
+
+    private function isValidLogin(string $login): bool
+    {
+        if ($login === '' || strlen($login) < 3 || strlen($login) > 80) {
+            return false;
+        }
+
+        return preg_match('/^[a-z0-9._-]+$/', $login) === 1;
+    }
+
+    private function generateAvailableLogin(UserRepository $userRepository, string $firstName, string $name, int $excludeUserId = 0): string
+    {
+        $base = $this->buildLoginBase($firstName, $name);
+        $candidate = $base;
+        $counter = 1;
+
+        while (true) {
+            $existing = $userRepository->findByLogin($candidate);
+            if ($existing === null || (int) ($existing['id'] ?? 0) === $excludeUserId) {
+                return $candidate;
+            }
+
+            $candidate = $base . $counter;
+            $counter++;
+        }
+    }
+
+    private function buildLoginBase(string $firstName, string $name): string
+    {
+        $firstName = trim($firstName);
+        $name = trim($name);
+        $initials = '';
+
+        foreach (preg_split('/[\s\-]+/', $firstName) ?: [] as $part) {
+            $part = $this->slugify((string) $part);
+            if ($part !== '') {
+                $initials .= substr($part, 0, 1);
+            }
+        }
+
+        $base = $initials . $this->slugify($name);
+        if (strlen($base) < 3) {
+            $base = 'user' . $base;
+        }
+
+        return substr($base, 0, 70);
+    }
+
+    private function slugify(string $value): string
+    {
+        $value = trim($value);
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+            if ($converted !== false) {
+                $value = $converted;
+            }
+        }
+
+        $value = strtolower($value);
+        $value = preg_replace('/[^a-z0-9._-]+/', '', $value) ?? '';
+
+        return trim($value, '._-');
     }
 
     private function redirect(string $location): void

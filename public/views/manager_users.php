@@ -62,6 +62,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Seul un administrateur plateforme peut attribuer ou modifier le role admin.
         <?php elseif ((string) $_GET['error'] === 'email_exists'): ?>
             Cet email est deja utilise par un autre compte.
+        <?php elseif ((string) $_GET['error'] === 'login_exists'): ?>
+            Ce login est deja utilise par un autre compte.
         <?php elseif ((string) $_GET['error'] === 'password_policy'): ?>
             Le mot de passe doit contenir au moins <?= $passwordMinLength ?> caracteres, avec <?= htmlspecialchars($passwordRulesText, ENT_QUOTES, 'UTF-8') ?>.
         <?php elseif ((string) $_GET['error'] === 'bulk_password_mismatch'): ?>
@@ -80,10 +82,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <h2 class="text-xl font-bold">Creer un utilisateur</h2>
     <form id="create-user-form" method="post" action="/index.php?controller=manager_users&action=save" class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2">
         <input type="hidden" name="id" value="0">
-        <input type="text" name="nom" required placeholder="Nom complet" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+        <input type="text" name="nom" required placeholder="Nom" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        <input type="text" name="prenom" required placeholder="Prenom" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        <input id="create-login" type="text" name="login" placeholder="Login genere" pattern="[a-z0-9._-]{3,80}" readonly class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-2">
         <input type="email" name="email" required placeholder="email@exemple.fr" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
         <input type="hidden" name="role" value="<?= htmlspecialchars($defaultRoleCode, ENT_QUOTES, 'UTF-8') ?>">
-        <input type="password" name="password" required minlength="<?= $passwordMinLength ?>" placeholder="Mot de passe initial (min <?= $passwordMinLength ?> + complexe)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-5">
+        <input type="password" name="password" required minlength="<?= $passwordMinLength ?>" placeholder="Mot de passe" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
         <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-1">
             <option value="1">Actif</option>
             <option value="0">Inactif</option>
@@ -136,7 +140,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <div class="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="text-xl font-bold">Comptes existants</h2>
-        <input id="existing-users-filter" type="text" placeholder="Filtrer nom / email..." class="w-full md:w-72 rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        <input id="existing-users-filter" type="text" placeholder="Filtrer nom / prenom / login / email..." class="w-full md:w-80 rounded-xl border border-slate-300 px-3 py-2 text-sm">
     </div>
     <div class="mb-3 rounded-xl border border-slate-200 p-3">
         <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -159,10 +163,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </label>
         </div>
         <div class="col-span-2">Nom</div>
-        <div class="col-span-3">Email</div>
-        <div class="col-span-2">Role plateforme</div>
+        <div class="col-span-2">Prenom</div>
+        <div class="col-span-2">Login</div>
+        <div class="col-span-2">Email</div>
         <div class="col-span-1">Etat</div>
-        <div class="col-span-1">Casernes</div>
         <div class="col-span-2 text-right">Actions</div>
     </div>
     <div class="mt-2 space-y-2">
@@ -170,25 +174,27 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <?php
             $selectedCount = count((array) ($user['caserne_ids'] ?? []));
             ?>
-            <div class="existing-user-row grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-200 px-3 py-2 cursor-pointer" data-open-user-href="/index.php?controller=manager_users&action=show&id=<?= (int) ($user['id'] ?? 0) ?>" data-user-search="<?= htmlspecialchars(mb_strtolower(((string) ($user['nom'] ?? '') . ' ' . (string) ($user['email'] ?? '')), 'UTF-8'), ENT_QUOTES, 'UTF-8') ?>" onclick="if (event.target.closest('input,button,a,label,select,textarea,summary,details')) { return; } window.location.href='/index.php?controller=manager_users&action=show&id=<?= (int) ($user['id'] ?? 0) ?>'">
+            <div class="existing-user-row grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-200 px-3 py-2 cursor-pointer" data-open-user-href="/index.php?controller=manager_users&action=show&id=<?= (int) ($user['id'] ?? 0) ?>" data-user-search="<?= htmlspecialchars(mb_strtolower(((string) ($user['nom'] ?? '') . ' ' . (string) ($user['prenom'] ?? '') . ' ' . (string) ($user['login'] ?? '') . ' ' . (string) ($user['email'] ?? '')), 'UTF-8'), ENT_QUOTES, 'UTF-8') ?>" onclick="if (event.target.closest('input,button,a,label,select,textarea,summary,details')) { return; } window.location.href='/index.php?controller=manager_users&action=show&id=<?= (int) ($user['id'] ?? 0) ?>'">
                 <div class="col-span-1" onclick="event.stopPropagation();">
                     <input type="checkbox" class="user-select-item h-4 w-4 rounded border-slate-300" value="<?= (int) ($user['id'] ?? 0) ?>">
                 </div>
                 <div class="col-span-2 truncate font-semibold text-slate-800"><?= htmlspecialchars((string) ($user['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-                <div class="col-span-3 truncate text-slate-700"><?= htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-                <div class="col-span-2 truncate text-slate-700">
-                    <?= htmlspecialchars((string) ($roleOptions[(string) ($user['role'] ?? '')] ?? (string) ($user['role'] ?? '')), ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <div class="col-span-2 truncate text-slate-700"><?= htmlspecialchars((string) ($user['prenom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="col-span-2 truncate font-mono text-xs text-slate-700"><?= htmlspecialchars((string) ($user['login'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="col-span-2 truncate text-slate-700" title="<?= htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="col-span-1">
                     <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold <?= ((int) ($user['actif'] ?? 0) === 1) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700' ?>">
                         <?= ((int) ($user['actif'] ?? 0) === 1) ? 'Actif' : 'Inactif' ?>
                     </span>
                 </div>
-                <div class="col-span-1 text-sm text-slate-600"><?= $selectedCount ?></div>
                 <div class="col-span-2 flex justify-end" onclick="event.stopPropagation();">
                     <a href="/index.php?controller=manager_users&action=show&id=<?= (int) ($user['id'] ?? 0) ?>" class="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 existing-user-open-link">
                         Ouvrir fiche
                     </a>
+                </div>
+                <div class="col-span-11 col-start-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span>Role plateforme: <?= htmlspecialchars((string) ($roleOptions[(string) ($user['role'] ?? '')] ?? (string) ($user['role'] ?? '')), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span>Casernes: <?= $selectedCount ?></span>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -232,6 +238,50 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const createForm = document.getElementById('create-user-form');
+    const createName = createForm ? createForm.querySelector('input[name="nom"]') : null;
+    const createFirstName = createForm ? createForm.querySelector('input[name="prenom"]') : null;
+    const createLogin = document.getElementById('create-login');
+
+    function slugifyLoginPart(value) {
+        return (value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9._\-\s]/g, '')
+            .trim();
+    }
+
+    function generateLoginPreview() {
+        if (!createLogin || !createName || !createFirstName) {
+            return;
+        }
+
+        const initials = slugifyLoginPart(createFirstName.value)
+            .split(/[\s\-]+/)
+            .filter(Boolean)
+            .map(function (part) { return part.charAt(0); })
+            .join('');
+        const name = slugifyLoginPart(createName.value).replace(/[\s\-]+/g, '');
+        let generated = (initials + name).replace(/[^a-z0-9._-]/g, '');
+        if (generated !== '' && generated.length < 3) {
+            generated = 'user' + generated;
+        }
+        createLogin.value = generated;
+    }
+
+    if (createName && createFirstName && createLogin) {
+        createName.addEventListener('input', generateLoginPreview);
+        createFirstName.addEventListener('input', generateLoginPreview);
+        generateLoginPreview();
+    }
+
+    Array.from(document.querySelectorAll('input[name="login"]')).forEach(function (input) {
+        input.addEventListener('input', function () {
+            input.value = (input.value || '').toLowerCase().replace(/\s+/g, '');
+        });
+    });
+
     const filterInput = document.getElementById('create-caserne-filter');
     const rows = Array.from(document.querySelectorAll('.create-caserne-row'));
     if (filterInput) {

@@ -9,6 +9,8 @@ $pageBackUrl = '';
 $pageBackLabel = '';
 
 $userName = is_array($managerUser) ? (string) ($managerUser['nom'] ?? '') : '';
+$userFirstName = is_array($managerUser) ? (string) ($managerUser['prenom'] ?? '') : '';
+$userLogin = is_array($managerUser) ? (string) ($managerUser['login'] ?? '') : '';
 $userEmail = is_array($managerUser) ? (string) ($managerUser['email'] ?? '') : '';
 $userRole = is_array($managerUser) ? (string) ($managerUser['role'] ?? '') : '';
 $currentCaserneId = is_array($managerUser) ? (int) ($managerUser['caserne_id'] ?? 0) : 0;
@@ -53,11 +55,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <?php if ($error === 'invalid_profile'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
-        Nom ou email invalide.
+        Nom, login ou email invalide.
     </section>
 <?php elseif ($error === 'email_taken'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Cet email est deja utilise par un autre compte.
+    </section>
+<?php elseif ($error === 'login_taken'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Ce login est deja utilise par un autre compte.
     </section>
 <?php elseif ($error === 'save_failed'): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
@@ -112,6 +118,33 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     name="nom"
                     required
                     value="<?= htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') ?>"
+                    class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm bg-slate-50"
+                    readonly
+                    data-account-field
+                >
+            </div>
+            <div>
+                <label for="account_prenom" class="text-sm font-medium text-slate-700">Prenom</label>
+                <input
+                    id="account_prenom"
+                    type="text"
+                    name="prenom"
+                    required
+                    value="<?= htmlspecialchars($userFirstName, ENT_QUOTES, 'UTF-8') ?>"
+                    class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm bg-slate-50"
+                    readonly
+                    data-account-field
+                >
+            </div>
+            <div>
+                <label for="account_login" class="text-sm font-medium text-slate-700">Login</label>
+                <input
+                    id="account_login"
+                    type="text"
+                    name="login"
+                    required
+                    pattern="[a-z0-9._-]{3,80}"
+                    value="<?= htmlspecialchars($userLogin, ENT_QUOTES, 'UTF-8') ?>"
                     class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm bg-slate-50"
                     readonly
                     data-account-field
@@ -289,6 +322,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         const selectFields = Array.from(document.querySelectorAll('[data-account-field-select]'));
         if (!form || !editButton || !actions || fields.length === 0) {
             return;
+        }
+        const loginField = document.getElementById('account_login');
+        if (loginField) {
+            loginField.addEventListener('input', function () {
+                loginField.value = (loginField.value || '').toLowerCase().replace(/\s+/g, '');
+            });
         }
 
         const initialValues = {};

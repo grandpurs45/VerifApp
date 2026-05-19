@@ -42,6 +42,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         <?php if ((string) $_GET['error'] === 'email_exists'): ?>
             Cet email est deja utilise par un autre compte.
+        <?php elseif ((string) $_GET['error'] === 'login_exists'): ?>
+            Ce login est deja utilise par un autre compte.
         <?php else: ?>
             Operation refusee. Verifie les donnees saisies.
         <?php endif; ?>
@@ -55,14 +57,22 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
-    <h2 class="text-xl font-bold">Utilisateur: <?= htmlspecialchars((string) ($user['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h2>
+    <h2 class="text-xl font-bold">Utilisateur: <?= htmlspecialchars(trim((string) ($user['prenom'] ?? '') . ' ' . (string) ($user['nom'] ?? '')), ENT_QUOTES, 'UTF-8') ?></h2>
     <form method="post" action="/index.php?controller=manager_users&action=save" class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2">
         <input type="hidden" name="id" value="<?= (int) ($user['id'] ?? 0) ?>">
-        <div class="md:col-span-3">
+        <div class="md:col-span-2">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Nom</label>
             <input type="text" name="nom" required value="<?= htmlspecialchars((string) ($user['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
         </div>
-        <div class="md:col-span-3">
+        <div class="md:col-span-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Prenom</label>
+            <input type="text" name="prenom" required value="<?= htmlspecialchars((string) ($user['prenom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        </div>
+        <div class="md:col-span-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Login</label>
+            <input type="text" name="login" required pattern="[a-z0-9._-]{3,80}" value="<?= htmlspecialchars((string) ($user['login'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        </div>
+        <div class="md:col-span-2">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
             <input type="email" name="email" required value="<?= htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
         </div>
@@ -164,6 +174,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    Array.from(document.querySelectorAll('input[name="login"]')).forEach(function (input) {
+        input.addEventListener('input', function () {
+            input.value = (input.value || '').toLowerCase().replace(/\s+/g, '');
+        });
+    });
+
     function bindAdminAutoSelect(roleSelector, checkboxSelector) {
         const roleSelects = Array.from(document.querySelectorAll(roleSelector));
         if (roleSelects.length === 0) {

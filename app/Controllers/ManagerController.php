@@ -122,17 +122,22 @@ final class ManagerController
         }
 
         $name = trim((string) ($_POST['nom'] ?? ''));
+        $firstName = trim((string) ($_POST['prenom'] ?? ''));
+        $login = strtolower(trim((string) ($_POST['login'] ?? '')));
         $email = strtolower(trim((string) ($_POST['email'] ?? '')));
         $defaultCaserneId = isset($_POST['default_caserne_id']) ? (int) $_POST['default_caserne_id'] : 0;
-
-        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->redirect('/index.php?controller=manager&action=account&error=invalid_profile');
-        }
 
         $userRepository = new UserRepository();
         $currentUser = $userRepository->findById($managerUserId);
         if ($currentUser === null) {
             $this->redirect('/index.php?controller=manager_auth&action=login_form&error=session_expired');
+        }
+        if ($login === '') {
+            $login = strtolower(trim((string) ($currentUser['login'] ?? '')));
+        }
+
+        if ($name === '' || $firstName === '' || $login === '' || preg_match('/^[a-z0-9._-]{3,80}$/', $login) !== 1 || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->redirect('/index.php?controller=manager&action=account&error=invalid_profile');
         }
 
         $existingByEmail = $userRepository->findByEmail($email);
@@ -140,9 +145,16 @@ final class ManagerController
             $this->redirect('/index.php?controller=manager&action=account&error=email_taken');
         }
 
+        $existingByLogin = $userRepository->findByLogin($login);
+        if ($existingByLogin !== null && (int) $existingByLogin['id'] !== $managerUserId) {
+            $this->redirect('/index.php?controller=manager&action=account&error=login_taken');
+        }
+
         $saved = $userRepository->updateProfile(
             $managerUserId,
             $name,
+            $firstName,
+            $login,
             $email,
             (string) $currentUser['role'],
             (int) $currentUser['actif'] === 1
@@ -172,6 +184,8 @@ final class ManagerController
         $_SESSION['manager_user'] = [
             'id' => $managerUserId,
             'nom' => $name,
+            'prenom' => $firstName,
+            'login' => $login,
             'email' => $email,
             'role' => (string) ($_SESSION['manager_user']['role'] ?? $currentUser['role']),
             'global_role' => (string) ($_SESSION['manager_user']['global_role'] ?? $currentUser['role']),

@@ -60,7 +60,7 @@ if ($error === 'missing_fields') {
         <section class="bg-white rounded-2xl shadow p-4 md:p-6">
             <form method="post" action="/index.php?controller=manager_auth&action=login" class="space-y-4">
                 <div>
-                    <label for="identifier" class="text-sm font-medium text-slate-700">Identifiant (email ou nom)</label>
+                    <label for="identifier" class="text-sm font-medium text-slate-700">Identifiant (login ou email)</label>
                     <input id="identifier" name="identifier" type="text" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3">
                 </div>
 

@@ -256,6 +256,8 @@ final class AuthController
         $sessionUser = [
             'id' => (int) $pending['user_id'],
             'nom' => (string) ($pending['nom'] ?? ''),
+            'prenom' => (string) ($pending['prenom'] ?? ''),
+            'login' => (string) ($pending['login'] ?? ''),
             'email' => (string) ($pending['email'] ?? ''),
             'role' => (string) ($pending['role'] ?? ''),
         ];
@@ -367,7 +369,7 @@ final class AuthController
             $this->logLoginEvent(
                 $onlyCaserneId > 0 ? $onlyCaserneId : null,
                 (int) ($user['id'] ?? 0),
-                $identifier !== '' ? $identifier : (string) ($user['email'] ?? $user['nom'] ?? 'manager'),
+                $identifier !== '' ? $identifier : (string) ($user['login'] ?? $user['email'] ?? $user['nom'] ?? 'manager'),
                 $ipAddress,
                 $userAgent,
                 'success',
@@ -380,6 +382,8 @@ final class AuthController
         $_SESSION['manager_caserne_pending'] = [
             'user_id' => (int) $user['id'],
             'nom' => (string) $user['nom'],
+            'prenom' => (string) ($user['prenom'] ?? ''),
+            'login' => (string) ($user['login'] ?? ''),
             'email' => (string) $user['email'],
             'role' => (string) $user['role'],
             'login_identifier' => $identifier,
@@ -400,6 +404,8 @@ final class AuthController
         $_SESSION['manager_user'] = [
             'id' => (int) ($user['id'] ?? 0),
             'nom' => (string) ($user['nom'] ?? ''),
+            'prenom' => (string) ($user['prenom'] ?? ''),
+            'login' => (string) ($user['login'] ?? ''),
             'email' => (string) ($user['email'] ?? ''),
             'role' => $resolvedRole,
             'global_role' => $globalRole,

@@ -16,6 +16,8 @@ final class UserRepository
     private ?bool $membershipRoleColumnExists = null;
     private ?bool $verificationsUserColumnExists = null;
     private ?bool $anomaliesAssigneeColumnExists = null;
+    /** @var array<string, bool> */
+    private array $userColumnExists = [];
 
     public function isAvailable(): bool
     {
@@ -26,11 +28,15 @@ final class UserRepository
     {
         $connection = Database::getConnection();
         $mustChangeSelect = $this->hasMustChangePasswordColumn() ? 'must_change_password' : '0 AS must_change_password';
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'prenom' : 'NULL AS prenom';
+        $loginSelect = $this->hasUserColumn('login') ? 'login' : 'NULL AS login';
 
         $sql = '
             SELECT
                 id,
                 nom,
+                ' . $prenomSelect . ',
+                ' . $loginSelect . ',
                 email,
                 mot_de_passe,
                 role,
@@ -57,11 +63,15 @@ final class UserRepository
     {
         $connection = Database::getConnection();
         $mustChangeSelect = $this->hasMustChangePasswordColumn() ? 'must_change_password' : '0 AS must_change_password';
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'prenom' : 'NULL AS prenom';
+        $loginSelect = $this->hasUserColumn('login') ? 'login' : 'NULL AS login';
 
         $sql = '
             SELECT
                 id,
                 nom,
+                ' . $prenomSelect . ',
+                ' . $loginSelect . ',
                 email,
                 mot_de_passe,
                 role,
@@ -84,22 +94,65 @@ final class UserRepository
         return $user;
     }
 
-    public function findByLoginIdentifier(string $identifier): ?array
+    public function findByLogin(string $login): ?array
     {
+        if (!$this->hasTable() || !$this->hasUserColumn('login')) {
+            return null;
+        }
+
         $connection = Database::getConnection();
         $mustChangeSelect = $this->hasMustChangePasswordColumn() ? 'must_change_password' : '0 AS must_change_password';
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'prenom' : 'NULL AS prenom';
 
         $sql = '
             SELECT
                 id,
                 nom,
+                ' . $prenomSelect . ',
+                login,
                 email,
                 mot_de_passe,
                 role,
                 actif,
                 ' . $mustChangeSelect . '
             FROM utilisateurs
-            WHERE email = :identifier OR nom = :identifier
+            WHERE login = :login
+            LIMIT 1
+        ';
+
+        $statement = $connection->prepare($sql);
+        $statement->execute(['login' => $login]);
+
+        $user = $statement->fetch(PDO::FETCH_ASSOC);
+
+        if ($user === false) {
+            return null;
+        }
+
+        return $user;
+    }
+
+    public function findByLoginIdentifier(string $identifier): ?array
+    {
+        $connection = Database::getConnection();
+        $mustChangeSelect = $this->hasMustChangePasswordColumn() ? 'must_change_password' : '0 AS must_change_password';
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'prenom' : 'NULL AS prenom';
+        $loginSelect = $this->hasUserColumn('login') ? 'login' : 'NULL AS login';
+        $loginWhere = $this->hasUserColumn('login') ? ' OR login = :identifier' : '';
+
+        $sql = '
+            SELECT
+                id,
+                nom,
+                ' . $prenomSelect . ',
+                ' . $loginSelect . ',
+                email,
+                mot_de_passe,
+                role,
+                actif,
+                ' . $mustChangeSelect . '
+            FROM utilisateurs
+            WHERE email = :identifier OR nom = :identifier' . $loginWhere . '
             ORDER BY id ASC
             LIMIT 1
         ';
@@ -188,10 +241,14 @@ final class UserRepository
 
         $connection = Database::getConnection();
         $mustChangeSelect = $this->hasMustChangePasswordColumn() ? 'must_change_password' : '0 AS must_change_password';
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'prenom' : 'NULL AS prenom';
+        $loginSelect = $this->hasUserColumn('login') ? 'login' : 'NULL AS login';
         $sql = '
             SELECT
                 id,
                 nom,
+                ' . $prenomSelect . ',
+                ' . $loginSelect . ',
                 email,
                 role,
                 actif,
@@ -205,64 +262,114 @@ final class UserRepository
         return $statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create(string $name, string $email, string $passwordHash, string $role, bool $active): bool
+    public function create(string $name, string $firstName, string $login, string $email, string $passwordHash, string $role, bool $active): bool
     {
         if (!$this->hasTable()) {
             return false;
         }
 
         $connection = Database::getConnection();
+        $hasPrenom = $this->hasUserColumn('prenom');
+        $hasLogin = $this->hasUserColumn('login');
 
         if ($this->hasMustChangePasswordColumn()) {
+            $columns = ['nom'];
+            $values = [':nom'];
+            if ($hasPrenom) {
+                $columns[] = 'prenom';
+                $values[] = ':prenom';
+            }
+            if ($hasLogin) {
+                $columns[] = 'login';
+                $values[] = ':login';
+            }
+            array_push($columns, 'email', 'mot_de_passe', 'role', 'actif', 'must_change_password');
+            array_push($values, ':email', ':mot_de_passe', ':role', ':actif', '1');
             $statement = $connection->prepare('
-                INSERT INTO utilisateurs (nom, email, mot_de_passe, role, actif, must_change_password)
-                VALUES (:nom, :email, :mot_de_passe, :role, :actif, 1)
+                INSERT INTO utilisateurs (' . implode(', ', $columns) . ')
+                VALUES (' . implode(', ', $values) . ')
             ');
         } else {
+            $columns = ['nom'];
+            $values = [':nom'];
+            if ($hasPrenom) {
+                $columns[] = 'prenom';
+                $values[] = ':prenom';
+            }
+            if ($hasLogin) {
+                $columns[] = 'login';
+                $values[] = ':login';
+            }
+            array_push($columns, 'email', 'mot_de_passe', 'role', 'actif');
+            array_push($values, ':email', ':mot_de_passe', ':role', ':actif');
             $statement = $connection->prepare('
-                INSERT INTO utilisateurs (nom, email, mot_de_passe, role, actif)
-                VALUES (:nom, :email, :mot_de_passe, :role, :actif)
+                INSERT INTO utilisateurs (' . implode(', ', $columns) . ')
+                VALUES (' . implode(', ', $values) . ')
             ');
         }
 
         try {
-            return $statement->execute([
+            $params = [
                 'nom' => $name,
                 'email' => $email,
                 'mot_de_passe' => $passwordHash,
                 'role' => $role,
                 'actif' => $active ? 1 : 0,
-            ]);
+            ];
+            if ($hasPrenom) {
+                $params['prenom'] = $firstName;
+            }
+            if ($hasLogin) {
+                $params['login'] = $login;
+            }
+
+            return $statement->execute($params);
         } catch (PDOException $exception) {
             return false;
         }
     }
 
-    public function updateProfile(int $id, string $name, string $email, string $role, bool $active): bool
+    public function updateProfile(int $id, string $name, string $firstName, string $login, string $email, string $role, bool $active): bool
     {
         if (!$this->hasTable()) {
             return false;
         }
 
         $connection = Database::getConnection();
+        $setParts = [
+            'nom = :nom',
+            'email = :email',
+            'role = :role',
+            'actif = :actif',
+        ];
+        if ($this->hasUserColumn('prenom')) {
+            $setParts[] = 'prenom = :prenom';
+        }
+        if ($this->hasUserColumn('login')) {
+            $setParts[] = 'login = :login';
+        }
         $statement = $connection->prepare('
             UPDATE utilisateurs
-            SET
-                nom = :nom,
-                email = :email,
-                role = :role,
-                actif = :actif
+            SET ' . implode(', ', $setParts) . '
             WHERE id = :id
         ');
 
         try {
-            return $statement->execute([
+            $params = [
                 'id' => $id,
                 'nom' => $name,
                 'email' => $email,
                 'role' => $role,
                 'actif' => $active ? 1 : 0,
-            ]);
+            ];
+            if ($this->hasUserColumn('prenom')) {
+                $params['prenom'] = $firstName;
+            }
+            if ($this->hasUserColumn('login')) {
+                $params['login'] = $login;
+            }
+
+            return $statement->execute($params);
         } catch (PDOException $exception) {
             return false;
         }
@@ -778,6 +885,34 @@ final class UserRepository
         }
 
         return $this->mustChangePasswordColumnExists;
+    }
+
+    private function hasUserColumn(string $column): bool
+    {
+        if (isset($this->userColumnExists[$column])) {
+            return $this->userColumnExists[$column];
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->prepare('
+                SELECT COUNT(*)
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = :table_name
+                  AND COLUMN_NAME = :column_name
+            ');
+            $statement->execute([
+                'table_name' => 'utilisateurs',
+                'column_name' => $column,
+            ]);
+            $this->userColumnExists[$column] = (int) $statement->fetchColumn() > 0;
+        } catch (\Throwable $throwable) {
+            $this->userColumnExists[$column] = false;
+        }
+
+        return $this->userColumnExists[$column];
     }
 
     private function hasMembershipTable(): bool
