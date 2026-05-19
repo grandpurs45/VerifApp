@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.12] - 2026-05-19
+
+### Fixed
+- Notifications backoffice:
+  - le lien `Ouvrir` marque maintenant la notification comme lue avant navigation
+  - le bouton `Tout marquer lu` utilise une action AJAX avec rechargement de la cloche
+  - fiabilisation du marquage global des notifications lues cote base de donnees
+
 ## [1.0.0-rc.11] - 2026-05-19
 
 ### Added

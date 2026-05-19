@@ -43,7 +43,12 @@ final class ManagerNotificationController
         $repository = new NotificationRepository();
         $ok = $repository->markAsRead($managerUserId, $notificationId);
 
-        $this->redirect('/index.php?controller=manager_notifications&action=index' . ($ok ? '&success=read' : '&error=read'));
+        if ($this->isAjaxRequest()) {
+            $this->json(['ok' => $ok], $ok ? 200 : 400);
+        }
+
+        $target = $this->safeReturnUrl('/index.php?controller=manager_notifications&action=index');
+        $this->redirect($this->appendQueryFlag($target, $ok ? 'success=read' : 'error=read'));
     }
 
     public function markAllRead(): void
@@ -59,7 +64,12 @@ final class ManagerNotificationController
         $repository = new NotificationRepository();
         $ok = $repository->markAllAsRead($managerUserId, $caserneId);
 
-        $this->redirect('/index.php?controller=manager_notifications&action=index' . ($ok ? '&success=read_all' : '&error=read'));
+        if ($this->isAjaxRequest()) {
+            $this->json(['ok' => $ok], $ok ? 200 : 400);
+        }
+
+        $target = $this->safeReturnUrl('/index.php?controller=manager_notifications&action=index');
+        $this->redirect($this->appendQueryFlag($target, $ok ? 'success=read_all' : 'error=read'));
     }
 
     public function settings(): void
@@ -162,5 +172,41 @@ final class ManagerNotificationController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function isAjaxRequest(): bool
+    {
+        return strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function json(array $payload, int $statusCode = 200): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_THROW_ON_ERROR);
+        exit;
+    }
+
+    private function safeReturnUrl(string $fallback): string
+    {
+        $returnUrl = trim((string) ($_POST['return_url'] ?? ''));
+        if ($returnUrl === '') {
+            return $fallback;
+        }
+
+        $parts = parse_url($returnUrl);
+        if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+            return $fallback;
+        }
+
+        return str_starts_with($returnUrl, '/') ? $returnUrl : $fallback;
+    }
+
+    private function appendQueryFlag(string $url, string $flag): string
+    {
+        return $url . (str_contains($url, '?') ? '&' : '?') . $flag;
     }
 }

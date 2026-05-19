@@ -332,9 +332,9 @@ final class NotificationRepository
         $connection = Database::getConnection();
         $params = ['utilisateur_id' => $userId];
         $sql = '
-            UPDATE notification_recipients nr
+            SELECT nr.notification_id
+            FROM notification_recipients nr
             INNER JOIN notifications n ON n.id = nr.notification_id
-            SET nr.lu = 1, nr.lu_le = NOW()
             WHERE nr.utilisateur_id = :utilisateur_id
               AND nr.lu = 0
         ';
@@ -344,8 +344,30 @@ final class NotificationRepository
         }
 
         $statement = $connection->prepare($sql);
+        $statement->execute($params);
+        $notificationIds = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        $notificationIds = array_values(array_filter($notificationIds, static fn (int $id): bool => $id > 0));
+        if ($notificationIds === []) {
+            return true;
+        }
 
-        return $statement->execute($params);
+        $placeholders = [];
+        $updateParams = ['utilisateur_id' => $userId];
+        foreach ($notificationIds as $index => $notificationId) {
+            $paramName = 'notification_id_' . $index;
+            $placeholders[] = ':' . $paramName;
+            $updateParams[$paramName] = $notificationId;
+        }
+
+        $update = $connection->prepare('
+            UPDATE notification_recipients
+            SET lu = 1, lu_le = NOW()
+            WHERE utilisateur_id = :utilisateur_id
+              AND lu = 0
+              AND notification_id IN (' . implode(',', $placeholders) . ')
+        ');
+
+        return $update->execute($updateParams);
     }
 
     /**

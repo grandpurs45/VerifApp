@@ -8,6 +8,10 @@ $managerRole = is_array($managerUser) ? (string) ($managerUser['role'] ?? '') : 
 $managerUserId = is_array($managerUser) && isset($managerUser['id']) ? (int) $managerUser['id'] : 0;
 $managerCaserneId = is_array($managerUser) && isset($managerUser['caserne_id']) ? (int) $managerUser['caserne_id'] : 0;
 $managerCaserneNom = is_array($managerUser) ? (string) ($managerUser['caserne_nom'] ?? '') : '';
+$notificationReturnUrl = (string) ($_SERVER['REQUEST_URI'] ?? '/index.php?controller=manager&action=dashboard');
+if ($notificationReturnUrl === '' || !str_starts_with($notificationReturnUrl, '/')) {
+    $notificationReturnUrl = '/index.php?controller=manager&action=dashboard';
+}
 $caserneOptions = [];
 if ($managerUserId > 0) {
     $caserneRepository = new \App\Repositories\CaserneRepository();
@@ -265,14 +269,20 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                                         <div class="mt-1 flex items-center justify-between gap-2">
                                                             <span class="text-[11px] text-slate-500"><?= htmlspecialchars((string) ($notificationItem['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                                                             <?php if ((string) ($notificationItem['lien'] ?? '') !== ''): ?>
-                                                                <a href="<?= htmlspecialchars((string) $notificationItem['lien'], ENT_QUOTES, 'UTF-8') ?>" class="text-[11px] font-semibold text-sky-700">Ouvrir</a>
+                                                                <a
+                                                                    href="<?= htmlspecialchars((string) $notificationItem['lien'], ENT_QUOTES, 'UTF-8') ?>"
+                                                                    data-notification-open
+                                                                    data-notification-id="<?= (int) ($notificationItem['id'] ?? 0) ?>"
+                                                                    class="text-[11px] font-semibold text-sky-700"
+                                                                >Ouvrir</a>
                                                             <?php endif; ?>
                                                         </div>
                                                     </article>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
                                         </div>
-                                        <form method="post" action="/index.php?controller=manager_notifications&action=mark_all_read" class="mt-2">
+                                        <form method="post" action="/index.php?controller=manager_notifications&action=mark_all_read" class="mt-2" data-notification-mark-all-form>
+                                            <input type="hidden" name="return_url" value="<?= htmlspecialchars($notificationReturnUrl, ENT_QUOTES, 'UTF-8') ?>">
                                             <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">
                                                 Tout marquer lu
                                             </button>
@@ -429,6 +439,60 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
 
                             document.addEventListener('click', function () {
                                 menu.classList.add('hidden');
+                            });
+                        }
+
+                        function postNotificationAction(url, data) {
+                            const formData = new FormData();
+                            Object.keys(data || {}).forEach(function (key) {
+                                formData.append(key, data[key]);
+                            });
+                            return fetch(url, {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: formData
+                            }).then(function (response) {
+                                if (!response.ok) {
+                                    throw new Error('notification update failed');
+                                }
+                                return response.json();
+                            });
+                        }
+
+                        document.querySelectorAll('[data-notification-open]').forEach(function (link) {
+                            link.addEventListener('click', function (event) {
+                                const notificationId = link.getAttribute('data-notification-id') || '';
+                                if (notificationId === '' || notificationId === '0') {
+                                    return;
+                                }
+                                event.preventDefault();
+                                postNotificationAction('/index.php?controller=manager_notifications&action=mark_read', {
+                                    notification_id: notificationId
+                                }).finally(function () {
+                                    window.location.href = link.href;
+                                });
+                            });
+                        });
+
+                        const markAllForm = document.querySelector('[data-notification-mark-all-form]');
+                        if (markAllForm) {
+                            markAllForm.addEventListener('submit', function (event) {
+                                event.preventDefault();
+                                const button = markAllForm.querySelector('button[type="submit"]');
+                                if (button) {
+                                    button.disabled = true;
+                                    button.textContent = 'Traitement...';
+                                }
+                                postNotificationAction(markAllForm.action, {
+                                    return_url: <?= json_encode($notificationReturnUrl, JSON_THROW_ON_ERROR) ?>
+                                }).then(function () {
+                                    window.location.reload();
+                                }).catch(function () {
+                                    markAllForm.submit();
+                                });
                             });
                         }
 
