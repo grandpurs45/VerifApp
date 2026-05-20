@@ -9,7 +9,30 @@ $pageBackUrl = '/index.php?controller=manager&action=dashboard';
 $pageBackLabel = 'Retour dashboard';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
+
+$successMap = [
+    'deleted' => 'Verification supprimee.',
+];
+$errorMap = [
+    'delete_forbidden' => 'Suppression reservee a l administrateur plateforme.',
+    'delete_invalid' => 'Suppression impossible: verification invalide.',
+    'delete_failed' => 'Suppression impossible: verification introuvable ou hors caserne active.',
+];
+$successMessage = isset($_GET['success']) ? ($successMap[(string) $_GET['success']] ?? null) : null;
+$errorMessage = isset($_GET['error']) ? ($errorMap[(string) $_GET['error']] ?? null) : null;
 ?>
+
+<?php if ($successMessage !== null): ?>
+    <div class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8') ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($errorMessage !== null): ?>
+    <div class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?>
+    </div>
+<?php endif; ?>
 
 <section class="bg-white rounded-2xl shadow p-4 md:p-6">
     <div class="mb-3 flex justify-end">
@@ -86,9 +109,19 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             <td class="px-4 py-3"><?= htmlspecialchars($row['statut_global'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= (int) $row['anomalies_ouvertes'] ?></td>
                             <td class="px-4 py-3">
+                                <div class="flex flex-wrap items-center gap-2">
                                 <a href="/index.php?controller=verifications&action=show&id=<?= (int) $row['id'] ?>" class="text-slate-900 underline">
                                     Ouvrir
                                 </a>
+                                <?php if (($canDeleteVerifications ?? false) === true): ?>
+                                    <form method="post" action="/index.php?controller=verifications&action=delete" onsubmit="return window.confirm('Supprimer cette verification ? Les lignes et anomalies associees seront supprimees. Cette action est irreversible.');">
+                                        <input type="hidden" name="verification_id" value="<?= (int) $row['id'] ?>">
+                                        <button type="submit" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">
+                                            Supprimer
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>

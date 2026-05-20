@@ -222,6 +222,7 @@ $managerRoutes = [
     'verifications/monthly',
     'verifications/show',
     'verifications/export',
+    'verifications/delete',
     'anomalies/index',
     'anomalies/update',
     'manager_assets/index',
@@ -353,6 +354,7 @@ $managerRoutePermissions = [
     'verifications/monthly' => 'verifications.history',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',
+    'verifications/delete' => 'verifications.history',
     'anomalies/index' => 'anomalies.manage',
     'anomalies/update' => 'anomalies.manage',
     'manager_assets/index' => 'assets.manage',
@@ -1038,6 +1040,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'verifications' && $action === 'export' && isset($_GET['id'])) {
         $controller = new VerificationController();
         $controller->export((int) $_GET['id']);
+        return;
+    }
+
+    if ($controllerName === 'verifications' && $action === 'delete') {
+        $controller = new VerificationController();
+        $controller->delete();
         return;
     }
 

@@ -143,8 +143,32 @@ final class VerificationController
         $history = $verificationRepository->findHistory($filters, $caserneId);
         $vehicles = $vehicleRepository->findAllActive($caserneId);
         $postes = $posteRepository->findAll($caserneId);
+        $canDeleteVerifications = $this->isPlatformAdmin();
 
         require dirname(__DIR__, 2) . '/public/views/history.php';
+    }
+
+    public function delete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=verifications&action=history&error=delete_invalid');
+        }
+
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=verifications&action=history&error=delete_forbidden');
+        }
+
+        $verificationId = isset($_POST['verification_id']) ? (int) $_POST['verification_id'] : 0;
+        if ($verificationId <= 0) {
+            $this->redirect('/index.php?controller=verifications&action=history&error=delete_invalid');
+        }
+
+        $verificationRepository = new VerificationRepository();
+        $deleted = $verificationRepository->deleteById($verificationId, $this->resolveManagerCaserneId());
+
+        $this->redirect(
+            '/index.php?controller=verifications&action=history&' . ($deleted ? 'success=deleted' : 'error=delete_failed')
+        );
     }
 
     public function monthly(): void
@@ -374,6 +398,17 @@ final class VerificationController
     {
         $managerCaserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
         return $managerCaserneId > 0 ? $managerCaserneId : null;
+    }
+
+    private function isPlatformAdmin(): bool
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        if (!is_array($managerUser)) {
+            return false;
+        }
+
+        return (int) ($managerUser['is_platform_admin'] ?? 0) === 1
+            || strtolower((string) ($managerUser['global_role'] ?? $managerUser['role'] ?? '')) === 'admin';
     }
 
     private function resolveActiveCaserneId(): ?int

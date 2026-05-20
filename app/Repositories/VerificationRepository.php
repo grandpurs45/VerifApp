@@ -297,6 +297,76 @@ final class VerificationRepository
         return $verification;
     }
 
+    public function deleteById(int $verificationId, ?int $caserneId = null): bool
+    {
+        if ($verificationId <= 0) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+
+        $lookupSql = '
+            SELECT id
+            FROM verifications
+            WHERE id = :id
+              ' . ($caserneId !== null ? 'AND caserne_id = :caserne_id' : '') . '
+            LIMIT 1
+        ';
+        $lookupParams = ['id' => $verificationId];
+        if ($caserneId !== null) {
+            $lookupParams['caserne_id'] = $caserneId;
+        }
+
+        $lookupStatement = $connection->prepare($lookupSql);
+        $lookupStatement->execute($lookupParams);
+        if ($lookupStatement->fetchColumn() === false) {
+            return false;
+        }
+
+        try {
+            $connection->beginTransaction();
+
+            if ($this->hasAnomaliesTable()) {
+                $deleteAnomalies = $connection->prepare(
+                    '
+                    DELETE a
+                    FROM anomalies a
+                    INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+                    WHERE vl.verification_id = :verification_id
+                    '
+                );
+                $deleteAnomalies->execute(['verification_id' => $verificationId]);
+            }
+
+            $deleteLines = $connection->prepare('DELETE FROM verification_lignes WHERE verification_id = :verification_id');
+            $deleteLines->execute(['verification_id' => $verificationId]);
+
+            $deleteVerificationSql = '
+                DELETE FROM verifications
+                WHERE id = :id
+                  ' . ($caserneId !== null ? 'AND caserne_id = :caserne_id' : '') . '
+            ';
+            $deleteVerificationParams = ['id' => $verificationId];
+            if ($caserneId !== null) {
+                $deleteVerificationParams['caserne_id'] = $caserneId;
+            }
+
+            $deleteVerification = $connection->prepare($deleteVerificationSql);
+            $deleteVerification->execute($deleteVerificationParams);
+            $deleted = $deleteVerification->rowCount() > 0;
+
+            $connection->commit();
+
+            return $deleted;
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+
+            throw $throwable;
+        }
+    }
+
     public function getDashboardStats(?int $caserneId = null, int $eveningStartHour = 18): array
     {
         $connection = Database::getConnection();

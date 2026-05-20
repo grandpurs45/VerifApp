@@ -9,6 +9,16 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.16] - 2026-05-20
+
+### Added
+- Historique des verifications:
+  - ajout d une suppression directe d une verification depuis la liste, reservee a l administrateur plateforme
+
+### Changed
+- Historique des verifications:
+  - la suppression nettoie les anomalies et lignes associees dans une transaction avant de supprimer la session
+
 ## [1.0.0-rc.15] - 2026-05-20
 
 ### Fixed
