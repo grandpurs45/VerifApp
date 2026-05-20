@@ -9,6 +9,19 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.13] - 2026-05-20
+
+### Added
+- Parc & materiel:
+  - ajout d une position d affichage configurable sur les zones d engin
+  - conservation de la position des zones lors de la duplication d un vehicule
+
+### Changed
+- Verification terrain:
+  - les zones suivent maintenant l ordre arborescent configure dans la fiche engin
+- Parc & materiel:
+  - le champ d ordre des zones est renomme `Position terrain` et affiche un badge `Pos. X` pour rendre son usage plus clair
+
 ## [1.0.0-rc.12] - 2026-05-19
 
 ### Fixed

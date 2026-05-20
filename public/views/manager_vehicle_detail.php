@@ -160,10 +160,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </option>
             <?php endforeach; ?>
         </select>
-        <input type="text" name="nom" placeholder="Nom zone / sous-zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-6">
+        <input type="text" name="nom" placeholder="Nom zone / sous-zone" required class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-4">
+        <label class="md:col-span-2">
+            <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Position terrain</span>
+            <input type="number" name="ordre" min="0" step="1" placeholder="ex: 10" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+        </label>
         <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter zone</button>
     </form>
-    <p class="mb-3 text-xs text-slate-500">Sous-zones illimitees: ex. Cellule &gt; Sac PS &gt; Sacoche rouge.</p>
+    <p class="mb-3 text-xs text-slate-500">Sous-zones illimitees: ex. Cellule &gt; Sac PS &gt; Sacoche rouge. Position terrain: plus le chiffre est petit, plus la zone apparait tot. Astuce: numerote de 10 en 10.</p>
 
     <div class="space-y-3">
         <?php
@@ -172,6 +176,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $zoneName = (string) ($zone['nom'] ?? '');
             $zonePath = (string) ($zone['chemin'] ?? $zoneName);
             $selectedParentId = (int) ($zone['parent_id'] ?? 0);
+            $displayOrder = (int) ($zone['ordre'] ?? 0);
             $children = $zonesByParent[$zoneId] ?? [];
             $subtreeCount = $countSubtree($zoneId);
             $excludedParentIds = array_merge([$zoneId], $collectDescendants($zoneId));
@@ -182,6 +187,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="inline-flex rounded-full bg-slate-200 text-slate-700 px-2 py-0.5 text-xs font-semibold">N<?= $level + 1 ?></span>
+                            <span class="inline-flex rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold" title="Position d affichage terrain">Pos. <?= $displayOrder ?></span>
                             <span class="text-sm font-semibold text-slate-900"><?= htmlspecialchars($zoneName, ENT_QUOTES, 'UTF-8') ?></span>
                             <?php if ($subtreeCount > 0): ?>
                                 <span class="inline-flex rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-semibold"><?= $subtreeCount ?> sous-zone(s)</span>
@@ -223,7 +229,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             <?php endforeach; ?>
                         </select>
                         <input type="text" name="nom" value="<?= htmlspecialchars($zoneName, ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
-                        <input type="text" readonly value="<?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-5">
+                        <label class="md:col-span-2">
+                            <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Position terrain</span>
+                            <input type="number" name="ordre" min="0" step="1" value="<?= $displayOrder ?>" title="Position d affichage terrain" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        </label>
+                        <input type="text" readonly value="<?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-3">
                         <div class="md:col-span-12 flex flex-wrap justify-end gap-2">
                             <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm min-w-[120px]">Enregistrer</button>
                             <button

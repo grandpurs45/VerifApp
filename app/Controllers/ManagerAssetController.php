@@ -534,6 +534,7 @@ final class ManagerAssetController
         $vehicleId = isset($_POST['vehicule_id']) ? (int) $_POST['vehicule_id'] : 0;
         $returnVehicleId = isset($_POST['return_vehicle_id']) ? (int) $_POST['return_vehicle_id'] : 0;
         $parentId = isset($_POST['parent_id']) ? (int) $_POST['parent_id'] : 0;
+        $order = isset($_POST['ordre']) ? max(0, (int) $_POST['ordre']) : null;
         $name = trim((string) ($_POST['nom'] ?? ''));
 
         if ($vehicleId <= 0 || $name === '') {
@@ -563,10 +564,10 @@ final class ManagerAssetController
 
         try {
             if ($id > 0) {
-                $zoneRepository->update($id, $vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
+                $zoneRepository->update($id, $vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId, $order);
                 $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, '', 'zone_updated'));
             }
-            $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId);
+            $zoneRepository->create($vehicleId, $name, $parentId > 0 ? $parentId : null, $caserneId, $order);
             $this->redirect($this->vehicleRedirectPath($returnVehicleId > 0 ? $returnVehicleId : $vehicleId, '', 'zone_created'));
         } catch (Throwable $throwable) {
             if ($this->isConstraintViolation($throwable)) {
@@ -873,7 +874,7 @@ final class ManagerAssetController
                 continue;
             }
 
-            $created = $zoneRepository->create($newVehicleId, $zoneName, $newParentId, $caserneId);
+            $created = $zoneRepository->create($newVehicleId, $zoneName, $newParentId, $caserneId, (int) ($sourceZone['ordre'] ?? 0));
             if (!$created) {
                 throw new RuntimeException('zone_copy_failed');
             }

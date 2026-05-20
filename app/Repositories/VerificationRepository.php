@@ -15,6 +15,7 @@ final class VerificationRepository
     private ?bool $usersTableExists = null;
     private ?bool $utilisateurColumnExists = null;
     private ?bool $valeurSaisieColumnExists = null;
+    private ?bool $zoneOrderColumnExists = null;
 
     public function createWithLines(
         int $caserneId,
@@ -208,6 +209,8 @@ final class VerificationRepository
             ? 'SUM(CASE WHEN a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS anomalies_ouvertes'
             : '0 AS anomalies_ouvertes';
         $anomalyJoin = $hasAnomalies ? 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id' : '';
+        $zoneOrderJoin = $this->hasZoneOrderColumn() ? 'LEFT JOIN zones zsort ON zsort.id = c.zone_id' : '';
+        $zoneOrderSql = $this->hasZoneOrderColumn() ? 'COALESCE(zsort.ordre, 0) ASC,' : '';
 
         $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
         $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
@@ -466,9 +469,10 @@ final class VerificationRepository
             INNER JOIN verifications v ON v.id = vl.verification_id
             INNER JOIN controles c ON c.id = vl.controle_id
             ' . $anomalyJoin . '
+            ' . $zoneOrderJoin . '
             WHERE vl.verification_id = :verification_id
               ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
-            ORDER BY c.zone ASC, c.ordre ASC, c.libelle ASC
+            ORDER BY ' . $zoneOrderSql . ' c.zone ASC, c.ordre ASC, c.libelle ASC
         ';
 
         $statement = $connection->prepare($sql);
@@ -497,6 +501,24 @@ final class VerificationRepository
         }
 
         return $this->anomaliesTableExists;
+    }
+
+    private function hasZoneOrderColumn(): bool
+    {
+        if ($this->zoneOrderColumnExists !== null) {
+            return $this->zoneOrderColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM zones LIKE 'ordre'");
+            $this->zoneOrderColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->zoneOrderColumnExists = false;
+        }
+
+        return $this->zoneOrderColumnExists;
     }
 
     private function hasUsersTable(): bool

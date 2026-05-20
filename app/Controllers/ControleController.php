@@ -48,8 +48,11 @@ final class ControleController
 
                 $zoneRepository = new ZoneRepository();
                 $zoneMap = [];
-                foreach ($zoneRepository->findByVehicleId($vehicleId, $caserneId) as $zone) {
-                    $zoneMap[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom']);
+                $zoneOrder = [];
+                foreach ($zoneRepository->findByVehicleId($vehicleId, $caserneId) as $index => $zone) {
+                    $zoneId = (int) $zone['id'];
+                    $zoneMap[$zoneId] = (string) ($zone['chemin'] ?? $zone['nom']);
+                    $zoneOrder[$zoneId] = $index;
                 }
 
                 foreach ($controles as &$controle) {
@@ -59,6 +62,24 @@ final class ControleController
                     }
                 }
                 unset($controle);
+
+                usort($controles, static function (array $a, array $b) use ($zoneOrder): int {
+                    $zoneA = (int) ($a['zone_id'] ?? 0);
+                    $zoneB = (int) ($b['zone_id'] ?? 0);
+                    $orderA = $zoneOrder[$zoneA] ?? PHP_INT_MAX;
+                    $orderB = $zoneOrder[$zoneB] ?? PHP_INT_MAX;
+                    if ($orderA !== $orderB) {
+                        return $orderA <=> $orderB;
+                    }
+
+                    $controlOrderA = (int) ($a['ordre'] ?? 0);
+                    $controlOrderB = (int) ($b['ordre'] ?? 0);
+                    if ($controlOrderA !== $controlOrderB) {
+                        return $controlOrderA <=> $controlOrderB;
+                    }
+
+                    return strcmp((string) ($a['libelle'] ?? ''), (string) ($b['libelle'] ?? ''));
+                });
             }
         }
 
