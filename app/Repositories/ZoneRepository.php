@@ -412,6 +412,7 @@ final class ZoneRepository
             $row['chemin'] = $id > 0 ? $buildPath($id, []) : (string) ($row['nom'] ?? '');
             $row['niveau'] = max(1, substr_count((string) $row['chemin'], '>') + 1);
             $row['_sort_key'] = $id > 0 ? $buildSortKey($id, []) : '';
+            $row['tri_arborescence'] = $row['_sort_key'];
         }
         unset($row);
 

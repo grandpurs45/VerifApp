@@ -48,11 +48,11 @@ final class ControleController
 
                 $zoneRepository = new ZoneRepository();
                 $zoneMap = [];
-                $zoneOrder = [];
+                $zoneSort = [];
                 foreach ($zoneRepository->findByVehicleId($vehicleId, $caserneId) as $index => $zone) {
                     $zoneId = (int) $zone['id'];
                     $zoneMap[$zoneId] = (string) ($zone['chemin'] ?? $zone['nom']);
-                    $zoneOrder[$zoneId] = $index;
+                    $zoneSort[$zoneId] = (string) ($zone['tri_arborescence'] ?? sprintf('%06d', $index));
                 }
 
                 foreach ($controles as &$controle) {
@@ -63,13 +63,14 @@ final class ControleController
                 }
                 unset($controle);
 
-                usort($controles, static function (array $a, array $b) use ($zoneOrder): int {
+                usort($controles, static function (array $a, array $b) use ($zoneSort): int {
                     $zoneA = (int) ($a['zone_id'] ?? 0);
                     $zoneB = (int) ($b['zone_id'] ?? 0);
-                    $orderA = $zoneOrder[$zoneA] ?? PHP_INT_MAX;
-                    $orderB = $zoneOrder[$zoneB] ?? PHP_INT_MAX;
-                    if ($orderA !== $orderB) {
-                        return $orderA <=> $orderB;
+                    $sortA = $zoneSort[$zoneA] ?? 'zzzzzz';
+                    $sortB = $zoneSort[$zoneB] ?? 'zzzzzz';
+                    $zoneCompare = strcmp($sortA, $sortB);
+                    if ($zoneCompare !== 0) {
+                        return $zoneCompare;
                     }
 
                     $controlOrderA = (int) ($a['ordre'] ?? 0);

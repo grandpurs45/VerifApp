@@ -334,9 +334,12 @@ final class VerificationController
 
         $zoneRepository = new ZoneRepository();
         $zoneMap = [];
+        $zoneSort = [];
 
-        foreach ($zoneRepository->findByVehicleId($vehicleId, $this->resolveActiveCaserneId()) as $zone) {
-            $zoneMap[(int) $zone['id']] = (string) ($zone['chemin'] ?? $zone['nom']);
+        foreach ($zoneRepository->findByVehicleId($vehicleId, $this->resolveActiveCaserneId()) as $index => $zone) {
+            $zoneId = (int) $zone['id'];
+            $zoneMap[$zoneId] = (string) ($zone['chemin'] ?? $zone['nom']);
+            $zoneSort[$zoneId] = (string) ($zone['tri_arborescence'] ?? sprintf('%06d', $index));
         }
 
         foreach ($lines as &$line) {
@@ -346,6 +349,23 @@ final class VerificationController
             }
         }
         unset($line);
+
+        usort($lines, static function (array $a, array $b) use ($zoneSort): int {
+            $zoneA = (int) ($a['zone_id'] ?? 0);
+            $zoneB = (int) ($b['zone_id'] ?? 0);
+            $zoneCompare = strcmp($zoneSort[$zoneA] ?? 'zzzzzz', $zoneSort[$zoneB] ?? 'zzzzzz');
+            if ($zoneCompare !== 0) {
+                return $zoneCompare;
+            }
+
+            $orderA = (int) ($a['ordre'] ?? 0);
+            $orderB = (int) ($b['ordre'] ?? 0);
+            if ($orderA !== $orderB) {
+                return $orderA <=> $orderB;
+            }
+
+            return strcmp((string) ($a['libelle'] ?? ''), (string) ($b['libelle'] ?? ''));
+        });
 
         return $lines;
     }

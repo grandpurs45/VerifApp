@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.15] - 2026-05-20
+
+### Fixed
+- Verification terrain:
+  - le tri des zones respecte maintenant toute l arborescence parent/enfant pour eviter de melanger des emplacements portant le meme nom mais situes dans des parents differents
+- Historique des verifications:
+  - le detail d une verification reapplique le meme tri arborescent que le formulaire terrain
+
 ## [1.0.0-rc.14] - 2026-05-20
 
 ### Fixed
