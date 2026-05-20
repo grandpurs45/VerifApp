@@ -9,6 +9,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0-rc.14] - 2026-05-20
+
+### Fixed
+- Verification terrain:
+  - le bouton `Nouvelle verification` apres enregistrement renvoie maintenant vers la liste des engins terrain au lieu de la page vitrine
+
 ## [1.0.0-rc.13] - 2026-05-20
 
 ### Added

@@ -36,7 +36,7 @@ declare(strict_types=1);
                 </p>
             <?php endif; ?>
 
-            <a href="/index.php?controller=home&action=index" class="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">
+            <a href="/index.php?controller=home&action=terrain" class="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">
                 Nouvelle verification
             </a>
         </section>
