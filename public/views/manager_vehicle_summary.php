@@ -97,13 +97,48 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </form>
         </div>
         <div class="mt-4">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=<?= rawurlencode($fieldVehicleGuestUrl) ?>" alt="QR verification vehicule <?= htmlspecialchars($vehicleName, ENT_QUOTES, 'UTF-8') ?>" class="h-48 w-48 rounded-lg border border-slate-200 bg-white p-2">
+            <div
+                data-local-qr
+                data-qr-text="<?= htmlspecialchars($fieldVehicleGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                data-qr-alt="QR verification vehicule <?= htmlspecialchars($vehicleName, ENT_QUOTES, 'UTF-8') ?>"
+                class="h-48 w-48 rounded-lg border border-slate-200 bg-white p-2"
+            ></div>
         </div>
     <?php endif; ?>
 </section>
 
+<script src="/assets/qrcode-generator.min.js"></script>
 <script>
     (function () {
+        if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) {
+            qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+        }
+
+        function buildQrDataUrl(text, cellSize, margin) {
+            const qr = qrcode(0, 'M');
+            qr.addData(text, 'Byte');
+            qr.make();
+            return qr.createDataURL(cellSize || 8, margin || 16);
+        }
+
+        function renderLocalQr(target) {
+            const text = target.getAttribute('data-qr-text') || '';
+            const alt = target.getAttribute('data-qr-alt') || 'QR code';
+            if (!text || typeof qrcode === 'undefined') {
+                target.textContent = 'QR indisponible';
+                target.classList.add('text-xs', 'text-red-700');
+                return;
+            }
+
+            const img = document.createElement('img');
+            img.src = buildQrDataUrl(text, 7, 18);
+            img.alt = alt;
+            img.className = 'h-full w-full object-contain';
+            target.replaceChildren(img);
+        }
+
+        document.querySelectorAll('[data-local-qr]').forEach(renderLocalQr);
+
         const toast = document.getElementById('manager-toast');
         if (toast) {
             setTimeout(function () {
@@ -149,7 +184,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 const vehicleUrl = button.getAttribute('data-print-url') || '';
                 if (!vehicleUrl) return;
 
-                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(vehicleUrl);
+                const qrUrl = buildQrDataUrl(vehicleUrl, 9, 18);
                 const printWindow = window.open('', '_blank', 'width=900,height=700');
                 if (!printWindow) {
                     window.alert('Autorisez les popups pour imprimer le QR code.');

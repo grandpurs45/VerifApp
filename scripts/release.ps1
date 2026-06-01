@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string]$Date = (Get-Date -Format "yyyy-MM-dd")
+    [string]$Date = (Get-Date -Format "yyyy-MM-dd"),
+    [switch]$AllowEmpty
 )
 
 Set-StrictMode -Version Latest
@@ -36,8 +37,12 @@ if ($nextSectionIndex -lt 0) {
 $unreleasedBody = $content.Substring($afterUnreleased, $nextSectionIndex - $afterUnreleased)
 $trimmedBody = $unreleasedBody.Trim()
 
-if ([string]::IsNullOrWhiteSpace($trimmedBody) -or $trimmedBody -eq "### Added`n- Rien pour le moment.") {
+if (([string]::IsNullOrWhiteSpace($trimmedBody) -or $trimmedBody -eq "### Added`n- Rien pour le moment.") -and -not $AllowEmpty) {
     throw "La section Unreleased est vide. Rien a releaser."
+}
+
+if ([string]::IsNullOrWhiteSpace($trimmedBody) -or $trimmedBody -eq "### Added`n- Rien pour le moment.") {
+    $trimmedBody = "### Changed`n- Stabilisation release."
 }
 
 $releasedSection = "## [$Version] - $Date`n`n$trimmedBody`n`n"

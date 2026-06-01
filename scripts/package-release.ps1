@@ -1,6 +1,7 @@
 param(
     [string]$Version = "",
-    [string]$OutputDir = "dist"
+    [string]$OutputDir = "dist",
+    [switch]$AllowDirty
 )
 
 Set-StrictMode -Version Latest
@@ -16,8 +17,8 @@ if ($Version -eq "") {
     $Version = (Get-Content -Path $versionFile -Raw).Trim()
 }
 
-if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-    throw "Version invalide. Format attendu: X.Y.Z"
+if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$') {
+    throw "Version invalide. Format attendu: X.Y.Z ou X.Y.Z-prerelease"
 }
 
 $tag = "v$Version"
@@ -44,6 +45,11 @@ if ($tagExists) {
     git archive --format=zip --output=$archivePath $tag
     $sourceRef = $tag
 } else {
+    $status = git status --porcelain
+    if (-not $AllowDirty -and $status) {
+        throw "Tag $tag introuvable et worktree modifie. Commit/tag d'abord, ou relancer avec -AllowDirty pour archiver HEAD."
+    }
+
     git archive --format=zip --output=$archivePath HEAD
     $sourceRef = "HEAD"
 }

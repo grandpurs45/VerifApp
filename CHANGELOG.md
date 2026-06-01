@@ -9,6 +9,25 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.0.0] - 2026-05-28
+
+### Added
+- Premiere version stable de VerifApp apres le cycle `1.0.0-rc`.
+- Stabilisation des modules verification terrain, backoffice, anomalies, pharmacie, inventaires, notifications, multi-caserne, audit securite, backup/restore et documentation d exploitation.
+
+### Changed
+- Alignement du workflow de release et de packaging sur la version stable `1.0.0`.
+- Conservation du menu carburant en mode apercu pour rendre visible le futur module sans activer de saisie metier.
+
+### Security
+- Ajout d une protection CSRF globale sur les actions `POST`.
+- Suppression de la dependance aux QR codes generes par service tiers pour eviter d exposer les liens invites contenant des tokens.
+
+### Fixed
+- Parc & materiel:
+  - correction de l edition d un materiel de type presence ou mesure lorsque la base renvoie une valeur decimale comme `2.00`
+  - prise en charge des decimales avec point ou virgule pour les seuils de mesure
+
 ## [1.0.0-rc.16] - 2026-05-20
 
 ### Added

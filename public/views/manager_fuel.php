@@ -11,6 +11,14 @@ $pageBackLabel = 'Retour dashboard';
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
+<section class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 shadow md:p-5">
+    <p class="text-xs font-bold uppercase tracking-wide text-amber-700">Module en prevision</p>
+    <h2 class="mt-1 text-xl font-extrabold text-amber-950">Fonctionnalite prevue pour une prochaine version</h2>
+    <p class="mt-2 text-sm font-semibold text-amber-900">
+        Cet ecran est un apercu. Aucune saisie carburant n est active dans la version actuelle.
+    </p>
+</section>
+
 <section class="rounded-2xl bg-white p-4 shadow md:p-6">
     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
         <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">

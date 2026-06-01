@@ -713,11 +713,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </form>
             </div>
             <div class="mt-4">
-                <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?= rawurlencode($fieldGuestUrl) ?>"
-                    alt="QR verification terrain"
+                <div
+                    data-local-qr
+                    data-qr-text="<?= htmlspecialchars($fieldGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    data-qr-alt="QR verification terrain"
                     class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
-                >
+                ></div>
             </div>
         </article>
 
@@ -749,11 +750,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </form>
             </div>
             <div class="mt-4">
-                <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?= rawurlencode($pharmacyGuestUrl) ?>"
-                    alt="QR sortie pharmacie"
+                <div
+                    data-local-qr
+                    data-qr-text="<?= htmlspecialchars($pharmacyGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    data-qr-alt="QR sortie pharmacie"
                     class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
-                >
+                ></div>
             </div>
         </article>
 
@@ -785,18 +787,49 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </form>
             </div>
             <div class="mt-4">
-                <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?= rawurlencode($inventoryGuestUrl) ?>"
-                    alt="QR inventaire mobile"
+                <div
+                    data-local-qr
+                    data-qr-text="<?= htmlspecialchars($inventoryGuestUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    data-qr-alt="QR inventaire mobile"
                     class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
-                >
+                ></div>
             </div>
         </article>
     </div>
 </section>
 
+<script src="/assets/qrcode-generator.min.js"></script>
 <script>
     (function () {
+        if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) {
+            qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+        }
+
+        function buildQrDataUrl(text, cellSize, margin) {
+            const qr = qrcode(0, 'M');
+            qr.addData(text, 'Byte');
+            qr.make();
+            return qr.createDataURL(cellSize || 8, margin || 16);
+        }
+
+        function renderLocalQr(target) {
+            const text = target.getAttribute('data-qr-text') || '';
+            const alt = target.getAttribute('data-qr-alt') || 'QR code';
+            if (!text || typeof qrcode === 'undefined') {
+                target.textContent = 'QR indisponible';
+                target.classList.add('text-xs', 'text-red-700');
+                return;
+            }
+
+            const img = document.createElement('img');
+            img.src = buildQrDataUrl(text, 6, 16);
+            img.alt = alt;
+            img.className = 'h-full w-full object-contain';
+            target.replaceChildren(img);
+        }
+
+        document.querySelectorAll('[data-local-qr]').forEach(renderLocalQr);
+
         const copyButtons = document.querySelectorAll('button[data-copy-target]');
         copyButtons.forEach((button) => {
             button.addEventListener('click', async () => {
@@ -828,7 +861,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     return;
                 }
 
-                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=700x700&data=' + encodeURIComponent(qrTargetUrl);
+                const qrUrl = buildQrDataUrl(qrTargetUrl, 10, 20);
                 const printWindow = window.open('', '_blank', 'width=900,height=700');
                 if (!printWindow) {
                     window.alert('Autorisez les popups pour imprimer le QR code.');

@@ -701,9 +701,9 @@ final class ManagerAssetController
             $inputType = 'statut';
         }
 
-        $expectedValue = $this->parseIntegerOrNull($expectedValueRaw);
-        $minThreshold = $this->parseIntegerOrNull($minThresholdRaw);
-        $maxThreshold = $this->parseIntegerOrNull($maxThresholdRaw);
+        $expectedValue = $this->parseDecimalOrNull($expectedValueRaw);
+        $minThreshold = $this->parseDecimalOrNull($minThresholdRaw);
+        $maxThreshold = $this->parseDecimalOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
         $targetVehicleId = $returnVehicleId > 0 ? $returnVehicleId : $vehicleId;
 
@@ -949,18 +949,18 @@ final class ManagerAssetController
         return (int) $vehicle['type_vehicule_id'] === (int) $poste['type_vehicule_id'];
     }
 
-    private function parseIntegerOrNull(string $raw): ?float
+    private function parseDecimalOrNull(string $raw): ?float
     {
-        $value = trim($raw);
+        $value = str_replace(',', '.', trim($raw));
         if ($value === '') {
             return null;
         }
 
-        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
+        if (!preg_match('/^-?\d+(?:\.\d+)?$/', $value)) {
             return null;
         }
 
-        return (float) ((int) $value);
+        return (float) $value;
     }
 
     private function redirect(string $location): void

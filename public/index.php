@@ -152,6 +152,58 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+if (!isset($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token']) || strlen($_SESSION['csrf_token']) < 32) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$csrfToken = (string) $_SESSION['csrf_token'];
+$csrfInput = '<input type="hidden" name="_csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '">';
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $submittedCsrfToken = (string) ($_POST['_csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+    if ($submittedCsrfToken === '' || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        if (!headers_sent()) {
+            http_response_code(419);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+
+        echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Session expiree - VerifApp</title>'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1"></head>'
+            . '<body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a;">'
+            . '<main style="max-width:720px;margin:48px auto;padding:0 16px;">'
+            . '<section style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">'
+            . '<p style="margin:0 0 10px;color:#475569;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">VerifApp</p>'
+            . '<h1 style="margin:0 0 12px;font-size:28px;line-height:1.2;">Session expiree</h1>'
+            . '<p style="margin:0 0 16px;color:#334155;">Recharge la page puis recommence l action.</p>'
+            . '<a href="/index.php?controller=manager_auth&action=login_form" '
+            . 'style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700;">Retour connexion</a>'
+            . '</section></main></body></html>';
+        exit;
+    }
+}
+
+ob_start(static function (string $buffer) use ($csrfInput, $csrfToken): string {
+    if (stripos($buffer, '<form') === false && stripos($buffer, '</head>') === false) {
+        return $buffer;
+    }
+
+    $buffer = preg_replace_callback(
+        '/<form\b([^>]*)>/i',
+        static function (array $matches) use ($csrfInput): string {
+            $attributes = (string) ($matches[1] ?? '');
+            if (!preg_match('/\bmethod\s*=\s*([\'"]?)post\1/i', $attributes)) {
+                return $matches[0];
+            }
+
+            return '<form' . $attributes . '>' . $csrfInput;
+        },
+        $buffer
+    ) ?? $buffer;
+
+    $meta = '<meta name="csrf-token" content="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '">';
+    return preg_replace('/<\/head>/i', $meta . "\n</head>", $buffer, 1) ?? $buffer;
+});
+
 $controllerName = isset($_GET['controller']) ? (string) $_GET['controller'] : null;
 $action = isset($_GET['action']) ? (string) $_GET['action'] : null;
 

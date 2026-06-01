@@ -335,8 +335,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="measure-fields">
                 <input type="text" name="unite" placeholder="Unite (ex: Bars, L, %)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
-                <input type="number" step="1" name="seuil_min" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
-                <input type="number" step="1" name="seuil_max" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                <input type="number" step="any" name="seuil_min" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                <input type="number" step="any" name="seuil_max" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="quantity-fields">
                 <input type="number" step="1" min="1" name="valeur_attendue" placeholder="Quantite attendue (ex: 2)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
@@ -416,8 +416,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-2 <?= $controlType === 'mesure' ? '' : 'hidden' ?>" data-wrap="measure-fields">
                     <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Unite" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
-                    <input type="number" step="1" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
-                    <input type="number" step="1" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                    <input type="number" step="any" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                    <input type="number" step="any" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-2 <?= $controlType === 'quantite' ? '' : 'hidden' ?>" data-wrap="quantity-fields">
                     <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Quantite attendue" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">

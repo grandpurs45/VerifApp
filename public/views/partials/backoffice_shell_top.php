@@ -58,18 +58,21 @@ $allModules = [
         'route' => '/index.php?controller=anomalies&action=index',
         'route_key' => 'anomalies/index',
         'permission' => 'anomalies.manage',
+        'group' => 'verifications',
     ],
     [
         'label' => 'Historique',
         'route' => '/index.php?controller=verifications&action=history',
         'route_key' => 'verifications/history',
         'permission' => 'verifications.history',
+        'group' => 'verifications',
     ],
     [
         'label' => 'Parc & materiel',
         'route' => '/index.php?controller=manager_assets&action=vehicles',
         'route_key' => 'manager_assets/vehicles',
         'permission' => 'assets.manage',
+        'group' => 'verifications',
     ],
     [
         'label' => 'Pharmacie',
@@ -82,6 +85,7 @@ $allModules = [
         'route' => '/index.php?controller=manager_fuel&action=index',
         'route_key' => 'manager_fuel/index',
         'permission' => 'fuel.manage',
+        'preview' => true,
     ],
     [
         'label' => 'Administration',
@@ -96,6 +100,34 @@ foreach ($allModules as $module) {
     if (\App\Core\ManagerAccess::hasPermission($managerRole, (string) $module['permission'])) {
         $visibleModules[] = $module;
     }
+}
+
+$verificationModules = array_values(array_filter(
+    $visibleModules,
+    static fn (array $module): bool => (string) ($module['group'] ?? '') === 'verifications'
+));
+$sidebarModules = array_values(array_filter(
+    $visibleModules,
+    static fn (array $module): bool => (string) ($module['group'] ?? '') !== 'verifications'
+));
+$verificationModuleActive = str_starts_with($currentRoute, 'anomalies/')
+    || str_starts_with($currentRoute, 'verifications/')
+    || str_starts_with($currentRoute, 'manager_assets/');
+if ($verificationModules !== []) {
+    $verificationNavigation = [
+        'label' => 'Verifications',
+        'route' => (string) $verificationModules[0]['route'],
+        'route_key' => 'verifications/module',
+        'children' => $verificationModules,
+    ];
+    $verificationInsertAt = 0;
+    foreach ($sidebarModules as $index => $sidebarModule) {
+        if ((string) ($sidebarModule['route_key'] ?? '') === 'manager/dashboard') {
+            $verificationInsertAt = $index + 1;
+            break;
+        }
+    }
+    array_splice($sidebarModules, $verificationInsertAt, 0, [$verificationNavigation]);
 }
 
 $mobileModules = array_slice($visibleModules, 0, 5);
@@ -146,9 +178,12 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                     </form>
                 <?php endif; ?>
                 <nav class="mt-5 space-y-2">
-                    <?php foreach ($visibleModules as $module): ?>
+                    <?php foreach ($sidebarModules as $module): ?>
                         <?php
                         $active = $currentRoute === $module['route_key'];
+                        if ($module['route_key'] === 'verifications/module') {
+                            $active = $verificationModuleActive;
+                        }
                         if (!$active && $module['route_key'] === 'verifications/history' && str_starts_with($currentRoute, 'verifications/')) {
                             $active = true;
                         }
@@ -158,10 +193,36 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         ?>
                         <a
                             href="<?= htmlspecialchars($module['route'], ENT_QUOTES, 'UTF-8') ?>"
-                            class="block rounded-xl px-3 py-2 text-sm font-semibold <?= $active ? 'bg-white text-slate-900' : 'text-slate-100 hover:bg-white/10' ?>"
+                            class="flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-semibold <?= $active ? 'bg-white text-slate-900' : (!empty($module['preview']) ? 'text-slate-400 hover:bg-white/10 hover:text-slate-200' : 'text-slate-100 hover:bg-white/10') ?>"
                         >
-                            <?= htmlspecialchars($module['label'], ENT_QUOTES, 'UTF-8') ?>
+                            <span><?= htmlspecialchars($module['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if (!empty($module['preview'])): ?>
+                                <span class="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                                    Prevision
+                                </span>
+                            <?php endif; ?>
                         </a>
+                        <?php if ($module['route_key'] === 'verifications/module' && $verificationModuleActive): ?>
+                                <div class="ml-3 mt-1 space-y-1 border-l border-white/20 pl-2">
+                                    <?php foreach ($module['children'] as $verificationModule): ?>
+                                        <?php
+                                        $verificationActive = $currentRoute === (string) $verificationModule['route_key'];
+                                        if (!$verificationActive && $verificationModule['route_key'] === 'verifications/history' && str_starts_with($currentRoute, 'verifications/')) {
+                                            $verificationActive = true;
+                                        }
+                                        if (!$verificationActive && $verificationModule['route_key'] === 'manager_assets/vehicles' && str_starts_with($currentRoute, 'manager_assets/')) {
+                                            $verificationActive = true;
+                                        }
+                                        ?>
+                                        <a
+                                            href="<?= htmlspecialchars((string) $verificationModule['route'], ENT_QUOTES, 'UTF-8') ?>"
+                                            class="block rounded-lg px-2 py-1.5 text-xs font-semibold <?= $verificationActive ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10' ?>"
+                                        >
+                                            <?= htmlspecialchars((string) $verificationModule['label'], ENT_QUOTES, 'UTF-8') ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                        <?php endif; ?>
                         <?php if ($module['route_key'] === 'manager_pharmacy/index' && str_starts_with($currentRoute, 'manager_pharmacy/')): ?>
                             <?php
                             $pharmacySubmenu = [
@@ -306,6 +367,7 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         const sessionTimeoutSeconds = <?= (int) $managerSessionTimeoutSeconds ?>;
                         const loginRedirectUrl = '/index.php?controller=manager_auth&action=login_form&error=session_expired';
                         const pingUrl = '/index.php?controller=manager_auth&action=ping';
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                         let lastPingAt = Date.now();
                         let lastActivityProbeAt = 0;
                         let warningTimer = null;
@@ -392,7 +454,8 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                 method: 'POST',
                                 credentials: 'same-origin',
                                 headers: {
-                                    'X-Requested-With': 'XMLHttpRequest'
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-Token': csrfToken
                                 }
                             })
                             .then(function (response) {
@@ -447,11 +510,13 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                             Object.keys(data || {}).forEach(function (key) {
                                 formData.append(key, data[key]);
                             });
+                            formData.append('_csrf_token', csrfToken);
                             return fetch(url, {
                                 method: 'POST',
                                 credentials: 'same-origin',
                                 headers: {
-                                    'X-Requested-With': 'XMLHttpRequest'
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-Token': csrfToken
                                 },
                                 body: formData
                             }).then(function (response) {
