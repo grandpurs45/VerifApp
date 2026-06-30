@@ -26,6 +26,7 @@ services:
       - default
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.routers.verifapp.rule=Host(`verifapp.oudard-lab.fr`)"
       - "traefik.http.routers.verifapp.entrypoints=websecure"
       - "traefik.http.routers.verifapp.tls=true"
