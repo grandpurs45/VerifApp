@@ -101,6 +101,7 @@ final class ManagerPharmacyController
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $canCancelOutputs = $this->isPlatformAdmin();
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
     }
@@ -232,6 +233,50 @@ final class ManagerPharmacyController
         }
 
         $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=ack_saved');
+    }
+
+    public function outputCancel(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        if (!$this->isPlatformAdmin()) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_forbidden');
+        }
+
+        $sortieKey = trim((string) ($_POST['sortie_key'] ?? ''));
+        if ($sortieKey === '') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_invalid');
+        }
+
+        $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Admin plateforme'));
+        $reason = trim((string) ($_POST['annulation_motif'] ?? ''));
+
+        $repository = new PharmacyRepository();
+        $status = $repository->cancelOutputGroup($caserneId, $sortieKey, $managerName, $reason);
+        if ($status === 'ok') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=cancel_saved');
+        }
+        if ($status === 'not_found') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_not_found');
+        }
+        if ($status === 'already_cancelled') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_already_cancelled');
+        }
+        if ($status === 'migration_required') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_migration_required');
+        }
+        if ($status === 'invalid') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_invalid');
+        }
+
+        $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=cancel_failed');
     }
 
     public function markOrder(): void
@@ -574,6 +619,17 @@ final class ManagerPharmacyController
         $caserneId = isset($_SESSION['manager_user']['caserne_id']) ? (int) $_SESSION['manager_user']['caserne_id'] : 0;
 
         return $caserneId > 0 ? $caserneId : null;
+    }
+
+    private function isPlatformAdmin(): bool
+    {
+        $managerUser = $_SESSION['manager_user'] ?? null;
+        if (!is_array($managerUser)) {
+            return false;
+        }
+
+        return (int) ($managerUser['is_platform_admin'] ?? 0) === 1
+            || strtolower((string) ($managerUser['global_role'] ?? $managerUser['role'] ?? '')) === 'admin';
     }
 
     private function parseNonNegativeInteger(string $raw): ?int

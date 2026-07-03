@@ -7,7 +7,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ## [Unreleased]
 
 ### Added
-- Rien pour le moment.
+- Pharmacie:
+  - ajout d une annulation de sortie reservee a l administrateur plateforme, avec reintegration automatique du stock et trace d audit.
+
+### Fixed
+- Pharmacie:
+  - protection du formulaire mobile contre les doubles soumissions de sortie de stock.
 
 ## [1.0.0] - 2026-05-28
 

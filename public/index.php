@@ -306,6 +306,7 @@ $managerRoutes = [
     'manager_pharmacy/article_delete',
     'manager_pharmacy/article_force_delete',
     'manager_pharmacy/output_acknowledge',
+    'manager_pharmacy/output_cancel',
     'manager_pharmacy/order_mark',
     'manager_pharmacy/order_receive',
     'manager_pharmacy/inventory_save',
@@ -438,6 +439,7 @@ $managerRoutePermissions = [
     'manager_pharmacy/article_delete' => 'pharmacy.manage',
     'manager_pharmacy/article_force_delete' => 'pharmacy.manage',
     'manager_pharmacy/output_acknowledge' => 'pharmacy.manage',
+    'manager_pharmacy/output_cancel' => 'pharmacy.manage',
     'manager_pharmacy/order_mark' => 'pharmacy.manage',
     'manager_pharmacy/order_receive' => 'pharmacy.manage',
     'manager_pharmacy/inventory_save' => 'pharmacy.manage',
@@ -882,6 +884,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'output_acknowledge') {
         $controller = new ManagerPharmacyController();
         $controller->outputAcknowledge();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'output_cancel') {
+        $controller = new ManagerPharmacyController();
+        $controller->outputCancel();
         return;
     }
 

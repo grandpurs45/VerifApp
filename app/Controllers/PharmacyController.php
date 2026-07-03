@@ -59,6 +59,7 @@ final class PharmacyController
         $success = isset($_GET['success']) && (string) $_GET['success'] === '1';
         $successItems = isset($_GET['items']) && ctype_digit((string) $_GET['items']) ? (int) $_GET['items'] : 0;
         $errorCode = isset($_GET['error']) ? (string) $_GET['error'] : '';
+        $outputToken = $this->createOutputToken();
 
         require dirname(__DIR__, 2) . '/public/views/pharmacy_form.php';
     }
@@ -183,9 +184,15 @@ final class PharmacyController
             $this->redirect('/index.php?controller=pharmacy&action=form&error=other_requires_migration');
         }
 
+        $outputToken = trim((string) ($_POST['output_token'] ?? ''));
+        if (!$this->consumeOutputToken($outputToken)) {
+            $this->redirect('/index.php?controller=pharmacy&action=form&error=duplicate');
+        }
+
         $ok = $repository->recordOutputs($caserneId, $lines, $declarant);
 
         if (!$ok) {
+            $_SESSION['pharmacy_output_tokens'][$outputToken] = time();
             $this->redirect('/index.php?controller=pharmacy&action=form&error=stock');
         }
 
@@ -401,6 +408,39 @@ final class PharmacyController
         }
 
         return null;
+    }
+
+    private function createOutputToken(): string
+    {
+        $tokens = isset($_SESSION['pharmacy_output_tokens']) && is_array($_SESSION['pharmacy_output_tokens'])
+            ? $_SESSION['pharmacy_output_tokens']
+            : [];
+        $now = time();
+        foreach ($tokens as $token => $createdAt) {
+            if (!is_string($token) || ($now - (int) $createdAt) > 1800) {
+                unset($tokens[$token]);
+            }
+        }
+
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = $now;
+        $_SESSION['pharmacy_output_tokens'] = $tokens;
+
+        return $token;
+    }
+
+    private function consumeOutputToken(string $token): bool
+    {
+        if ($token === '' || !isset($_SESSION['pharmacy_output_tokens']) || !is_array($_SESSION['pharmacy_output_tokens'])) {
+            return false;
+        }
+
+        if (!array_key_exists($token, $_SESSION['pharmacy_output_tokens'])) {
+            return false;
+        }
+
+        unset($_SESSION['pharmacy_output_tokens'][$token]);
+        return true;
     }
 
     private function parsePositiveInteger(string $raw): ?int

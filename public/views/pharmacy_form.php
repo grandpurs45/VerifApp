@@ -13,6 +13,8 @@ if ($errorCode === 'invalid') {
     $errorMessage = 'Pour "Autre", commentaire obligatoire (minimum 5 caracteres).';
 } elseif ($errorCode === 'other_requires_migration') {
     $errorMessage = 'Option "Autre" indisponible: migration base requise (026_allow_free_label_outputs).';
+} elseif ($errorCode === 'duplicate') {
+    $errorMessage = 'Cette sortie a deja ete traitee. Pour refaire une sortie, recharge le formulaire.';
 }
 ?>
 <!DOCTYPE html>
@@ -63,6 +65,7 @@ if ($errorCode === 'invalid') {
                 </a>
             <?php else: ?>
                 <form method="post" action="/index.php?controller=pharmacy&action=save" class="rounded-3xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg space-y-3" id="pharmacyForm">
+                    <input type="hidden" name="output_token" value="<?= htmlspecialchars((string) ($outputToken ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                     <section class="space-y-2">
                         <label for="articleSearchMain" class="text-sm font-semibold text-slate-200">Ajouter un article</label>
                         <input
@@ -120,7 +123,7 @@ if ($errorCode === 'invalid') {
                         <input id="declarant" name="declarant" type="text" required class="mt-1 w-full rounded-2xl border border-slate-500 bg-slate-900 px-4 py-3 text-base text-white" placeholder="Nom et prenom">
                     </div>
 
-                    <button type="submit" class="w-full rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">
+                    <button type="submit" class="w-full rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70" data-submit-button>
                         Enregistrer les sorties
                     </button>
                 </form>
@@ -172,6 +175,9 @@ if ($errorCode === 'invalid') {
                 const searchInput = document.querySelector('[data-main-article-search]');
                 const mainOptions = Array.from(document.querySelectorAll('[data-main-article-option]'));
                 const noLineNotice = document.getElementById('noLineNotice');
+                const form = document.getElementById('pharmacyForm');
+                const submitButton = document.querySelector('[data-submit-button]');
+                let isSubmitting = false;
 
                 function updateMainOptions(query) {
                     const search = (query || '').trim().toLowerCase();
@@ -360,6 +366,18 @@ if ($errorCode === 'invalid') {
                 if (searchInput) {
                     searchInput.addEventListener('input', function () {
                         updateMainOptions(searchInput.value || '');
+                    });
+                }
+
+                if (form && submitButton) {
+                    form.addEventListener('submit', function (event) {
+                        if (isSubmitting) {
+                            event.preventDefault();
+                            return;
+                        }
+                        isSubmitting = true;
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Enregistrement...';
                     });
                 }
 

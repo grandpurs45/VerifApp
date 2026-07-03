@@ -17,6 +17,7 @@ final class PharmacyRepository
     private ?bool $freeLabelColumnExists = null;
     private ?bool $articleIdNullable = null;
     private ?bool $ackColumnExists = null;
+    private ?bool $cancellationColumnsExist = null;
     private ?bool $inventoriesTableExists = null;
     private ?bool $inventoryLinesTableExists = null;
     private ?bool $inventoryFreeNameColumnExists = null;
@@ -45,6 +46,7 @@ final class PharmacyRepository
         $recentStatsJoin = '';
         $recentStatsSelect = '0 AS sorties_6m, NULL AS derniere_sortie_le';
         if ($hasMovements) {
+            $notCancelled = $this->outputNotCancelledCondition();
             $recentStatsJoin = '
                 LEFT JOIN (
                     SELECT
@@ -55,6 +57,7 @@ final class PharmacyRepository
                     WHERE type = \'sortie\'
                       AND article_id IS NOT NULL
                       AND cree_le >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                      ' . $notCancelled . '
                     GROUP BY article_id
                 ) sortie_stats ON sortie_stats.article_id = a.id
             ';
@@ -486,6 +489,7 @@ final class PharmacyRepository
 
         $outputsLast7Days = 0;
         if ($this->hasMovementsTable()) {
+            $notCancelled = $this->outputNotCancelledCondition();
             if ($this->hasOutputGroupColumn()) {
                 $movementSql = '
                     SELECT COUNT(DISTINCT COALESCE(NULLIF(sortie_ref, \'\'), CONCAT(\'legacy:\', id))) AS total
@@ -493,6 +497,7 @@ final class PharmacyRepository
                     WHERE type = \'sortie\'
                       AND caserne_id = :caserne_id
                       AND cree_le >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                      ' . $notCancelled . '
                 ';
             } else {
                 $movementSql = '
@@ -501,6 +506,7 @@ final class PharmacyRepository
                     WHERE type = \'sortie\'
                       AND caserne_id = :caserne_id
                       AND cree_le >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                      ' . $notCancelled . '
                 ';
             }
             $movementStatement = $connection->prepare($movementSql);
@@ -526,6 +532,9 @@ final class PharmacyRepository
         $limit = max(1, min(300, $limit));
         $connection = Database::getConnection();
         $freeNameExpr = $this->hasFreeLabelColumn() ? 'm.article_libre_nom' : "NULL";
+        $cancelSelect = $this->hasCancellationColumns()
+            ? 'm.annule_le, m.annule_par, m.annulation_motif,'
+            : 'NULL AS annule_le, NULL AS annule_par, NULL AS annulation_motif,';
         $sql = '
             SELECT
                 m.id,
@@ -538,12 +547,14 @@ final class PharmacyRepository
                 m.cree_le,
                 m.acquitte_le,
                 m.acquitte_par,
+                ' . $cancelSelect . '
                 COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
                 COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
             LEFT JOIN pharmacie_articles a ON a.id = m.article_id
             WHERE m.caserne_id = :caserne_id
               AND m.type = \'sortie\'
+              ' . $this->outputNotCancelledCondition('m') . '
             ORDER BY m.cree_le DESC, m.id DESC
             LIMIT ' . $limit;
 
@@ -568,6 +579,7 @@ final class PharmacyRepository
         $connection = Database::getConnection();
         $hasFreeLabelColumn = $this->hasFreeLabelColumn();
         $hasAckColumn = $this->hasAckColumn();
+        $hasCancellationColumns = $this->hasCancellationColumns();
         $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
@@ -606,6 +618,9 @@ final class PharmacyRepository
             } elseif ($ackStatus === 'ack') {
                 return [];
             }
+            if ($hasCancellationColumns && $ackStatus !== 'all') {
+                $where[] = 'm.annule_le IS NULL';
+            }
             if ($articleSearch !== '') {
                 $articlePredicate = $hasFreeLabelColumn
                     ? '(ax.nom LIKE :article OR mx.article_libre_nom LIKE :article)'
@@ -634,7 +649,10 @@ final class PharmacyRepository
                     SUM(m.quantite) AS total_quantite,
                     ' . ($hasAckColumn ? 'MIN(CASE WHEN m.acquitte_le IS NOT NULL THEN 1 ELSE 0 END)' : '0') . ' AS acquitte,
                     ' . ($hasAckColumn ? 'MAX(m.acquitte_le)' : 'NULL') . ' AS acquitte_le,
-                    ' . ($hasAckColumn ? 'MAX(COALESCE(m.acquitte_par, \'\'))' : "''") . ' AS acquitte_par
+                    ' . ($hasAckColumn ? 'MAX(COALESCE(m.acquitte_par, \'\'))' : "''") . ' AS acquitte_par,
+                    ' . ($hasCancellationColumns ? 'MAX(m.annule_le)' : 'NULL') . ' AS annule_le,
+                    ' . ($hasCancellationColumns ? 'MAX(COALESCE(m.annule_par, \'\'))' : "''") . ' AS annule_par,
+                    ' . ($hasCancellationColumns ? 'MAX(COALESCE(m.annulation_motif, \'\'))' : "''") . ' AS annulation_motif
                 FROM pharmacie_mouvements m
                 WHERE ' . implode(' AND ', $where) . '
                 GROUP BY COALESCE(NULLIF(m.sortie_ref, \'\'), CONCAT(\'legacy:\', m.id))
@@ -709,6 +727,9 @@ final class PharmacyRepository
                 'acquitte' => isset($row['acquitte_le']) && $row['acquitte_le'] !== null ? 1 : 0,
                 'acquitte_le' => (string) ($row['acquitte_le'] ?? ''),
                 'acquitte_par' => (string) ($row['acquitte_par'] ?? ''),
+                'annule_le' => (string) ($row['annule_le'] ?? ''),
+                'annule_par' => (string) ($row['annule_par'] ?? ''),
+                'annulation_motif' => (string) ($row['annulation_motif'] ?? ''),
                 'items' => [$row],
             ];
         }
@@ -722,7 +743,11 @@ final class PharmacyRepository
         $connection = Database::getConnection();
         $hasFreeLabelColumn = $this->hasFreeLabelColumn();
         $hasAckColumn = $this->hasAckColumn();
+        $hasCancellationColumns = $this->hasCancellationColumns();
         $freeNameExpr = $hasFreeLabelColumn ? 'm.article_libre_nom' : "NULL";
+        $cancelSelect = $hasCancellationColumns
+            ? 'm.annule_le, m.annule_par, m.annulation_motif,'
+            : 'NULL AS annule_le, NULL AS annule_par, NULL AS annulation_motif,';
 
         $dateFrom = trim((string) ($filters['date_from'] ?? ''));
         $dateTo = trim((string) ($filters['date_to'] ?? ''));
@@ -766,6 +791,9 @@ final class PharmacyRepository
         } elseif ($ackStatus === 'ack') {
             return [];
         }
+        if ($hasCancellationColumns && $ackStatus !== 'all') {
+            $where[] = 'm.annule_le IS NULL';
+        }
 
         $sql = '
             SELECT
@@ -779,6 +807,7 @@ final class PharmacyRepository
                 m.cree_le,
                 m.acquitte_le,
                 m.acquitte_par,
+                ' . $cancelSelect . '
                 COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\') AS article_nom,
                 COALESCE(a.unite, \'u\') AS article_unite
             FROM pharmacie_mouvements m
@@ -852,6 +881,7 @@ final class PharmacyRepository
                   AND id = :legacy_id
                   AND type = \'sortie\'
                   AND acquitte_le IS NULL
+                  ' . $this->outputNotCancelledCondition() . '
             ';
             $params['legacy_id'] = $legacyId;
             $statement = $connection->prepare($sql);
@@ -871,12 +901,118 @@ final class PharmacyRepository
               AND type = \'sortie\'
               AND sortie_ref = :sortie_ref
               AND acquitte_le IS NULL
+              ' . $this->outputNotCancelledCondition() . '
         ';
         $params['sortie_ref'] = $sortieKey;
         $statement = $connection->prepare($sql);
         $statement->execute($params);
 
         return $statement->rowCount() > 0;
+    }
+
+    public function cancelOutputGroup(int $caserneId, string $sortieKey, string $managerName, ?string $reason = null): string
+    {
+        if (!$this->hasMovementsTable() || !$this->hasCancellationColumns()) {
+            return 'migration_required';
+        }
+
+        $sortieKey = trim($sortieKey);
+        $managerName = trim($managerName);
+        $reason = $reason !== null ? trim($reason) : '';
+        if ($sortieKey === '' || $managerName === '') {
+            return 'invalid';
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $connection->beginTransaction();
+
+            $params = ['caserne_id' => $caserneId];
+            if (str_starts_with($sortieKey, 'legacy:')) {
+                $legacyId = (int) substr($sortieKey, 7);
+                if ($legacyId <= 0) {
+                    $connection->rollBack();
+                    return 'invalid';
+                }
+                $where = 'caserne_id = :caserne_id AND id = :legacy_id AND type = \'sortie\'';
+                $params['legacy_id'] = $legacyId;
+            } else {
+                if (!$this->hasOutputGroupColumn()) {
+                    $connection->rollBack();
+                    return 'invalid';
+                }
+                $where = 'caserne_id = :caserne_id AND sortie_ref = :sortie_ref AND type = \'sortie\'';
+                $params['sortie_ref'] = $sortieKey;
+            }
+
+            $selectStatement = $connection->prepare(
+                'SELECT id, article_id, quantite, annule_le
+                 FROM pharmacie_mouvements
+                 WHERE ' . $where . '
+                 FOR UPDATE'
+            );
+            $selectStatement->execute($params);
+            $rows = $selectStatement->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($rows === []) {
+                $connection->rollBack();
+                return 'not_found';
+            }
+
+            foreach ($rows as $row) {
+                if ($row['annule_le'] !== null && trim((string) $row['annule_le']) !== '') {
+                    $connection->rollBack();
+                    return 'already_cancelled';
+                }
+            }
+
+            $stockStatement = $connection->prepare(
+                'UPDATE pharmacie_articles
+                 SET stock_actuel = stock_actuel + :quantite
+                 WHERE id = :article_id
+                   AND caserne_id = :caserne_id'
+            );
+            foreach ($rows as $row) {
+                $articleId = (int) ($row['article_id'] ?? 0);
+                if ($articleId <= 0) {
+                    continue;
+                }
+                $stockStatement->execute([
+                    'quantite' => (float) ($row['quantite'] ?? 0),
+                    'article_id' => $articleId,
+                    'caserne_id' => $caserneId,
+                ]);
+            }
+
+            $updateParams = $params + [
+                'annule_par' => $managerName,
+                'annulation_motif' => $reason !== '' ? mb_substr($reason, 0, 255) : null,
+            ];
+            $updateStatement = $connection->prepare(
+                'UPDATE pharmacie_mouvements
+                 SET annule_le = NOW(),
+                     annule_par = :annule_par,
+                     annulation_motif = :annulation_motif
+                 WHERE ' . $where . '
+                   AND annule_le IS NULL'
+            );
+            $updateStatement->execute($updateParams);
+
+            if ($updateStatement->rowCount() <= 0) {
+                $connection->rollBack();
+                return 'already_cancelled';
+            }
+
+            $connection->commit();
+            return 'ok';
+        } catch (Throwable $throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+
+            return 'error';
+        }
     }
 
     public function createOrderMark(int $caserneId, string $managerName, ?string $note = null): bool
@@ -934,6 +1070,9 @@ final class PharmacyRepository
             'm.caserne_id = :caserne_id',
             'm.type = \'sortie\'',
         ];
+        if ($this->hasCancellationColumns()) {
+            $where[] = 'm.annule_le IS NULL';
+        }
         $params = ['caserne_id' => $caserneId];
         if ($lastOrder !== null && isset($lastOrder['commande_le'])) {
             $where[] = 'm.cree_le > :last_order';
@@ -984,6 +1123,7 @@ final class PharmacyRepository
             WHERE m.caserne_id = :caserne_id
               AND m.type = \'sortie\'
               AND m.cree_le >= :start_date
+              ' . $this->outputNotCancelledCondition('m') . '
             GROUP BY DATE_FORMAT(m.cree_le, \'%Y-%m\')
             ORDER BY month_key ASC
         ';
@@ -1025,6 +1165,7 @@ final class PharmacyRepository
             WHERE m.caserne_id = :caserne_id
               AND m.type = \'sortie\'
               AND m.cree_le >= :start_date
+              ' . $this->outputNotCancelledCondition('m') . '
             GROUP BY COALESCE(a.nom, ' . $freeNameExpr . ', \'Autre\'), COALESCE(a.unite, \'u\')
             ORDER BY total_quantite DESC, lignes DESC
             LIMIT ' . $limit . '
@@ -1056,6 +1197,9 @@ final class PharmacyRepository
             'm.type = \'sortie\'',
             'm.article_id IS NOT NULL',
         ];
+        if ($this->hasCancellationColumns()) {
+            $where[] = 'm.annule_le IS NULL';
+        }
         $params = ['caserne_id' => $caserneId];
         if ($lastOrder !== null && isset($lastOrder['commande_le'])) {
             $where[] = 'm.cree_le > :last_order';
@@ -1628,6 +1772,39 @@ final class PharmacyRepository
         }
 
         return $this->ackColumnExists;
+    }
+
+    private function hasCancellationColumns(): bool
+    {
+        if ($this->cancellationColumnsExist !== null) {
+            return $this->cancellationColumnsExist;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'annule_le'");
+            $hasCancelledAt = $statement !== false && $statement->fetchColumn() !== false;
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'annule_par'");
+            $hasCancelledBy = $statement !== false && $statement->fetchColumn() !== false;
+            $statement = $connection->query("SHOW COLUMNS FROM pharmacie_mouvements LIKE 'annulation_motif'");
+            $hasCancellationReason = $statement !== false && $statement->fetchColumn() !== false;
+            $this->cancellationColumnsExist = $hasCancelledAt && $hasCancelledBy && $hasCancellationReason;
+        } catch (PDOException $exception) {
+            $this->cancellationColumnsExist = false;
+        }
+
+        return $this->cancellationColumnsExist;
+    }
+
+    private function outputNotCancelledCondition(string $alias = ''): string
+    {
+        if (!$this->hasCancellationColumns()) {
+            return '';
+        }
+
+        $prefix = $alias !== '' ? $alias . '.' : '';
+        return ' AND ' . $prefix . 'annule_le IS NULL';
     }
 
     private function hasOrdersTable(): bool

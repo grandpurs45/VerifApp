@@ -29,6 +29,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
         Reception enregistree: stocks mis a jour automatiquement.
     </section>
+<?php elseif ($success === 'cancel_saved'): ?>
+    <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
+        Sortie annulee: le stock a ete reintegre.
+    </section>
 <?php elseif ($error !== ''): ?>
     <section class="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 text-sm">
         <?php if ($error === 'ack_invalid'): ?>
@@ -41,6 +45,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             Reception invalide: renseigne au moins une quantite recue superieure a 0.
         <?php elseif ($error === 'receive_failed'): ?>
             Impossible d appliquer la reception de commande.
+        <?php elseif ($error === 'cancel_forbidden'): ?>
+            Annulation reservee a l administrateur plateforme.
+        <?php elseif ($error === 'cancel_invalid'): ?>
+            Sortie invalide pour annulation.
+        <?php elseif ($error === 'cancel_not_found'): ?>
+            Sortie introuvable.
+        <?php elseif ($error === 'cancel_already_cancelled'): ?>
+            Cette sortie est deja annulee.
+        <?php elseif ($error === 'cancel_migration_required'): ?>
+            Annulation indisponible: migration base requise.
+        <?php elseif ($error === 'cancel_failed'): ?>
+            Impossible d annuler cette sortie.
         <?php else: ?>
             Action impossible.
         <?php endif; ?>
@@ -393,6 +409,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <?php else: ?>
         <div class="space-y-3">
             <?php foreach ($movementGroups as $group): ?>
+                <?php $isCancelled = trim((string) ($group['annule_le'] ?? '')) !== ''; ?>
                 <article class="rounded-xl border border-slate-200 p-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="space-y-1">
@@ -407,12 +424,29 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                     <?php endif; ?>
                                 </p>
                             <?php endif; ?>
+                            <?php if ($isCancelled): ?>
+                                <p class="text-xs text-red-700 font-semibold">
+                                    Annulee le <?= htmlspecialchars((string) ($group['annule_le'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                    <?php if (trim((string) ($group['annule_par'] ?? '')) !== ''): ?>
+                                        par <?= htmlspecialchars((string) ($group['annule_par'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                    <?php endif; ?>
+                                </p>
+                                <?php if (trim((string) ($group['annulation_motif'] ?? '')) !== ''): ?>
+                                    <p class="text-xs text-slate-500">
+                                        Motif: <?= htmlspecialchars((string) ($group['annulation_motif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                    </p>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                                 <?= (int) ($group['lignes'] ?? 0) ?> ligne(s)
                             </span>
-                            <?php if ((int) ($group['acquitte'] ?? 0) === 1): ?>
+                            <?php if ($isCancelled): ?>
+                                <span class="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+                                    Annulee
+                                </span>
+                            <?php elseif ((int) ($group['acquitte'] ?? 0) === 1): ?>
                                 <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                                     Prise en compte
                                 </span>
@@ -421,6 +455,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                     <input type="hidden" name="sortie_key" value="<?= htmlspecialchars((string) ($group['sortie_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                     <button type="submit" class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
                                         Acquitter
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if (($canCancelOutputs ?? false) === true && !$isCancelled): ?>
+                                <form method="post" action="/index.php?controller=manager_pharmacy&action=output_cancel" class="flex items-center gap-2" onsubmit="return confirm('Annuler cette sortie et reintegrer le stock ?');">
+                                    <input type="hidden" name="sortie_key" value="<?= htmlspecialchars((string) ($group['sortie_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="text" name="annulation_motif" placeholder="Motif" maxlength="255" class="w-28 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-slate-700">
+                                    <button type="submit" class="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800">
+                                        Annuler
                                     </button>
                                 </form>
                             <?php endif; ?>
