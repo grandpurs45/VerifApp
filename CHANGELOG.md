@@ -9,6 +9,13 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.2.1] - 2026-07-27
+
+### Changed
+- Deploiement:
+  - ajout de couleurs contextuelles dans le script de mise a jour pour distinguer les etapes, avertissements, erreurs et succes
+  - desactivation automatique des couleurs hors terminal interactif ou lorsque `NO_COLOR` est defini
+
 ## [1.2.0] - 2026-07-27
 
 ### Added

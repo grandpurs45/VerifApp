@@ -12,6 +12,17 @@ ASSUME_YES=0
 SKIP_BACKUP=0
 PREVIOUS_COMMIT=""
 BACKUP_DESTINATION=""
+COLOR_ENABLED=0
+
+if [[ (-t 1 || -t 2) && -z "${NO_COLOR:-}" ]]; then
+    COLOR_ENABLED=1
+fi
+
+COLOR_RESET=$'\033[0m'
+COLOR_BLUE=$'\033[36m'
+COLOR_GREEN=$'\033[32m'
+COLOR_YELLOW=$'\033[33m'
+COLOR_RED=$'\033[31m'
 
 usage() {
     cat <<'EOF'
@@ -20,7 +31,7 @@ Usage:
 
 Options:
   --ref REF          Reference Git a deployer (defaut: origin/main).
-                     Exemple: --ref v1.2.0
+                     Exemple: --ref v1.2.1
   --env-file PATH    Fichier d environnement Compose (defaut: .env.docker).
   --yes              Ne demande pas de confirmation.
   --no-backup        Ignore la sauvegarde pre-deploiement.
@@ -29,16 +40,48 @@ Options:
 Exemples:
   bash scripts/update-production.sh
   bash scripts/update-production.sh --yes
-  bash scripts/update-production.sh --ref v1.2.0 --yes
+  bash scripts/update-production.sh --ref v1.2.1 --yes
 EOF
 }
 
+write_log() {
+    local level=$1
+    local color=$2
+    shift 2
+
+    if [[ "${COLOR_ENABLED}" -eq 1 ]]; then
+        printf '%b[%s] %-7s%b %s\n' \
+            "${color}" \
+            "$(date '+%Y-%m-%d %H:%M:%S')" \
+            "${level}" \
+            "${COLOR_RESET}" \
+            "$*"
+    else
+        printf '[%s] %-7s %s\n' \
+            "$(date '+%Y-%m-%d %H:%M:%S')" \
+            "${level}" \
+            "$*"
+    fi
+}
+
 log() {
-    printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+    write_log "INFO" "${COLOR_BLUE}" "$@"
+}
+
+success() {
+    write_log "OK" "${COLOR_GREEN}" "$@"
+}
+
+warn() {
+    write_log "ATTENTION" "${COLOR_YELLOW}" "$@"
+}
+
+error_log() {
+    write_log "ERREUR" "${COLOR_RED}" "$@"
 }
 
 fail() {
-    log "ERREUR: $*"
+    error_log "$*"
     exit 1
 }
 
@@ -51,14 +94,14 @@ on_error() {
     local line_number=${1:-?}
 
     printf '\n' >&2
-    log "ECHEC de la mise a jour a la ligne ${line_number}." >&2
+    error_log "Echec de la mise a jour a la ligne ${line_number}." >&2
     if [[ -n "${PREVIOUS_COMMIT}" ]]; then
-        log "Commit avant mise a jour: ${PREVIOUS_COMMIT}" >&2
+        error_log "Commit avant mise a jour: ${PREVIOUS_COMMIT}" >&2
     fi
     if [[ -n "${BACKUP_DESTINATION}" ]]; then
-        log "Sauvegarde disponible dans: ${BACKUP_DESTINATION}" >&2
+        error_log "Sauvegarde disponible dans: ${BACKUP_DESTINATION}" >&2
     fi
-    log "Consulte les logs avant toute tentative de rollback automatique." >&2
+    error_log "Consulte les logs avant toute tentative de rollback automatique." >&2
     exit "${exit_code}"
 }
 
@@ -112,7 +155,7 @@ if command -v flock >/dev/null 2>&1; then
     exec 9>"${REPO_ROOT}/.git/verifapp-update.lock"
     flock -n 9 || fail "Une autre mise a jour VerifApp est deja en cours."
 else
-    log "AVERTISSEMENT: flock absent, verrou anti-concurrence non disponible."
+    warn "flock absent, verrou anti-concurrence non disponible."
 fi
 
 [[ -f "${ENV_FILE}" ]] || fail "Fichier d environnement introuvable: ${ENV_FILE}"
@@ -170,9 +213,9 @@ if [[ "${SKIP_BACKUP}" -ne 1 ]]; then
     if [[ -z "$(find "${BACKUP_DESTINATION}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
         fail "La sauvegarde copiee depuis le conteneur est vide."
     fi
-    log "Sauvegarde persistante: ${BACKUP_DESTINATION}"
+    success "Sauvegarde persistante: ${BACKUP_DESTINATION}"
 else
-    log "AVERTISSEMENT: sauvegarde ignoree (--no-backup)."
+    warn "Sauvegarde ignoree (--no-backup)."
 fi
 
 if [[ "${TARGET_REF}" == "origin/main" ]]; then
@@ -220,10 +263,11 @@ if [[ "${HEALTH_OK}" -ne 1 ]]; then
     fail "Le healthcheck n est pas revenu au vert apres 120 secondes."
 fi
 
+success "Healthcheck operationnel."
 "${COMPOSE[@]}" ps
 
-log "Mise a jour terminee avec succes."
-log "Version deployee: $(git describe --tags --always HEAD)"
+success "Mise a jour terminee avec succes."
+success "Version deployee: $(git describe --tags --always HEAD)"
 if [[ -n "${BACKUP_DESTINATION}" ]]; then
-    log "Sauvegarde: ${BACKUP_DESTINATION}"
+    success "Sauvegarde: ${BACKUP_DESTINATION}"
 fi

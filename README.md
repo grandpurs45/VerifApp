@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.2.0` (voir fichier `VERSION`).
+Version courante: `v1.2.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -222,6 +222,7 @@ Comportement:
   - `bash scripts/update-production.sh`
   - execution non interactive: `bash scripts/update-production.sh --yes`
   - version precise: `bash scripts/update-production.sh --ref vX.Y.Z --yes`
+  - sans couleurs: `NO_COLOR=1 bash scripts/update-production.sh`
 - Le script verifie Git et Compose, cree une sauvegarde persistante, reconstruit les conteneurs, applique les migrations et attend le healthcheck.
 - Mise a jour manuelle:
   - `git pull origin main --tags`
