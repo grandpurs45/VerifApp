@@ -724,7 +724,7 @@ final class ManagerAssetController
             $maxThreshold = null;
             $unit = null;
         } elseif ($inputType === 'quantite') {
-            if ($expectedValue === null || $expectedValue <= 0) {
+            if ($expectedValue === null || $expectedValue <= 0 || floor($expectedValue) !== $expectedValue) {
                 $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
             }
             $minThreshold = null;
@@ -732,7 +732,10 @@ final class ManagerAssetController
             $unit = null;
         } elseif ($inputType === 'mesure') {
             $expectedValue = null;
-            if ($unit === null || ($minThreshold === null && $maxThreshold === null)) {
+            if ($unit === null
+                || ($minThreshold === null && $maxThreshold === null)
+                || ($minThreshold !== null && $maxThreshold !== null && $minThreshold > $maxThreshold)
+            ) {
                 $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
             }
         }

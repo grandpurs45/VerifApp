@@ -54,9 +54,9 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 
 ## 6. Cas Docker (exemple)
 ```bash
-docker compose up -d --build
-docker compose exec web php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force
-docker compose restart web
+docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker exec web php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force
+docker compose --env-file .env.docker restart web
 ```
 
 ## 7. Points d attention

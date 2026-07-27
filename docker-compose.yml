@@ -1,10 +1,16 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
 
   web:
     build: .
     container_name: verifapp-web
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     env_file:
       - .env.docker
     volumes:
@@ -12,7 +18,7 @@ services:
       - ./public/uploads:/var/www/html/public/uploads
       - ./storage/logs:/var/www/html/storage/logs
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/health.php >/dev/null || exit 1"]
+      test: ["CMD", "php", "/var/www/html/docker/healthcheck-web.php"]
       interval: 30s
       timeout: 8s
       retries: 3
@@ -21,6 +27,9 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     networks:
       - proxy
       - default
@@ -40,10 +49,10 @@ services:
     image: mariadb:11
     container_name: verifapp-db
     environment:
-      MARIADB_ROOT_PASSWORD: rootpassword
-      MARIADB_DATABASE: verifapp
-      MARIADB_USER: verifapp_user
-      MARIADB_PASSWORD: verifapp_password
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+      MARIADB_DATABASE: "${DB_NAME:?DB_NAME must be set in .env.docker}"
+      MARIADB_USER: "${DB_USER:?DB_USER must be set in .env.docker}"
+      MARIADB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD must be set in .env.docker}"
     volumes:
       - verifapp_db_data:/var/lib/mysql
     healthcheck:
@@ -52,18 +61,26 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
 
   phpmyadmin:
-    image: phpmyadmin:latest
+    image: phpmyadmin:5.2.2-apache
     container_name: verifapp-phpmyadmin
+    profiles:
+      - tools
     environment:
       PMA_HOST: db
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
 
 volumes:
   verifapp_db_data:

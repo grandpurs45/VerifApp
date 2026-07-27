@@ -6,3 +6,11 @@ node_modules
 tmp
 logs
 .env
+.env.*
+!.env.example
+!.env.docker.example
+backups
+dist
+public/uploads/*
+storage/logs/*
+storage/tmp/*

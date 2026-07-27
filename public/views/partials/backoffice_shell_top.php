@@ -278,8 +278,8 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
 
             <div class="min-w-0 pb-24 lg:pb-0">
                 <header class="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-700 text-white p-4 md:p-5 shadow">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
+                    <div class="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+                        <div class="min-w-0">
                             <?php if ($pageBackUrl !== ''): ?>
                                 <a
                                     href="<?= htmlspecialchars($pageBackUrl, ENT_QUOTES, 'UTF-8') ?>"
@@ -296,7 +296,7 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                 <p class="text-slate-200 mt-1 text-sm md:text-base"><?= htmlspecialchars($pageSubtitle, ENT_QUOTES, 'UTF-8') ?></p>
                             <?php endif; ?>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
                             <?php if ($notificationsAvailable): ?>
                                 <div class="relative">
                                     <button

@@ -99,6 +99,36 @@ $countSubtree = function (int $zoneId) use (&$countSubtree, $zonesByParent, &$zo
     return $count;
 };
 
+$controlesByZone = [];
+foreach ($controles as $controle) {
+    $controleZoneId = (int) ($controle['zone_id'] ?? 0);
+    if (!isset($controlesByZone[$controleZoneId])) {
+        $controlesByZone[$controleZoneId] = [];
+    }
+    $controlesByZone[$controleZoneId][] = $controle;
+}
+
+$materialGroups = [];
+foreach ($zones as $zone) {
+    $groupZoneId = (int) ($zone['id'] ?? 0);
+    if (!isset($controlesByZone[$groupZoneId])) {
+        continue;
+    }
+    $materialGroups[] = [
+        'zone_id' => $groupZoneId,
+        'label' => (string) ($zone['chemin'] ?? $zone['nom'] ?? 'Zone'),
+        'controles' => $controlesByZone[$groupZoneId],
+    ];
+    unset($controlesByZone[$groupZoneId]);
+}
+foreach ($controlesByZone as $groupZoneId => $groupControles) {
+    $materialGroups[] = [
+        'zone_id' => (int) $groupZoneId,
+        'label' => $groupZoneId > 0 ? 'Zone inconnue' : 'Sans zone',
+        'controles' => $groupControles,
+    ];
+}
+
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
@@ -274,205 +304,301 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </div>
 </section>
 
-<section class="bg-white rounded-2xl shadow p-4 md:p-6">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h2 class="text-xl font-semibold">Materiel de l engin</h2>
-        <p class="text-xs text-slate-500">Saisie simplifiee: libelle + poste + zone + type de reponse.</p>
-    </div>
-    <p class="mb-3 text-xs text-slate-500">Astuce Presence (check): quantite attendue + reponse terrain Present/Manquant.</p>
-
-    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
-        <input
-            id="vehicle-control-search"
-            type="text"
-            placeholder="Rechercher un materiel (libelle, poste, zone, type)..."
-            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
-        >
-        <select id="vehicle-control-zone-filter" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-            <option value="">Toutes les zones</option>
-            <?php foreach ($zones as $zone): ?>
-                <option value="<?= (int) ($zone['id'] ?? 0) ?>">
-                    <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+<section id="vehicle-materials" class="bg-white rounded-2xl shadow p-4 md:p-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <h2 class="text-xl font-semibold">Materiel de l engin</h2>
+            <p class="mt-1 text-sm text-slate-600"><?= count($controles) ?> materiel(s) configure(s), regroupes par emplacement.</p>
+        </div>
+        <?php if ($postes !== [] && $zones !== []): ?>
+            <button type="button" id="vehicle-control-add-focus" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+                Ajouter un materiel
+            </button>
+        <?php endif; ?>
     </div>
 
     <?php if ($postes === []): ?>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
             Aucun poste configure pour le type <strong><?= htmlspecialchars($vehicleType, ENT_QUOTES, 'UTF-8') ?></strong>. Configure d abord les postes dans "Types & postes".
         </div>
     <?php elseif ($zones === []): ?>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
             Cree d abord au moins une zone avant d ajouter du materiel.
         </div>
     <?php else: ?>
-        <form method="post" action="/index.php?controller=manager_assets&action=controle_save" class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 mb-4" data-control-form>
+        <form
+            id="vehicle-control-create-form"
+            method="post"
+            action="/index.php?controller=manager_assets&action=controle_save"
+            class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+            data-control-form
+            data-control-create-form
+        >
             <input type="hidden" name="id" value="0">
             <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
             <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
-            <input type="hidden" name="ordre" value="<?= (int) $nextOrder ?>">
             <input type="hidden" name="actif" value="1">
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
-                <input type="text" name="libelle" placeholder="Nom du materiel (ex: Radio cabine)" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
-                <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                    <option value="">Poste</option>
-                    <?php foreach ($postes as $poste): ?>
-                        <option value="<?= (int) $poste['id'] ?>"><?= htmlspecialchars((string) $poste['nom'], ENT_QUOTES, 'UTF-8') ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                    <option value="">Zone</option>
-                    <?php foreach ($zones as $zone): ?>
-                        <option value="<?= (int) $zone['id'] ?>"><?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-                    <option value="statut">Fonctionnel / non fonctionnel</option>
-                    <option value="quantite">Presence (check)</option>
-                    <option value="mesure">Valeur mesuree</option>
-                </select>
+
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-base font-semibold text-slate-900">Nouveau materiel</h3>
+                <span class="text-xs text-slate-500">Les champs marques * sont obligatoires.</span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="measure-fields">
-                <input type="text" name="unite" placeholder="Unite (ex: Bars, L, %)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
-                <input type="number" step="any" name="seuil_min" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
-                <input type="number" step="any" name="seuil_max" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 hidden" data-wrap="quantity-fields">
-                <input type="number" step="1" min="1" name="valeur_attendue" placeholder="Quantite attendue (ex: 2)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
-                <div class="md:col-span-2 flex items-center justify-start">
-                    <div class="relative inline-flex">
-                        <button
-                            type="button"
-                            class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800"
-                            aria-label="Info type Presence"
-                            data-info-trigger
-                        >
-                            i
-                        </button>
-                        <div
-                            class="hidden absolute left-9 top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 shadow-lg"
-                            data-info-panel
-                        >
-                            Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
-                        </div>
-                    </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
+                <label class="md:col-span-4">
+                    <span class="mb-1 block text-xs font-semibold text-slate-700">Nom du materiel *</span>
+                    <input type="text" name="libelle" placeholder="Ex: Radio cabine" required autocomplete="off" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <label class="md:col-span-3">
+                    <span class="mb-1 block text-xs font-semibold text-slate-700">Poste de verification *</span>
+                    <select name="poste_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <option value="">Selectionner</option>
+                        <?php foreach ($postes as $poste): ?>
+                            <option value="<?= (int) $poste['id'] ?>"><?= htmlspecialchars((string) $poste['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="md:col-span-3">
+                    <span class="mb-1 block text-xs font-semibold text-slate-700">Emplacement *</span>
+                    <select name="zone_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <option value="">Selectionner</option>
+                        <?php foreach ($zones as $zone): ?>
+                            <option value="<?= (int) $zone['id'] ?>"><?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="md:col-span-2">
+                    <span class="mb-1 block text-xs font-semibold text-slate-700">Position *</span>
+                    <input type="number" name="ordre" min="0" step="1" value="<?= (int) $nextOrder ?>" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <label class="md:col-span-4">
+                    <span class="mb-1 block text-xs font-semibold text-slate-700">Reponse demandee *</span>
+                    <select name="type_saisie" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <option value="statut">Fonctionnel / non fonctionnel</option>
+                        <option value="quantite">Present / manquant avec quantite</option>
+                        <option value="mesure">Valeur mesuree avec seuils</option>
+                    </select>
+                </label>
+                <div class="hidden md:col-span-8" data-wrap="quantity-fields">
+                    <label>
+                        <span class="mb-1 block text-xs font-semibold text-slate-700">Quantite attendue *</span>
+                        <input type="number" step="1" min="1" name="valeur_attendue" placeholder="Ex: 2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 gap-3 md:col-span-8 md:grid-cols-3 hidden" data-wrap="measure-fields">
+                    <label>
+                        <span class="mb-1 block text-xs font-semibold text-slate-700">Unite *</span>
+                        <input type="text" name="unite" placeholder="Bars, L, %" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
+                    </label>
+                    <label>
+                        <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil minimum</span>
+                        <input type="number" step="any" name="seuil_min" placeholder="Optionnel" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                    </label>
+                    <label>
+                        <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil maximum</span>
+                        <input type="number" step="any" name="seuil_max" placeholder="Optionnel" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                    </label>
                 </div>
             </div>
-            <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Ajouter materiel</button>
+
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" id="vehicle-control-remember" class="h-4 w-4 rounded border-slate-300">
+                    Conserver le poste, l emplacement et le type apres ajout
+                </label>
+                <div class="flex gap-2">
+                    <button type="button" id="vehicle-control-create-reset" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Reinitialiser</button>
+                    <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Ajouter</button>
+                </div>
+            </div>
         </form>
     <?php endif; ?>
 
-    <div class="space-y-3">
-        <?php foreach ($controles as $controle): ?>
-            <?php
-            $controlId = (int) ($controle['id'] ?? 0);
-            $controlType = (string) ($controle['type_saisie'] ?? 'statut');
-            $zonePath = $zonesById[(int) ($controle['zone_id'] ?? 0)] ?? (string) ($controle['zone'] ?? '');
-            $posteName = (string) ($postesById[(int) ($controle['poste_id'] ?? 0)] ?? '');
-            $typeLabel = $controlType === 'mesure'
-                ? 'valeur mesuree'
-                : ($controlType === 'quantite' ? 'presence check' : 'fonctionnel non fonctionnel');
-            $searchText = mb_strtolower(trim(implode(' ', [
-                (string) ($controle['libelle'] ?? ''),
-                $posteName,
-                $zonePath,
-                $typeLabel,
-            ])));
-            ?>
-            <form
-                method="post"
-                action="/index.php?controller=manager_assets&action=controle_save"
-                class="rounded-xl border border-slate-200 p-3 space-y-2"
-                data-control-form
-                data-control-search-text="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
-                data-control-zone-id="<?= (int) ($controle['zone_id'] ?? 0) ?>"
-            >
-                <input type="hidden" name="id" value="<?= $controlId ?>">
-                <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
-                <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
-                <input type="hidden" name="ordre" value="<?= (int) ($controle['ordre'] ?? 0) ?>">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
-                    <input type="text" name="libelle" value="<?= htmlspecialchars((string) ($controle['libelle'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-4">
-                    <select name="poste_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                        <?php foreach ($postes as $poste): ?>
-                            <option value="<?= (int) $poste['id'] ?>" <?= (int) ($controle['poste_id'] ?? 0) === (int) $poste['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string) $poste['nom'], ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select name="zone_id" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-                        <?php foreach ($zones as $zone): ?>
-                            <option value="<?= (int) $zone['id'] ?>" <?= (int) ($controle['zone_id'] ?? 0) === (int) $zone['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select name="type_saisie" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-                        <option value="statut" <?= $controlType === 'statut' ? 'selected' : '' ?>>Fonctionnel / non fonctionnel</option>
-                        <option value="quantite" <?= $controlType === 'quantite' ? 'selected' : '' ?>>Presence (check)</option>
-                        <option value="mesure" <?= $controlType === 'mesure' ? 'selected' : '' ?>>Valeur mesuree</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 <?= $controlType === 'mesure' ? '' : 'hidden' ?>" data-wrap="measure-fields">
-                    <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Unite" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
-                    <input type="number" step="any" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil minimum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
-                    <input type="number" step="any" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Seuil maximum" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 <?= $controlType === 'quantite' ? '' : 'hidden' ?>" data-wrap="quantity-fields">
-                    <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Quantite attendue" class="rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
-                    <div class="md:col-span-2 flex items-center justify-start">
-                        <div class="relative inline-flex">
-                            <button
-                                type="button"
-                                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800"
-                                aria-label="Info type Presence"
-                                data-info-trigger
-                            >
-                                i
-                            </button>
-                            <div
-                                class="hidden absolute left-9 top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 shadow-lg"
-                                data-info-panel
-                            >
-                                Affiche sur terrain: quantite + libelle (ex: 2 Biseptine), reponse Present/Manquant.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <p class="text-xs text-slate-500">
-                        Poste: <strong><?= htmlspecialchars((string) ($postesById[(int) ($controle['poste_id'] ?? 0)] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong>
-                        <?php if ($zonePath !== ''): ?>
-                            | Zone: <strong><?= htmlspecialchars($zonePath, ENT_QUOTES, 'UTF-8') ?></strong>
-                        <?php endif; ?>
-                    </p>
-                    <div class="flex gap-2">
-                        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <option value="1" <?= (int) ($controle['actif'] ?? 0) === 1 ? 'selected' : '' ?>>Actif</option>
-                            <option value="0" <?= (int) ($controle['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactif</option>
-                        </select>
-                        <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold">Enregistrer</button>
-                        <button
-                            type="submit"
-                            formaction="/index.php?controller=manager_assets&action=controle_delete"
-                            data-confirm="Supprimer ce materiel ?"
-                            data-loading-label="Suppression..."
-                            class="rounded-xl bg-red-600 text-white px-3 py-2 text-sm font-semibold"
-                        >
-                            Supprimer
-                        </button>
-                    </div>
-                </div>
-            </form>
-        <?php endforeach; ?>
+    <div class="mt-6 border-t border-slate-200 pt-5">
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-12">
+            <label class="md:col-span-7">
+                <span class="sr-only">Rechercher un materiel</span>
+                <input
+                    id="vehicle-control-search"
+                    type="search"
+                    placeholder="Rechercher par nom, poste, zone ou type"
+                    class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+            </label>
+            <label class="md:col-span-5">
+                <span class="sr-only">Filtrer par emplacement</span>
+                <select id="vehicle-control-zone-filter" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <option value="">Tous les emplacements</option>
+                    <?php foreach ($zones as $zone): ?>
+                        <option value="<?= (int) ($zone['id'] ?? 0) ?>">
+                            <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+        </div>
 
-        <?php if ($controles === []): ?>
-            <p class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">Aucun materiel configure pour cet engin.</p>
-        <?php endif; ?>
-        <p id="vehicle-control-search-empty" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-            Aucun materiel ne correspond a la recherche.
-        </p>
+        <div class="mt-4 space-y-4" id="vehicle-control-list">
+            <?php foreach ($materialGroups as $materialGroup): ?>
+                <section class="space-y-2" data-control-group>
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-sm font-bold text-slate-900"><?= htmlspecialchars((string) $materialGroup['label'], ENT_QUOTES, 'UTF-8') ?></h3>
+                        <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600" data-control-group-count>
+                            <?= count($materialGroup['controles']) ?>
+                        </span>
+                    </div>
+                    <?php foreach ($materialGroup['controles'] as $controle): ?>
+                        <?php
+                        $controlId = (int) ($controle['id'] ?? 0);
+                        $controlType = (string) ($controle['type_saisie'] ?? 'statut');
+                        $controlZoneId = (int) ($controle['zone_id'] ?? 0);
+                        $zonePath = $zonesById[$controlZoneId] ?? (string) ($controle['zone'] ?? '');
+                        $posteName = (string) ($postesById[(int) ($controle['poste_id'] ?? 0)] ?? '');
+                        $typeLabel = $controlType === 'mesure'
+                            ? 'Valeur mesuree'
+                            : ($controlType === 'quantite' ? 'Presence et quantite' : 'Etat fonctionnel');
+                        $searchText = mb_strtolower(trim(implode(' ', [
+                            (string) ($controle['libelle'] ?? ''),
+                            $posteName,
+                            $zonePath,
+                            $typeLabel,
+                        ])));
+                        $isActive = (int) ($controle['actif'] ?? 0) === 1;
+                        ?>
+                        <details
+                            class="rounded-xl border border-slate-200 bg-white"
+                            data-control-item
+                            data-control-search-text="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
+                            data-control-zone-id="<?= $controlZoneId ?>"
+                        >
+                            <summary class="cursor-pointer list-none px-3 py-3">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-slate-900"><?= htmlspecialchars((string) ($controle['libelle'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                        <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                            <span><?= htmlspecialchars($posteName, ENT_QUOTES, 'UTF-8') ?></span>
+                                            <span class="text-slate-300">|</span>
+                                            <span><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                            <span class="text-slate-300">|</span>
+                                            <span>Position <?= (int) ($controle['ordre'] ?? 0) ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="rounded-full px-2 py-1 text-xs font-semibold <?= $isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500' ?>">
+                                            <?= $isActive ? 'Actif' : 'Inactif' ?>
+                                        </span>
+                                        <span class="text-xs font-semibold text-slate-600">Modifier</span>
+                                    </div>
+                                </div>
+                            </summary>
+
+                            <form
+                                method="post"
+                                action="/index.php?controller=manager_assets&action=controle_save"
+                                class="border-t border-slate-200 bg-slate-50 p-3"
+                                data-control-form
+                            >
+                                <input type="hidden" name="id" value="<?= $controlId ?>">
+                                <input type="hidden" name="vehicule_id" value="<?= $vehicleId ?>">
+                                <input type="hidden" name="return_vehicle_id" value="<?= $vehicleId ?>">
+                                <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
+                                    <label class="md:col-span-4">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Nom du materiel *</span>
+                                        <input type="text" name="libelle" value="<?= htmlspecialchars((string) ($controle['libelle'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                    </label>
+                                    <label class="md:col-span-3">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Poste *</span>
+                                        <select name="poste_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                            <?php foreach ($postes as $poste): ?>
+                                                <option value="<?= (int) $poste['id'] ?>" <?= (int) ($controle['poste_id'] ?? 0) === (int) $poste['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars((string) $poste['nom'], ENT_QUOTES, 'UTF-8') ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </label>
+                                    <label class="md:col-span-3">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Emplacement *</span>
+                                        <select name="zone_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                            <?php foreach ($zones as $zone): ?>
+                                                <option value="<?= (int) $zone['id'] ?>" <?= $controlZoneId === (int) $zone['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars((string) ($zone['chemin'] ?? $zone['nom']), ENT_QUOTES, 'UTF-8') ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </label>
+                                    <label class="md:col-span-2">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Position *</span>
+                                        <input type="number" name="ordre" min="0" step="1" value="<?= (int) ($controle['ordre'] ?? 0) ?>" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                    </label>
+                                    <label class="md:col-span-4">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Reponse demandee *</span>
+                                        <select name="type_saisie" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                            <option value="statut" <?= $controlType === 'statut' ? 'selected' : '' ?>>Fonctionnel / non fonctionnel</option>
+                                            <option value="quantite" <?= $controlType === 'quantite' ? 'selected' : '' ?>>Present / manquant avec quantite</option>
+                                            <option value="mesure" <?= $controlType === 'mesure' ? 'selected' : '' ?>>Valeur mesuree avec seuils</option>
+                                        </select>
+                                    </label>
+                                    <div class="<?= $controlType === 'quantite' ? '' : 'hidden' ?> md:col-span-8" data-wrap="quantity-fields">
+                                        <label>
+                                            <span class="mb-1 block text-xs font-semibold text-slate-700">Quantite attendue *</span>
+                                            <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
+                                        </label>
+                                    </div>
+                                    <div class="grid grid-cols-1 gap-3 md:col-span-8 md:grid-cols-3 <?= $controlType === 'mesure' ? '' : 'hidden' ?>" data-wrap="measure-fields">
+                                        <label>
+                                            <span class="mb-1 block text-xs font-semibold text-slate-700">Unite *</span>
+                                            <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
+                                        </label>
+                                        <label>
+                                            <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil minimum</span>
+                                            <input type="number" step="any" name="seuil_min" value="<?= htmlspecialchars((string) ($controle['seuil_min'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="min">
+                                        </label>
+                                        <label>
+                                            <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil maximum</span>
+                                            <input type="number" step="any" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
+                                        </label>
+                                    </div>
+                                    <label class="md:col-span-4">
+                                        <span class="mb-1 block text-xs font-semibold text-slate-700">Etat</span>
+                                        <select name="actif" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                            <option value="1" <?= $isActive ? 'selected' : '' ?>>Actif</option>
+                                            <option value="0" <?= !$isActive ? 'selected' : '' ?>>Inactif</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-3">
+                                    <button
+                                        type="button"
+                                        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                                        data-duplicate-control
+                                    >
+                                        Dupliquer
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        formaction="/index.php?controller=manager_assets&action=controle_delete"
+                                        data-confirm="Supprimer ce materiel ?"
+                                        data-loading-label="Suppression..."
+                                        class="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white"
+                                    >
+                                        Supprimer
+                                    </button>
+                                    <button type="submit" data-loading-label="Maj..." class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Enregistrer</button>
+                                </div>
+                            </form>
+                        </details>
+                    <?php endforeach; ?>
+                </section>
+            <?php endforeach; ?>
+
+            <?php if ($controles === []): ?>
+                <p class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">Aucun materiel configure pour cet engin.</p>
+            <?php endif; ?>
+            <p id="vehicle-control-search-empty" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                Aucun materiel ne correspond a la recherche.
+            </p>
+        </div>
     </div>
 </section>
 <div id="subzone-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/70 p-4">
@@ -502,8 +628,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         const subzoneModalCancel = document.getElementById('subzone-modal-cancel');
         const controlSearchInput = document.getElementById('vehicle-control-search');
         const controlZoneFilter = document.getElementById('vehicle-control-zone-filter');
-        const controlForms = Array.from(document.querySelectorAll('form[data-control-form][data-control-search-text]'));
+        const controlItems = Array.from(document.querySelectorAll('[data-control-item]'));
+        const controlGroups = Array.from(document.querySelectorAll('[data-control-group]'));
         const controlSearchEmpty = document.getElementById('vehicle-control-search-empty');
+        const controlCreateForm = document.getElementById('vehicle-control-create-form');
+        const controlAddFocus = document.getElementById('vehicle-control-add-focus');
+        const controlCreateReset = document.getElementById('vehicle-control-create-reset');
+        const controlRemember = document.getElementById('vehicle-control-remember');
+        const controlDefaultsKey = 'verifapp-control-defaults-<?= $vehicleId ?>';
         if (toast) {
             setTimeout(function () {
                 toast.style.transition = 'opacity 240ms ease';
@@ -520,6 +652,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             const quantityWrap = form.querySelector('[data-wrap="quantity-fields"]');
             const unitInput = form.querySelector('[data-field="unit"]');
             const expectedInput = form.querySelector('[data-field="expected"]');
+            const minInput = form.querySelector('[data-field="min"]');
+            const maxInput = form.querySelector('[data-field="max"]');
             if (!inputType || !measureWrap) {
                 return;
             }
@@ -535,6 +669,21 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             if (expectedInput) {
                 expectedInput.required = isQuantity;
             }
+            if (minInput) {
+                minInput.setCustomValidity('');
+            }
+            if (maxInput) {
+                maxInput.setCustomValidity('');
+            }
+            if (isMeasure && minInput && maxInput) {
+                const minValue = minInput.value.trim();
+                const maxValue = maxInput.value.trim();
+                if (minValue === '' && maxValue === '') {
+                    minInput.setCustomValidity('Renseigne au moins un seuil.');
+                } else if (minValue !== '' && maxValue !== '' && Number(minValue) > Number(maxValue)) {
+                    maxInput.setCustomValidity('Le seuil maximum doit etre superieur ou egal au seuil minimum.');
+                }
+            }
         }
 
         document.querySelectorAll('form[data-control-form]').forEach(function (form) {
@@ -544,31 +693,45 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     syncControlForm(form);
                 });
             }
+            form.addEventListener('input', function () {
+                syncControlForm(form);
+            });
             syncControlForm(form);
         });
 
         function applyControlFilter() {
-            if (!controlSearchInput || controlForms.length === 0) {
+            if (!controlSearchInput) {
                 return;
             }
 
             const query = (controlSearchInput.value || '').toLowerCase().trim();
             const selectedZoneId = controlZoneFilter ? (controlZoneFilter.value || '').trim() : '';
             let visibleCount = 0;
-            controlForms.forEach(function (form) {
-                const haystack = (form.getAttribute('data-control-search-text') || '').toLowerCase();
-                const zoneId = (form.getAttribute('data-control-zone-id') || '').trim();
+            controlItems.forEach(function (item) {
+                const haystack = (item.getAttribute('data-control-search-text') || '').toLowerCase();
+                const zoneId = (item.getAttribute('data-control-zone-id') || '').trim();
                 const matchText = query === '' || haystack.includes(query);
                 const matchZone = selectedZoneId === '' || zoneId === selectedZoneId;
                 const match = matchText && matchZone;
-                form.classList.toggle('hidden', !match);
+                item.classList.toggle('hidden', !match);
                 if (match) {
                     visibleCount += 1;
                 }
             });
 
+            controlGroups.forEach(function (group) {
+                const visibleItems = Array.from(group.querySelectorAll('[data-control-item]')).filter(function (item) {
+                    return !item.classList.contains('hidden');
+                });
+                group.classList.toggle('hidden', visibleItems.length === 0);
+                const count = group.querySelector('[data-control-group-count]');
+                if (count) {
+                    count.textContent = String(visibleItems.length);
+                }
+            });
+
             if (controlSearchEmpty) {
-                controlSearchEmpty.classList.toggle('hidden', visibleCount > 0);
+                controlSearchEmpty.classList.toggle('hidden', controlItems.length === 0 || visibleCount > 0);
             }
         }
 
@@ -579,6 +742,110 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             }
             applyControlFilter();
         }
+
+        function setCreateFormValue(name, value) {
+            if (!controlCreateForm) {
+                return;
+            }
+            const field = controlCreateForm.elements.namedItem(name);
+            if (field && 'value' in field) {
+                field.value = value;
+            }
+        }
+
+        function focusCreateForm() {
+            if (!controlCreateForm) {
+                return;
+            }
+            controlCreateForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const labelInput = controlCreateForm.querySelector('input[name="libelle"]');
+            if (labelInput) {
+                window.setTimeout(function () {
+                    labelInput.focus();
+                }, 350);
+            }
+        }
+
+        if (controlAddFocus) {
+            controlAddFocus.addEventListener('click', focusCreateForm);
+        }
+
+        if (controlCreateForm) {
+            try {
+                const storedDefaults = JSON.parse(window.localStorage.getItem(controlDefaultsKey) || 'null');
+                if (storedDefaults && typeof storedDefaults === 'object') {
+                    setCreateFormValue('poste_id', String(storedDefaults.posteId || ''));
+                    setCreateFormValue('zone_id', String(storedDefaults.zoneId || ''));
+                    setCreateFormValue('type_saisie', String(storedDefaults.inputType || 'statut'));
+                    if (controlRemember) {
+                        controlRemember.checked = true;
+                    }
+                    syncControlForm(controlCreateForm);
+                }
+            } catch (error) {
+                window.localStorage.removeItem(controlDefaultsKey);
+            }
+
+            controlCreateForm.addEventListener('submit', function () {
+                try {
+                    if (controlRemember && controlRemember.checked) {
+                        const posteField = controlCreateForm.elements.namedItem('poste_id');
+                        const zoneField = controlCreateForm.elements.namedItem('zone_id');
+                        const typeField = controlCreateForm.elements.namedItem('type_saisie');
+                        window.localStorage.setItem(controlDefaultsKey, JSON.stringify({
+                            posteId: posteField && 'value' in posteField ? posteField.value : '',
+                            zoneId: zoneField && 'value' in zoneField ? zoneField.value : '',
+                            inputType: typeField && 'value' in typeField ? typeField.value : 'statut'
+                        }));
+                    } else {
+                        window.localStorage.removeItem(controlDefaultsKey);
+                    }
+                } catch (error) {
+                    // La saisie reste fonctionnelle si le stockage local est bloque.
+                }
+            });
+        }
+
+        if (controlCreateReset && controlCreateForm) {
+            controlCreateReset.addEventListener('click', function () {
+                controlCreateForm.reset();
+                try {
+                    window.localStorage.removeItem(controlDefaultsKey);
+                } catch (error) {
+                    // Aucun blocage du formulaire si le stockage local est indisponible.
+                }
+                syncControlForm(controlCreateForm);
+                const orderInput = controlCreateForm.querySelector('input[name="ordre"]');
+                if (orderInput) {
+                    orderInput.value = '<?= (int) $nextOrder ?>';
+                }
+                focusCreateForm();
+            });
+        }
+
+        document.querySelectorAll('[data-duplicate-control]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!controlCreateForm) {
+                    return;
+                }
+                const sourceForm = button.closest('form[data-control-form]');
+                if (!sourceForm) {
+                    return;
+                }
+                ['libelle', 'poste_id', 'zone_id', 'type_saisie', 'valeur_attendue', 'unite', 'seuil_min', 'seuil_max'].forEach(function (name) {
+                    const sourceField = sourceForm.elements.namedItem(name);
+                    if (sourceField && 'value' in sourceField) {
+                        setCreateFormValue(name, sourceField.value);
+                    }
+                });
+                syncControlForm(controlCreateForm);
+                focusCreateForm();
+                const labelInput = controlCreateForm.querySelector('input[name="libelle"]');
+                if (labelInput) {
+                    labelInput.select();
+                }
+            });
+        });
 
         document.querySelectorAll('form').forEach(function (form) {
             form.addEventListener('submit', function (event) {

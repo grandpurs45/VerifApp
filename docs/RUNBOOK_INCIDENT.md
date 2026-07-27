@@ -34,7 +34,7 @@ Objectif: distinguer proxy, conteneur web, Apache/PHP et base.
 
 Verifier depuis le serveur, avant tout redemarrage si possible:
 ```bash
-docker compose ps
+docker compose --env-file .env.docker ps
 docker inspect --format '{{.Name}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' verifapp-web
 docker stats --no-stream verifapp-web verifapp-db
 docker logs --since=2h verifapp-web

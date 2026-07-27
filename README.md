@@ -82,16 +82,20 @@ VerifApp permet de:
 ## Installation rapide (Docker)
 1. Copier la configuration:
    - `cp .env.docker.example .env.docker`
-2. Lancer les conteneurs:
-   - `docker compose up -d --build`
-3. Appliquer les migrations:
-   - `docker compose exec web php scripts/migrate.php`
-4. Ouvrir l application:
+2. Remplacer `DB_PASSWORD` par un secret long et aleatoire.
+3. Lancer les conteneurs:
+   - `docker compose --env-file .env.docker up -d --build`
+4. Appliquer les migrations:
+   - `docker compose --env-file .env.docker exec web php scripts/migrate.php`
+5. Ouvrir l application:
    - `http://localhost:8080`
 
 Important:
 - Laisser `APP_VERSION` vide pour utiliser automatiquement le fichier `VERSION`.
 - En reverse proxy HTTPS (Traefik, Nginx Proxy, etc.), renseigner `APP_URL` en `https://...` et activer `APP_FORCE_HTTPS=1`.
+- Les ports web et phpMyAdmin sont lies a `127.0.0.1` et ne sont pas exposes publiquement.
+- phpMyAdmin est desactive par defaut. Pour un acces ponctuel: `docker compose --env-file .env.docker --profile tools up -d phpmyadmin`.
+- Depuis un poste distant, ouvrir un tunnel SSH: `ssh -L 8081:127.0.0.1:8081 utilisateur@serveur`, puis utiliser `http://127.0.0.1:8081`.
 
 ## Installation locale (XAMPP / PHP)
 1. Configurer la base dans `.env`.
@@ -215,8 +219,8 @@ Comportement:
 
 ### Mise a jour serveur
 - `git pull origin main --tags`
-- `docker compose up -d --build`
-- `docker compose exec web php scripts/migrate.php`
+- `docker compose --env-file .env.docker up -d --build`
+- `docker compose --env-file .env.docker exec web php scripts/migrate.php`
 
 ### Verification post-deploiement
 - page login gestionnaire
@@ -228,7 +232,7 @@ Comportement:
 ## Depannage
 ### Echec generation QR
 1. Verifier migrations:
-   - `docker compose exec web php scripts/migrate.php`
+   - `docker compose --env-file .env.docker exec web php scripts/migrate.php`
 2. Verifier table `app_settings` (migration `018_create_app_settings.sql`).
 3. Verifier droits SQL sur `app_settings` (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
 

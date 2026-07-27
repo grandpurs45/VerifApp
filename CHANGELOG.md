@@ -9,6 +9,27 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.1.0] - 2026-07-27
+
+### Changed
+- Gestion des verifications:
+  - saisie du materiel clarifiee avec libelles, position et champs conditionnels
+  - materiel regroupe par emplacement avec edition repliee et filtres
+  - duplication rapide et conservation optionnelle du poste, de l emplacement et du type
+  - validation renforcee des quantites et des seuils de mesure
+
+### Security
+- Docker:
+  - suppression des identifiants MariaDB codes en dur dans Compose
+  - restriction des ports web et phpMyAdmin a l interface locale
+  - desactivation de phpMyAdmin par defaut via un profil dedie
+  - exclusion de tous les fichiers d environnement du contexte de build
+  - activation de `no-new-privileges` et de la rotation des logs conteneurs
+
+### Fixed
+- Docker:
+  - restauration du healthcheck PHP autonome, sans dependance a la commande `curl`
+
 ## [1.0.1] - 2026-07-03
 
 ### Added
