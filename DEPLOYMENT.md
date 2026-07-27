@@ -59,7 +59,9 @@ Uniquement en environnement de test/demo.
 
 ## 6) Verifier le deploiement
 - Ouvrir `https://ton-domaine/health.php`
-- Reponse attendue:
+- La page navigateur affiche l etat de l application, de la base, des notifications et la version.
+- Pour une verification JSON ou un moniteur, utiliser `https://ton-domaine/health.php?format=json`.
+- Reponse JSON attendue:
   - `status: ok`
   - `db: ok`
 

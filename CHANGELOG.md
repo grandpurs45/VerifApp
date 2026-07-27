@@ -9,6 +9,30 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.2.0] - 2026-07-27
+
+### Added
+- Healthcheck:
+  - ajout d une page d etat lisible dans le navigateur avec statut application, base, email, version et temps de reponse
+  - ajout des formats explicites `?format=html` et `?format=json` pour fiabiliser les moniteurs
+- Deploiement:
+  - ajout d un script de mise a jour Docker avec sauvegarde, controle Git, migrations et attente du healthcheck
+  - persistance du dossier `backups` sur l hote Docker
+- Notifications des anomalies:
+  - ajout d un evenement lors de la creation automatique d anomalies apres une verification non conforme
+  - ciblage configurable par groupes de roles et par utilisateurs precis dans chaque caserne
+  - notification directe de la personne a laquelle une anomalie est affectee
+
+### Changed
+- Historique des verifications:
+  - calcul de conformite mensuelle base sur la couverture quotidienne de chaque couple engin + poste
+  - une journee atteint 100% uniquement lorsque tous les postes attendus ont ete verifies au moins une fois
+  - plusieurs verifications du meme poste dans une journee ne comptent qu une seule fois dans la couverture
+
+### Security
+- Healthcheck:
+  - masquage des erreurs internes de base de donnees hors mode debug
+
 ## [1.1.0] - 2026-07-27
 
 ### Changed

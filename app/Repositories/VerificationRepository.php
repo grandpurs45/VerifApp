@@ -494,6 +494,56 @@ final class VerificationRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function findMonthlyDailyPosteStats(
+        int $year,
+        int $month,
+        ?int $caserneId = null,
+        ?int $vehicleId = null
+    ): array
+    {
+        $connection = Database::getConnection();
+
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = date('Y-m-d', strtotime($start . ' +1 month'));
+        $where = [
+            'v.date_heure >= :start_date',
+            'v.date_heure < :end_date',
+        ];
+        $params = [
+            'start_date' => $start . ' 00:00:00',
+            'end_date' => $end . ' 00:00:00',
+        ];
+
+        if ($caserneId !== null) {
+            $where[] = 'v.caserne_id = :caserne_id';
+            $params['caserne_id'] = $caserneId;
+        }
+
+        if ($vehicleId !== null && $vehicleId > 0) {
+            $where[] = 'v.vehicule_id = :vehicule_id';
+            $params['vehicule_id'] = $vehicleId;
+        }
+
+        $sql = '
+            SELECT
+                DATE(v.date_heure) AS jour,
+                v.vehicule_id,
+                v.poste_id,
+                COUNT(*) AS total_verifs,
+                SUM(CASE WHEN v.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
+                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes
+            FROM verifications v
+            WHERE ' . implode(' AND ', $where) . '
+            GROUP BY DATE(v.date_heure), v.vehicule_id, v.poste_id
+            ORDER BY DATE(v.date_heure) ASC, v.vehicule_id ASC, v.poste_id ASC
+        ';
+
+        $statement = $connection->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findLinesByVerificationId(int $verificationId, ?int $caserneId = null): array
     {
         $connection = Database::getConnection();

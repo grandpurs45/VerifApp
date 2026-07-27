@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.0.0` (voir fichier `VERSION`).
+Version courante: `v1.2.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -218,9 +218,15 @@ Comportement:
 - mettre a jour `README.md`
 
 ### Mise a jour serveur
-- `git pull origin main --tags`
-- `docker compose --env-file .env.docker up -d --build`
-- `docker compose --env-file .env.docker exec web php scripts/migrate.php`
+- Automatisation recommandee:
+  - `bash scripts/update-production.sh`
+  - execution non interactive: `bash scripts/update-production.sh --yes`
+  - version precise: `bash scripts/update-production.sh --ref vX.Y.Z --yes`
+- Le script verifie Git et Compose, cree une sauvegarde persistante, reconstruit les conteneurs, applique les migrations et attend le healthcheck.
+- Mise a jour manuelle:
+  - `git pull origin main --tags`
+  - `docker compose --env-file .env.docker up -d --build`
+  - `docker compose --env-file .env.docker exec web php scripts/migrate.php`
 
 ### Verification post-deploiement
 - page login gestionnaire

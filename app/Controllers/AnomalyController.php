@@ -36,7 +36,7 @@ final class AnomalyController
         $anomaliesAvailable = $anomalyRepository->isAvailable();
         $vehicles = $vehicleRepository->findAllActive($caserneId);
         $postes = $posteRepository->findAll($caserneId);
-        $assignableUsers = $userRepository->findAllActiveByRoles(['admin', 'responsable_materiel'], $caserneId);
+        $assignableUsers = $userRepository->findAllActiveForCaserne($caserneId);
         $returnQuery = http_build_query(array_merge(
             ['controller' => 'anomalies', 'action' => 'index'],
             array_filter($filters, static fn ($value): bool => $value !== '')
@@ -83,8 +83,22 @@ final class AnomalyController
             $assigneeId = (int) $assigneeRaw;
         }
 
+        if ($assigneeId !== null && $assigneeId > 0) {
+            $userRepository = new UserRepository();
+            $allowedAssigneeIds = [];
+            foreach ($userRepository->findAllActiveForCaserne($caserneId) as $user) {
+                $userId = (int) ($user['id'] ?? 0);
+                if ($userId > 0) {
+                    $allowedAssigneeIds[$userId] = true;
+                }
+            }
+            if (!isset($allowedAssigneeIds[$assigneeId])) {
+                $this->redirect('/index.php?controller=anomalies&action=index&error=invalid_assignee');
+            }
+        }
+
         $anomalyRepository = new AnomalyRepository();
-        $anomalyRepository->updateStatus(
+        $updated = $anomalyRepository->updateStatus(
             $anomalyId,
             $status,
             $priority,
@@ -92,6 +106,10 @@ final class AnomalyController
             $assigneeId,
             $caserneId
         );
+
+        if (!$updated) {
+            $this->redirect('/index.php?controller=anomalies&action=index&error=update_failed');
+        }
 
         if ($caserneId !== null && $caserneId > 0) {
             $notificationRepository = new NotificationRepository();
@@ -106,7 +124,9 @@ final class AnomalyController
                 'Statut: ' . $statusLabel . ' / Priorite: ' . $priorityLabel,
                 '/index.php?controller=anomalies&action=index',
                 $actorId,
-                $actorName
+                $actorName,
+                [],
+                $assigneeId !== null && $assigneeId > 0 ? [$assigneeId] : []
             );
         }
 

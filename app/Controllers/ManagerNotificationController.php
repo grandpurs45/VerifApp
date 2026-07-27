@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Repositories\NotificationRepository;
 use App\Repositories\RoleRepository;
+use App\Repositories\UserRepository;
 
 final class ManagerNotificationController
 {
@@ -98,6 +99,8 @@ final class ManagerNotificationController
                 ['code' => 'verificateur', 'nom' => 'Verificateur'],
             ];
         }
+        $userRepository = new UserRepository();
+        $targetUsers = $userRepository->findAllActiveForCaserne($caserneId);
 
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -120,17 +123,27 @@ final class ManagerNotificationController
         $eventCatalog = NotificationRepository::eventCatalog();
         $enabledByEvent = [];
         $rolesByEvent = [];
+        $usersByEvent = [];
         foreach ($eventCatalog as $eventCode => $_meta) {
             $eventKey = str_replace('.', '_', $eventCode);
             $enabledByEvent[$eventCode] = isset($_POST['event_enabled'][$eventKey]) && (string) $_POST['event_enabled'][$eventKey] === '1';
             $rawRoles = is_array($_POST['event_roles'][$eventKey] ?? null) ? $_POST['event_roles'][$eventKey] : [];
             $rolesByEvent[$eventCode] = array_values(array_map('strval', $rawRoles));
+            $rawUsers = is_array($_POST['event_users'][$eventKey] ?? null) ? $_POST['event_users'][$eventKey] : [];
+            $usersByEvent[$eventCode] = array_values(array_map('intval', $rawUsers));
         }
         $inAppEnabled = isset($_POST['channel_in_app_enabled']) && (string) $_POST['channel_in_app_enabled'] === '1';
         $emailEnabled = isset($_POST['channel_email_enabled']) && (string) $_POST['channel_email_enabled'] === '1';
 
         $repository = new NotificationRepository();
-        $ok = $repository->saveAdminSettings($caserneId, $inAppEnabled, $emailEnabled, $enabledByEvent, $rolesByEvent);
+        $ok = $repository->saveAdminSettings(
+            $caserneId,
+            $inAppEnabled,
+            $emailEnabled,
+            $enabledByEvent,
+            $rolesByEvent,
+            $usersByEvent
+        );
 
         $this->redirect('/index.php?controller=manager_notifications&action=settings' . ($ok ? '&success=saved' : '&error=save'));
     }

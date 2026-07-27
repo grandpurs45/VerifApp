@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 $pageTitle = 'Parametres notifications - VerifApp';
 $pageHeading = 'Parametres notifications';
-$pageSubtitle = 'Canaux, ciblage des roles et regles par evenement.';
+$pageSubtitle = 'Canaux, groupes et personnes a notifier par evenement.';
 $pageBackUrl = '/index.php?controller=manager_admin&action=menu';
 $pageBackLabel = 'Retour administration';
 
@@ -51,8 +51,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 $eventSettings = $notificationSettings[$eventCode] ?? [
                     'enabled' => true,
                     'roles' => [],
+                    'users' => [],
                 ];
                 $selectedRoles = is_array($eventSettings['roles'] ?? null) ? $eventSettings['roles'] : [];
+                $selectedUsers = is_array($eventSettings['users'] ?? null) ? array_map('intval', $eventSettings['users']) : [];
                 ?>
                 <article class="rounded-xl border border-slate-200 p-3">
                     <div class="flex items-start justify-between gap-3">
@@ -66,24 +68,61 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             Actif
                         </label>
                     </div>
-                    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <?php foreach ($roles as $role): ?>
-                            <?php
-                            $roleCode = (string) ($role['code'] ?? '');
-                            if ($roleCode === '') {
-                                continue;
-                            }
-                            ?>
-                            <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    name="event_roles[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>][]"
-                                    value="<?= htmlspecialchars($roleCode, ENT_QUOTES, 'UTF-8') ?>"
-                                    <?= in_array($roleCode, $selectedRoles, true) ? 'checked' : '' ?>
-                                >
-                                <?= htmlspecialchars((string) ($role['nom'] ?? $roleCode), ENT_QUOTES, 'UTF-8') ?>
-                            </label>
-                        <?php endforeach; ?>
+                    <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800">Groupes par role</h4>
+                            <div class="mt-2 grid grid-cols-1 gap-2">
+                                <?php foreach ($roles as $role): ?>
+                                    <?php
+                                    $roleCode = (string) ($role['code'] ?? '');
+                                    if ($roleCode === '') {
+                                        continue;
+                                    }
+                                    ?>
+                                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            name="event_roles[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>][]"
+                                            value="<?= htmlspecialchars($roleCode, ENT_QUOTES, 'UTF-8') ?>"
+                                            <?= in_array($roleCode, $selectedRoles, true) ? 'checked' : '' ?>
+                                        >
+                                        <?= htmlspecialchars((string) ($role['nom'] ?? $roleCode), ENT_QUOTES, 'UTF-8') ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800">Personnes specifiques</h4>
+                            <div class="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                                <?php if ($targetUsers === []): ?>
+                                    <p class="text-sm text-slate-500">Aucun utilisateur actif dans cette caserne.</p>
+                                <?php else: ?>
+                                    <?php foreach ($targetUsers as $targetUser): ?>
+                                        <?php
+                                        $targetUserId = (int) ($targetUser['id'] ?? 0);
+                                        $targetUserName = trim(
+                                            (string) ($targetUser['prenom'] ?? '') . ' ' . (string) ($targetUser['nom'] ?? '')
+                                        );
+                                        if ($targetUserName === '') {
+                                            $targetUserName = (string) ($targetUser['email'] ?? ('Utilisateur #' . $targetUserId));
+                                        }
+                                        ?>
+                                        <label class="flex items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                name="event_users[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>][]"
+                                                value="<?= $targetUserId ?>"
+                                                <?= in_array($targetUserId, $selectedUsers, true) ? 'checked' : '' ?>
+                                            >
+                                            <span>
+                                                <span class="block font-semibold text-slate-800"><?= htmlspecialchars($targetUserName, ENT_QUOTES, 'UTF-8') ?></span>
+                                                <span class="block text-xs text-slate-500"><?= htmlspecialchars((string) ($targetUser['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                     </div>
                 </article>
             <?php endforeach; ?>

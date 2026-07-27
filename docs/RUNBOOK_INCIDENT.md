@@ -50,7 +50,7 @@ Lecture rapide:
 - conteneur `running` mais health `unhealthy`: redemarrer `web`, puis conserver logs et heure exacte.
 
 Monitoring:
-- Uptime Kuma et Upptime doivent cibler la meme URL, idealement `https://ton-domaine/health.php`.
+- Uptime Kuma et Upptime doivent cibler la meme URL JSON: `https://ton-domaine/health.php?format=json`.
 - verifier que Upptime n accepte pas seulement une page HTML ou une redirection comme succes.
 - configurer Upptime pour exiger HTTP `200` et, si possible, la presence de `"status":"ok"` dans le corps.
 

@@ -54,6 +54,11 @@ final class NotificationRepository
     public static function eventCatalog(): array
     {
         return [
+            'anomaly.created' => [
+                'label' => 'Anomalies: nouvelle anomalie',
+                'description' => 'Une verification non conforme vient de creer une anomalie.',
+                'default_roles' => ['admin', 'responsable_materiel'],
+            ],
             'anomaly.updated' => [
                 'label' => 'Anomalies: mise a jour',
                 'description' => 'Statut, priorite ou assignation d une anomalie.',
@@ -85,7 +90,8 @@ final class NotificationRepository
         ?string $link = null,
         ?int $actorUserId = null,
         ?string $actorName = null,
-        array $context = []
+        array $context = [],
+        array $additionalRecipientUserIds = []
     ): bool {
         if (!$this->isAvailable() || $caserneId <= 0) {
             return false;
@@ -104,12 +110,27 @@ final class NotificationRepository
 
         $inAppRecipients = [];
         if ($settings['in_app_enabled']) {
-            $inAppRecipients = $this->findRecipientUserIds($caserneId, $eventCode, $settings['roles'], 'in_app', $actorUserId);
+            $inAppRecipients = $this->findRecipientUserIds(
+                $caserneId,
+                $eventCode,
+                $settings['roles'],
+                $settings['users'],
+                $additionalRecipientUserIds,
+                'in_app',
+                $actorUserId
+            );
         }
 
         $emailRecipients = [];
         if ($settings['email_enabled']) {
-            $emailRecipients = $this->findRecipientUsersWithEmail($caserneId, $eventCode, $settings['roles'], $actorUserId);
+            $emailRecipients = $this->findRecipientUsersWithEmail(
+                $caserneId,
+                $eventCode,
+                $settings['roles'],
+                $settings['users'],
+                $additionalRecipientUserIds,
+                $actorUserId
+            );
         }
 
         if ($inAppRecipients === [] && $emailRecipients === []) {
@@ -451,7 +472,7 @@ final class NotificationRepository
     }
 
     /**
-     * @return array<string, array{enabled: bool, roles: array<int, string>, in_app_enabled: bool, email_enabled: bool}>
+     * @return array<string, array{enabled: bool, roles: array<int, string>, users: array<int, int>, in_app_enabled: bool, email_enabled: bool}>
      */
     public function readAdminSettings(?int $caserneId): array
     {
@@ -467,13 +488,15 @@ final class NotificationRepository
     /**
      * @param array<string, bool> $enabledByEvent
      * @param array<string, array<int, string>> $rolesByEvent
+     * @param array<string, array<int, int>> $usersByEvent
      */
     public function saveAdminSettings(
         ?int $caserneId,
         bool $inAppEnabled,
         bool $emailEnabled,
         array $enabledByEvent,
-        array $rolesByEvent
+        array $rolesByEvent,
+        array $usersByEvent
     ): bool {
         $settingRepository = new AppSettingRepository();
         if (!$settingRepository->isAvailable()) {
@@ -492,13 +515,14 @@ final class NotificationRepository
             $eventKey = str_replace('.', '_', $eventCode);
             $defaultRoles = $this->normalizeRoles((array) ($meta['default_roles'] ?? []));
             $selectedRoles = $this->normalizeRoles($rolesByEvent[$eventCode] ?? $defaultRoles);
-            if ($selectedRoles === []) {
-                $selectedRoles = $defaultRoles;
-            }
+            $selectedUsers = $this->normalizeUserIds($usersByEvent[$eventCode] ?? []);
 
             $saveMap['notifications_event_' . $eventKey . '_enabled' . $suffix] =
                 (isset($enabledByEvent[$eventCode]) && $enabledByEvent[$eventCode]) ? '1' : '0';
-            $saveMap['notifications_event_' . $eventKey . '_roles' . $suffix] = implode(',', $selectedRoles);
+            $saveMap['notifications_event_' . $eventKey . '_roles' . $suffix] =
+                $selectedRoles === [] ? '__none__' : implode(',', $selectedRoles);
+            $saveMap['notifications_event_' . $eventKey . '_users' . $suffix] =
+                $selectedUsers === [] ? '__none__' : implode(',', $selectedUsers);
         }
 
         foreach ($saveMap as $key => $value) {
@@ -512,17 +536,28 @@ final class NotificationRepository
 
     /**
      * @param array<int, string> $targetRoles
+     * @param array<int, int> $targetUserIds
+     * @param array<int, int> $additionalRecipientUserIds
      * @return array<int, int>
      */
     private function findRecipientUserIds(
         int $caserneId,
         string $eventCode,
         array $targetRoles,
+        array $targetUserIds,
+        array $additionalRecipientUserIds,
         string $channel = 'in_app',
         ?int $excludeUserId = null
     ): array
     {
-        $users = $this->findRecipientUsers($caserneId, $eventCode, $targetRoles, $channel, $excludeUserId);
+        $users = $this->findRecipientUsers(
+            $caserneId,
+            $eventCode,
+            $targetRoles,
+            array_merge($targetUserIds, $additionalRecipientUserIds),
+            $channel,
+            $excludeUserId
+        );
         $ids = [];
         foreach ($users as $user) {
             $id = (int) ($user['id'] ?? 0);
@@ -536,15 +571,26 @@ final class NotificationRepository
 
     /**
      * @param array<int, string> $targetRoles
+     * @param array<int, int> $targetUserIds
+     * @param array<int, int> $additionalRecipientUserIds
      * @return array<int, array{id:int,email:string,nom:string}>
      */
     private function findRecipientUsersWithEmail(
         int $caserneId,
         string $eventCode,
         array $targetRoles,
+        array $targetUserIds,
+        array $additionalRecipientUserIds,
         ?int $excludeUserId = null
     ): array {
-        $users = $this->findRecipientUsers($caserneId, $eventCode, $targetRoles, 'email', $excludeUserId);
+        $users = $this->findRecipientUsers(
+            $caserneId,
+            $eventCode,
+            $targetRoles,
+            array_merge($targetUserIds, $additionalRecipientUserIds),
+            'email',
+            $excludeUserId
+        );
         $result = [];
         foreach ($users as $user) {
             $email = trim((string) ($user['email'] ?? ''));
@@ -567,21 +613,20 @@ final class NotificationRepository
 
     /**
      * @param array<int, string> $targetRoles
+     * @param array<int, int> $targetUserIds
      * @return array<int, array<string, mixed>>
      */
     private function findRecipientUsers(
         int $caserneId,
         string $eventCode,
         array $targetRoles,
+        array $targetUserIds,
         string $channel = 'in_app',
         ?int $excludeUserId = null
     ): array {
-        if ($targetRoles === []) {
-            return [];
-        }
-
         $roles = $this->normalizeRoles($targetRoles);
-        if ($roles === []) {
+        $userIds = $this->normalizeUserIds($targetUserIds);
+        if ($roles === [] && $userIds === []) {
             return [];
         }
 
@@ -595,11 +640,32 @@ final class NotificationRepository
             'caserne_id' => $caserneId,
             'event_code' => $eventCode,
         ];
-        $placeholders = [];
+        $rolePlaceholders = [];
         foreach ($roles as $index => $roleCode) {
             $key = 'role_' . $index;
-            $placeholders[] = 'CONVERT(:' . $key . ' USING utf8mb4) COLLATE utf8mb4_unicode_ci';
+            $rolePlaceholders[] = 'CONVERT(:' . $key . ' USING utf8mb4) COLLATE utf8mb4_unicode_ci';
             $params[$key] = $roleCode;
+        }
+        $userPlaceholders = [];
+        foreach ($userIds as $index => $userId) {
+            $key = 'user_id_' . $index;
+            $userPlaceholders[] = ':' . $key;
+            $params[$key] = $userId;
+        }
+
+        $targetClauses = [];
+        if ($rolePlaceholders !== []) {
+            $targetClauses[] = 'LOWER(
+                    TRIM(
+                        COALESCE(
+                            NULLIF(CONVERT(uc.role_code USING utf8mb4) COLLATE utf8mb4_unicode_ci, \'\'),
+                            CONVERT(u.role USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                        )
+                    )
+                ) COLLATE utf8mb4_unicode_ci IN (' . implode(',', $rolePlaceholders) . ')';
+        }
+        if ($userPlaceholders !== []) {
+            $targetClauses[] = 'u.id IN (' . implode(',', $userPlaceholders) . ')';
         }
 
         $sql = '
@@ -611,14 +677,7 @@ final class NotificationRepository
                   AND ns.event_code = :event_code
             WHERE u.actif = 1
               AND uc.caserne_id = :caserne_id
-              AND LOWER(
-                    TRIM(
-                        COALESCE(
-                            NULLIF(CONVERT(uc.role_code USING utf8mb4) COLLATE utf8mb4_unicode_ci, \'\'),
-                            CONVERT(u.role USING utf8mb4) COLLATE utf8mb4_unicode_ci
-                        )
-                    )
-                ) COLLATE utf8mb4_unicode_ci IN (' . implode(',', $placeholders) . ')
+              AND (' . implode(' OR ', $targetClauses) . ')
               AND ' . $channelClause . '
         ';
         if ($excludeUserId !== null && $excludeUserId > 0) {
@@ -1100,7 +1159,7 @@ final class NotificationRepository
     }
 
     /**
-     * @return array{enabled: bool, roles: array<int, string>, in_app_enabled: bool, email_enabled: bool}
+     * @return array{enabled: bool, roles: array<int, string>, users: array<int, int>, in_app_enabled: bool, email_enabled: bool}
      */
     private function readEventSettings(?int $caserneId, string $eventCode): array
     {
@@ -1110,6 +1169,7 @@ final class NotificationRepository
             return [
                 'enabled' => false,
                 'roles' => [],
+                'users' => [],
                 'in_app_enabled' => true,
                 'email_enabled' => false,
             ];
@@ -1119,17 +1179,20 @@ final class NotificationRepository
         $defaultRoles = $this->normalizeRoles((array) ($meta['default_roles'] ?? []));
         $enabledRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_enabled', $caserneId, '1');
         $rolesRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_roles', $caserneId, implode(',', $defaultRoles));
+        $usersRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_users', $caserneId, '');
         $inAppRaw = $this->readScopedSetting('notifications_channel_in_app_enabled', $caserneId, '1');
         $emailRaw = $this->readScopedSetting('notifications_channel_email_enabled', $caserneId, '0');
 
         $roles = $this->normalizeRoles(explode(',', $rolesRaw));
-        if ($roles === []) {
+        $users = $this->normalizeUserIds(explode(',', $usersRaw));
+        if ($roles === [] && $users === [] && trim($rolesRaw) === '' && trim($usersRaw) === '') {
             $roles = $defaultRoles;
         }
 
         return [
             'enabled' => $enabledRaw !== '0',
             'roles' => $roles,
+            'users' => $users,
             'in_app_enabled' => $inAppRaw !== '0',
             'email_enabled' => $emailRaw === '1',
         ];
@@ -1166,10 +1229,27 @@ final class NotificationRepository
         $normalized = [];
         foreach ($roles as $roleCode) {
             $value = strtolower(trim((string) $roleCode));
-            if ($value === '') {
+            if ($value === '' || $value === '__none__') {
                 continue;
             }
             $normalized[$value] = $value;
+        }
+
+        return array_values($normalized);
+    }
+
+    /**
+     * @param array<int, int|string> $userIds
+     * @return array<int, int>
+     */
+    private function normalizeUserIds(array $userIds): array
+    {
+        $normalized = [];
+        foreach ($userIds as $userId) {
+            $value = (int) $userId;
+            if ($value > 0) {
+                $normalized[$value] = $value;
+            }
         }
 
         return array_values($normalized);

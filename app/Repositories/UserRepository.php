@@ -233,6 +233,40 @@ final class UserRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function findAllActiveForCaserne(?int $caserneId = null): array
+    {
+        if (!$this->hasTable()) {
+            return [];
+        }
+
+        $connection = Database::getConnection();
+        $prenomSelect = $this->hasUserColumn('prenom') ? 'u.prenom' : 'NULL AS prenom';
+        $withMembership = $caserneId !== null && $caserneId > 0 && $this->hasMembershipTable();
+        $roleSelect = $withMembership && $this->hasMembershipRoleColumn()
+            ? 'COALESCE(NULLIF(uc.role_code, \'\'), u.role) AS role'
+            : 'u.role';
+
+        $sql = '
+            SELECT DISTINCT
+                u.id,
+                u.nom,
+                ' . $prenomSelect . ',
+                u.email,
+                ' . $roleSelect . '
+            FROM utilisateurs u
+            ' . ($withMembership
+                ? 'INNER JOIN utilisateur_casernes uc ON uc.utilisateur_id = u.id AND uc.caserne_id = :caserne_id'
+                : '') . '
+            WHERE u.actif = 1
+            ORDER BY u.nom ASC, u.id ASC
+        ';
+
+        $statement = $connection->prepare($sql);
+        $statement->execute($withMembership ? ['caserne_id' => $caserneId] : []);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function findAll(): array
     {
         if (!$this->hasTable()) {
