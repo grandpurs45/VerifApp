@@ -94,6 +94,7 @@ $errorMessage = isset($_GET['error']) ? ($errorMap[(string) $_GET['error']] ?? n
                         <th class="text-left px-4 py-3">Vehicule</th>
                         <th class="text-left px-4 py-3">Poste</th>
                         <th class="text-left px-4 py-3">Agent</th>
+                        <th class="text-left px-4 py-3">Garde</th>
                         <th class="text-left px-4 py-3">Statut</th>
                         <th class="text-left px-4 py-3">Anomalies</th>
                         <th class="text-left px-4 py-3">Action</th>
@@ -106,6 +107,13 @@ $errorMessage = isset($_GET['error']) ? ($errorMap[(string) $_GET['error']] ?? n
                             <td class="px-4 py-3"><?= htmlspecialchars($row['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($row['poste_nom'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($row['agent'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <?php if ((int) ($row['garde_duree_heures'] ?? 12) === 24): ?>
+                                    <span class="inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700">24 h - matin + soir</span>
+                                <?php else: ?>
+                                    <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">12 h</span>
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars($row['statut_global'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= (int) $row['anomalies_ouvertes'] ?></td>
                             <td class="px-4 py-3">

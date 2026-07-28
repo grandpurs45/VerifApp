@@ -108,6 +108,17 @@ final class NotificationRepository
             return true;
         }
 
+        if ($eventCode === 'anomaly.created') {
+            $vehicleId = (int) ($context['vehicle_id'] ?? 0);
+            if ($vehicleId > 0) {
+                $vehicleRouting = $this->readVehicleAnomalyRouting($caserneId, $vehicleId);
+                if ($vehicleRouting['mode'] === 'custom') {
+                    $settings['roles'] = $vehicleRouting['roles'];
+                    $settings['users'] = $vehicleRouting['users'];
+                }
+            }
+        }
+
         $inAppRecipients = [];
         if ($settings['in_app_enabled']) {
             $inAppRecipients = $this->findRecipientUserIds(
@@ -483,6 +494,102 @@ final class NotificationRepository
         }
 
         return $settings;
+    }
+
+    /**
+     * @return array{mode: 'default'|'custom', roles: array<int, string>, users: array<int, int>}
+     */
+    public function readVehicleAnomalyRouting(int $caserneId, int $vehicleId): array
+    {
+        if ($caserneId <= 0 || $vehicleId <= 0) {
+            return [
+                'mode' => 'default',
+                'roles' => [],
+                'users' => [],
+            ];
+        }
+
+        $settingRepository = new AppSettingRepository();
+        if (!$settingRepository->isAvailable()) {
+            return [
+                'mode' => 'default',
+                'roles' => [],
+                'users' => [],
+            ];
+        }
+
+        $prefix = $this->vehicleAnomalySettingPrefix($vehicleId);
+        $suffix = '_caserne_' . $caserneId;
+        $mode = strtolower(trim((string) ($settingRepository->get($prefix . '_mode' . $suffix) ?? 'default')));
+        if ($mode !== 'custom') {
+            return [
+                'mode' => 'default',
+                'roles' => [],
+                'users' => [],
+            ];
+        }
+
+        $rolesRaw = (string) ($settingRepository->get($prefix . '_roles' . $suffix) ?? '__none__');
+        $usersRaw = (string) ($settingRepository->get($prefix . '_users' . $suffix) ?? '__none__');
+
+        return [
+            'mode' => 'custom',
+            'roles' => $this->normalizeRoles(explode(',', $rolesRaw)),
+            'users' => $this->normalizeUserIds(explode(',', $usersRaw)),
+        ];
+    }
+
+    /**
+     * @param array<int, string> $roles
+     * @param array<int, int> $userIds
+     */
+    public function saveVehicleAnomalyRouting(
+        int $caserneId,
+        int $vehicleId,
+        string $mode,
+        array $roles,
+        array $userIds
+    ): bool {
+        if ($caserneId <= 0 || $vehicleId <= 0) {
+            return false;
+        }
+
+        $mode = strtolower(trim($mode));
+        if (!in_array($mode, ['default', 'custom'], true)) {
+            return false;
+        }
+
+        $settingRepository = new AppSettingRepository();
+        if (!$settingRepository->isAvailable()) {
+            return false;
+        }
+
+        $prefix = $this->vehicleAnomalySettingPrefix($vehicleId);
+        $suffix = '_caserne_' . $caserneId;
+        if ($mode === 'default') {
+            return $settingRepository->set($prefix . '_mode' . $suffix, 'default');
+        }
+
+        $selectedRoles = $this->normalizeRoles($roles);
+        $selectedUsers = $this->normalizeUserIds($userIds);
+        if ($selectedRoles === [] && $selectedUsers === []) {
+            return false;
+        }
+
+        if (!$settingRepository->set(
+            $prefix . '_roles' . $suffix,
+            $selectedRoles === [] ? '__none__' : implode(',', $selectedRoles)
+        )) {
+            return false;
+        }
+        if (!$settingRepository->set(
+            $prefix . '_users' . $suffix,
+            $selectedUsers === [] ? '__none__' : implode(',', $selectedUsers)
+        )) {
+            return false;
+        }
+
+        return $settingRepository->set($prefix . '_mode' . $suffix, 'custom');
     }
 
     /**
@@ -1253,6 +1360,11 @@ final class NotificationRepository
         }
 
         return array_values($normalized);
+    }
+
+    private function vehicleAnomalySettingPrefix(int $vehicleId): string
+    {
+        return 'notifications_anomaly_vehicle_' . $vehicleId;
     }
 
     private function hasNotificationsTable(): bool

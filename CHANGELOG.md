@@ -9,6 +9,23 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.3.0] - 2026-07-28
+
+### Added
+- Notifications des anomalies:
+  - ajout d un ciblage des destinataires par vehicule, par role et par personne
+  - heritage automatique de la regle generale lorsqu aucun ciblage personnalise n est defini
+- Verifications terrain:
+  - ajout du choix entre une garde de 12 h et une garde de 24 h sous le nom du verificateur
+  - une verification en garde de 24 h couvre les creneaux du matin et du soir
+
+### Fixed
+- Parc et materiel:
+  - affichage de la quantite attendue directement dans la liste recapitulant le materiel d un engin
+- Historique des verifications:
+  - exclusion des postes sans controle actif du nombre de postes attendus par jour
+  - affichage du detail des postes pris en compte dans le calcul quotidien
+
 ## [1.2.1] - 2026-07-27
 
 ### Changed

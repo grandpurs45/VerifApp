@@ -73,6 +73,7 @@ declare(strict_types=1);
             <p><strong>Poste :</strong> <?= htmlspecialchars($verification['poste_nom'], ENT_QUOTES, 'UTF-8') ?></p>
             <p><strong>Date :</strong> <?= htmlspecialchars((string) $verification['date_heure'], ENT_QUOTES, 'UTF-8') ?></p>
             <p><strong>Verificateur :</strong> <?= htmlspecialchars($verification['agent'], ENT_QUOTES, 'UTF-8') ?></p>
+            <p><strong>Duree de garde :</strong> <?= (int) ($verification['garde_duree_heures'] ?? 12) === 24 ? '24 h (matin + soir)' : '12 h' ?></p>
             <p><strong>Statut :</strong> <?= htmlspecialchars($verification['statut_global'], ENT_QUOTES, 'UTF-8') ?></p>
             <p><strong>Signature :</strong> __________________________</p>
         </div>

@@ -48,6 +48,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <dd class="font-semibold"><?= htmlspecialchars((string) $verification['agent'], ENT_QUOTES, 'UTF-8') ?></dd>
                 </div>
                 <div>
+                    <dt class="text-slate-500">Duree de garde</dt>
+                    <dd class="font-semibold">
+                        <?= (int) ($verification['garde_duree_heures'] ?? 12) === 24 ? '24 h (matin + soir)' : '12 h' ?>
+                    </dd>
+                </div>
+                <div>
                     <dt class="text-slate-500">Statut global</dt>
                     <dd class="font-semibold"><?= htmlspecialchars((string) $verification['statut_global'], ENT_QUOTES, 'UTF-8') ?></dd>
                 </div>

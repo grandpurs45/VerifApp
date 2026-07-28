@@ -288,6 +288,7 @@ $managerRoutes = [
     'manager_assets/vehicle_save',
     'manager_assets/vehicle_duplicate',
     'manager_assets/vehicle_qr_save',
+    'manager_assets/vehicle_anomaly_routing_save',
     'manager_assets/vehicle_delete',
     'manager_assets/zone_save',
     'manager_assets/zone_delete',
@@ -421,6 +422,7 @@ $managerRoutePermissions = [
     'manager_assets/vehicle_save' => 'assets.manage',
     'manager_assets/vehicle_duplicate' => 'assets.manage',
     'manager_assets/vehicle_qr_save' => 'assets.manage',
+    'manager_assets/vehicle_anomaly_routing_save' => 'assets.manage',
     'manager_assets/vehicle_delete' => 'assets.manage',
     'manager_assets/zone_save' => 'assets.manage',
     'manager_assets/zone_delete' => 'assets.manage',
@@ -776,6 +778,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_assets' && $action === 'vehicle_qr_save') {
         $controller = new ManagerAssetController();
         $controller->vehicleQrSave();
+        return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'vehicle_anomaly_routing_save') {
+        $controller = new ManagerAssetController();
+        $controller->vehicleAnomalyRoutingSave();
         return;
     }
 

@@ -9,8 +9,11 @@ use App\Core\Env;
 use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
+use App\Repositories\NotificationRepository;
 use App\Repositories\PosteRepository;
+use App\Repositories\RoleRepository;
 use App\Repositories\TypeVehiculeRepository;
+use App\Repositories\UserRepository;
 use App\Repositories\VehicleRepository;
 use App\Repositories\ZoneRepository;
 use PDOException;
@@ -197,6 +200,25 @@ final class ManagerAssetController
 
         $vehicleZonesCount = count($zones);
         $vehicleControlesCount = count($controles);
+        $notificationRepository = new NotificationRepository();
+        $vehicleAnomalyRouting = $notificationRepository->readVehicleAnomalyRouting($caserneId, $vehicleId);
+        $globalNotificationSettings = $notificationRepository->readAdminSettings($caserneId);
+        $globalAnomalyRouting = $globalNotificationSettings['anomaly.created'] ?? [
+            'roles' => [],
+            'users' => [],
+        ];
+
+        $roleRepository = new RoleRepository();
+        $notificationRoles = $roleRepository->isAvailable() ? $roleRepository->findAll() : [];
+        if ($notificationRoles === []) {
+            $notificationRoles = [
+                ['code' => 'admin', 'nom' => 'Administrateur'],
+                ['code' => 'responsable_materiel', 'nom' => 'Responsable materiel'],
+                ['code' => 'verificateur', 'nom' => 'Verificateur'],
+            ];
+        }
+        $userRepository = new UserRepository();
+        $notificationUsers = $userRepository->findAllActiveForCaserne($caserneId);
         $managerUser = $_SESSION['manager_user'] ?? null;
         $flash = [
             'success' => isset($_GET['success']) ? (string) $_GET['success'] : '',
@@ -204,6 +226,87 @@ final class ManagerAssetController
         ];
 
         require dirname(__DIR__, 2) . '/public/views/manager_vehicle_summary.php';
+    }
+
+    public function vehicleAnomalyRoutingSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
+        }
+
+        $vehicleId = isset($_POST['vehicle_id']) ? (int) $_POST['vehicle_id'] : 0;
+        $mode = strtolower(trim((string) ($_POST['routing_mode'] ?? 'default')));
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null || $vehicleId <= 0 || !in_array($mode, ['default', 'custom'], true)) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
+        }
+
+        $vehicleRepository = new VehicleRepository();
+        if ($vehicleRepository->findById($vehicleId, $caserneId) === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
+        }
+
+        $selectedRoles = is_array($_POST['routing_roles'] ?? null)
+            ? array_values(array_map('strval', $_POST['routing_roles']))
+            : [];
+        $selectedUsers = is_array($_POST['routing_users'] ?? null)
+            ? array_values(array_map('intval', $_POST['routing_users']))
+            : [];
+
+        if ($mode === 'custom') {
+            $allowedRoles = [];
+            $roleRepository = new RoleRepository();
+            foreach ($roleRepository->isAvailable() ? $roleRepository->findAll() : [] as $role) {
+                $roleCode = strtolower(trim((string) ($role['code'] ?? '')));
+                if ($roleCode !== '') {
+                    $allowedRoles[$roleCode] = true;
+                }
+            }
+            if ($allowedRoles === []) {
+                $allowedRoles = [
+                    'admin' => true,
+                    'responsable_materiel' => true,
+                    'verificateur' => true,
+                ];
+            }
+            $selectedRoles = array_values(array_filter(
+                array_map(static fn (string $role): string => strtolower(trim($role)), $selectedRoles),
+                static fn (string $role): bool => isset($allowedRoles[$role])
+            ));
+
+            $allowedUsers = [];
+            $userRepository = new UserRepository();
+            foreach ($userRepository->findAllActiveForCaserne($caserneId) as $user) {
+                $userId = (int) ($user['id'] ?? 0);
+                if ($userId > 0) {
+                    $allowedUsers[$userId] = true;
+                }
+            }
+            $selectedUsers = array_values(array_filter(
+                $selectedUsers,
+                static fn (int $userId): bool => isset($allowedUsers[$userId])
+            ));
+
+            if ($selectedRoles === [] && $selectedUsers === []) {
+                $this->redirect(
+                    '/index.php?controller=manager_assets&action=vehicle_detail&id=' . $vehicleId . '&error=anomaly_routing_empty'
+                );
+            }
+        }
+
+        $notificationRepository = new NotificationRepository();
+        $saved = $notificationRepository->saveVehicleAnomalyRouting(
+            $caserneId,
+            $vehicleId,
+            $mode,
+            $selectedRoles,
+            $selectedUsers
+        );
+
+        $this->redirect(
+            '/index.php?controller=manager_assets&action=vehicle_detail&id=' . $vehicleId
+            . '&' . ($saved ? 'success=anomaly_routing_saved' : 'error=anomaly_routing_save_failed')
+        );
     }
 
     public function vehicleZones(int $vehicleId): void

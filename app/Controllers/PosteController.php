@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repositories\ControleRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\VehicleRepository;
 
@@ -13,6 +14,7 @@ final class PosteController
     {
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
+        $controleRepository = new ControleRepository();
         $caserneId = $this->resolveActiveCaserneId();
         $fromVehicleQr = isset($_GET['from_vehicle_qr']) && (string) $_GET['from_vehicle_qr'] === '1';
 
@@ -21,6 +23,14 @@ final class PosteController
 
         if ($vehicle !== null) {
             $postes = $posteRepository->findByVehicleId($vehicleId, $caserneId);
+            $postes = array_values(array_filter(
+                $postes,
+                static fn (array $poste): bool => $controleRepository->findByVehicleAndPosteId(
+                    $vehicleId,
+                    (int) ($poste['id'] ?? 0),
+                    $caserneId
+                ) !== []
+            ));
         }
 
         require dirname(__DIR__, 2) . '/public/views/postes.php';

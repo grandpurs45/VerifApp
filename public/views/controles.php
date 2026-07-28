@@ -161,6 +161,26 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                             >
                         </div>
                     <?php endif; ?>
+
+                    <fieldset>
+                        <legend class="text-sm font-semibold text-slate-200">Duree de garde</legend>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="garde_duree_heures" value="12" class="peer sr-only" checked required>
+                                <span class="block rounded-2xl border border-slate-500 bg-slate-900 px-3 py-3 text-center transition peer-checked:border-amber-300 peer-checked:bg-amber-300 peer-checked:text-slate-900">
+                                    <span class="block text-base font-extrabold">Garde 12 h</span>
+                                    <span class="mt-0.5 block text-[11px] font-semibold opacity-80">Creneau actuel</span>
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="garde_duree_heures" value="24" class="peer sr-only" required>
+                                <span class="block rounded-2xl border border-slate-500 bg-slate-900 px-3 py-3 text-center transition peer-checked:border-amber-300 peer-checked:bg-amber-300 peer-checked:text-slate-900">
+                                    <span class="block text-base font-extrabold">Garde 24 h</span>
+                                    <span class="mt-0.5 block text-[11px] font-semibold opacity-80">Matin et soir</span>
+                                </span>
+                            </label>
+                        </div>
+                    </fieldset>
                 </section>
 
                 <?php foreach ($controlesParZone as $zone => $controlesZone): ?>
@@ -339,6 +359,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
             const posteId = <?= (int) ($poste['id'] ?? 0) ?>;
             const authenticatedUserId = <?= $fieldUserId ?>;
             const agentInput = document.querySelector('input[name="agent"]');
+            const guardDurationInputs = Array.from(document.querySelectorAll('input[name="garde_duree_heures"]'));
             let restoreAttempted = false;
             let draftExpiryTimestamp = null;
             let remainingTimer = null;
@@ -542,7 +563,14 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     comments[field.name] = field.value;
                 });
 
-                return { statuses, values, comments };
+                const selectedGuardDuration = document.querySelector('input[name="garde_duree_heures"]:checked');
+
+                return {
+                    statuses,
+                    values,
+                    comments,
+                    guardDuration: selectedGuardDuration ? selectedGuardDuration.value : '12',
+                };
             }
 
             function saveDraft() {
@@ -596,6 +624,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                 const statuses = data.statuses || {};
                 const values = data.values || {};
                 const comments = data.comments || {};
+                const guardDuration = data.guardDuration === '24' ? '24' : '12';
 
                 radios.forEach((radio) => {
                     if (statuses[radio.name] === radio.value) {
@@ -608,6 +637,10 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     if (Object.prototype.hasOwnProperty.call(values, input.name)) {
                         input.value = values[input.name];
                     }
+                });
+
+                guardDurationInputs.forEach((input) => {
+                    input.checked = input.value === guardDuration;
                 });
 
                 const commentFields = Array.from(document.querySelectorAll('textarea[name^="commentaires["], textarea[name="commentaire_global"], input[name="agent"]'));
@@ -688,7 +721,11 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                 });
             });
 
-                if (form) {
+            guardDurationInputs.forEach((input) => {
+                input.addEventListener('change', saveDraft);
+            });
+
+            if (form) {
                 const draftInputs = Array.from(form.querySelectorAll('input[name="agent"], textarea[name="commentaire_global"], textarea[name^="commentaires["]'));
                 draftInputs.forEach((field) => {
                     field.addEventListener('input', saveDraft);

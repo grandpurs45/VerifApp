@@ -69,8 +69,28 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <section class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-    Regle appliquee: chaque poste de chaque engin selectionne doit etre verifie au moins une fois par jour.
-    Plusieurs verifications du meme poste dans la journee comptent comme une seule couverture.
+    <p>
+        Regle appliquee: chaque poste comportant au moins un controle actif pour les engins selectionnes doit etre verifie au moins une fois par jour.
+        Plusieurs verifications du meme poste dans la journee comptent comme une seule couverture.
+    </p>
+    <details class="mt-2">
+        <summary class="cursor-pointer font-semibold text-slate-900">
+            Voir les <?= (int) $expectedPostesPerDay ?> poste(s) pris en compte
+        </summary>
+        <?php if ($expectedPostes === []): ?>
+            <p class="mt-2 text-slate-500">Aucun poste verifiable dans ce perimetre.</p>
+        <?php else: ?>
+            <ul class="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
+                <?php foreach ($expectedPostes as $expectedPoste): ?>
+                    <li class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                        <span class="font-semibold text-slate-900"><?= htmlspecialchars((string) ($expectedPoste['vehicule_nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span class="text-slate-400">/</span>
+                        <?= htmlspecialchars((string) ($expectedPoste['poste_nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </details>
 </section>
 
 <section class="rounded-2xl bg-white p-4 shadow md:p-6">

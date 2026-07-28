@@ -35,6 +35,10 @@ final class VerificationController
             $agent = trim((string) ($_POST['agent'] ?? ''));
         }
         $globalComment = trim((string) ($_POST['commentaire_global'] ?? ''));
+        $guardDurationHours = isset($_POST['garde_duree_heures']) ? (int) $_POST['garde_duree_heures'] : 12;
+        if (!in_array($guardDurationHours, [12, 24], true)) {
+            $guardDurationHours = 12;
+        }
         $fromVehicleQr = isset($_POST['from_vehicle_qr']) && (string) $_POST['from_vehicle_qr'] === '1';
         $contextSuffix = $fromVehicleQr ? '&from_vehicle_qr=1' : '';
 
@@ -118,6 +122,7 @@ final class VerificationController
             $posteId,
             $utilisateurId,
             $agent,
+            $guardDurationHours,
             $globalComment === '' ? null : $globalComment,
             $lines
         );
@@ -142,6 +147,7 @@ final class VerificationController
                 $agent,
                 [
                     'verification_id' => $verificationId,
+                    'vehicle_id' => $vehicleId,
                     'vehicle' => $vehicleName,
                     'poste' => $posteName,
                     'anomaly_count' => $anomalyCount,
@@ -204,6 +210,7 @@ final class VerificationController
         $verificationRepository = new VerificationRepository();
         $vehicleRepository = new VehicleRepository();
         $posteRepository = new PosteRepository();
+        $controleRepository = new ControleRepository();
         $caserneId = $this->resolveManagerCaserneId();
 
         $monthInput = isset($_GET['month']) ? trim((string) $_GET['month']) : '';
@@ -244,6 +251,9 @@ final class VerificationController
             foreach ($posteRepository->findByVehicleId($vehicleId, $caserneId) as $poste) {
                 $posteId = (int) ($poste['id'] ?? 0);
                 if ($posteId <= 0) {
+                    continue;
+                }
+                if ($controleRepository->findByVehicleAndPosteId($vehicleId, $posteId, $caserneId) === []) {
                     continue;
                 }
                 $expectedPostes[$vehicleId . '|' . $posteId] = [

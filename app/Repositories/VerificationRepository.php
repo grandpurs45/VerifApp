@@ -16,6 +16,7 @@ final class VerificationRepository
     private ?bool $utilisateurColumnExists = null;
     private ?bool $valeurSaisieColumnExists = null;
     private ?bool $zoneOrderColumnExists = null;
+    private ?bool $guardDurationColumnExists = null;
 
     public function createWithLines(
         int $caserneId,
@@ -23,6 +24,7 @@ final class VerificationRepository
         int $posteId,
         ?int $utilisateurId,
         string $agent,
+        int $guardDurationHours,
         ?string $globalComment,
         array $lines
     ): int {
@@ -37,19 +39,15 @@ final class VerificationRepository
         }
 
         $status = $hasNok ? 'non_conforme' : 'conforme';
+        $guardDurationHours = $guardDurationHours === 24 ? 24 : 12;
 
         try {
             $connection->beginTransaction();
 
             if ($this->hasUtilisateurColumn()) {
-                $verificationStatement = $connection->prepare(
-                    '
-                    INSERT INTO verifications (caserne_id, vehicule_id, poste_id, utilisateur_id, agent, date_heure, statut_global, commentaire_global)
-                    VALUES (:caserne_id, :vehicule_id, :poste_id, :utilisateur_id, :agent, NOW(), :statut_global, :commentaire_global)
-                    '
-                );
-
-                $verificationStatement->execute([
+                $columns = 'caserne_id, vehicule_id, poste_id, utilisateur_id, agent';
+                $values = ':caserne_id, :vehicule_id, :poste_id, :utilisateur_id, :agent';
+                $params = [
                     'caserne_id' => $caserneId,
                     'vehicule_id' => $vehicleId,
                     'poste_id' => $posteId,
@@ -57,24 +55,33 @@ final class VerificationRepository
                     'agent' => $agent,
                     'statut_global' => $status,
                     'commentaire_global' => $globalComment,
-                ]);
+                ];
             } else {
-                $verificationStatement = $connection->prepare(
-                    '
-                    INSERT INTO verifications (caserne_id, vehicule_id, poste_id, agent, date_heure, statut_global, commentaire_global)
-                    VALUES (:caserne_id, :vehicule_id, :poste_id, :agent, NOW(), :statut_global, :commentaire_global)
-                    '
-                );
-
-                $verificationStatement->execute([
+                $columns = 'caserne_id, vehicule_id, poste_id, agent';
+                $values = ':caserne_id, :vehicule_id, :poste_id, :agent';
+                $params = [
                     'caserne_id' => $caserneId,
                     'vehicule_id' => $vehicleId,
                     'poste_id' => $posteId,
                     'agent' => $agent,
                     'statut_global' => $status,
                     'commentaire_global' => $globalComment,
-                ]);
+                ];
             }
+
+            if ($this->hasGuardDurationColumn()) {
+                $columns .= ', garde_duree_heures';
+                $values .= ', :garde_duree_heures';
+                $params['garde_duree_heures'] = $guardDurationHours;
+            }
+
+            $verificationStatement = $connection->prepare(
+                '
+                INSERT INTO verifications (' . $columns . ', date_heure, statut_global, commentaire_global)
+                VALUES (' . $values . ', NOW(), :statut_global, :commentaire_global)
+                '
+            );
+            $verificationStatement->execute($params);
 
             $verificationId = (int) $connection->lastInsertId();
 
@@ -214,12 +221,17 @@ final class VerificationRepository
 
         $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
         $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
+        $guardDurationSelect = $this->hasGuardDurationColumn()
+            ? 'v.garde_duree_heures'
+            : '12 AS garde_duree_heures';
+        $guardDurationGroup = $this->hasGuardDurationColumn() ? ', v.garde_duree_heures' : '';
 
         $sql = '
             SELECT
                 v.id,
                 v.date_heure,
                 ' . $agentSelect . ',
+                ' . $guardDurationSelect . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom AS vehicule_nom,
@@ -237,7 +249,8 @@ final class VerificationRepository
             GROUP BY
                 v.id,
                 v.date_heure,
-                ' . ($withUser ? 'COALESCE(u.nom, v.agent)' : 'v.agent') . ',
+                ' . ($withUser ? 'COALESCE(u.nom, v.agent)' : 'v.agent') . '
+                ' . $guardDurationGroup . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom,
@@ -259,6 +272,9 @@ final class VerificationRepository
         $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
         $userSelect = $withUser ? ', v.utilisateur_id' : ', NULL AS utilisateur_id';
         $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
+        $guardDurationSelect = $this->hasGuardDurationColumn()
+            ? 'v.garde_duree_heures'
+            : '12 AS garde_duree_heures';
 
         $sql = '
             SELECT
@@ -269,6 +285,7 @@ final class VerificationRepository
                 ' . $userSelect . ',
                 v.date_heure,
                 ' . $agentSelect . ',
+                ' . $guardDurationSelect . ',
                 v.statut_global,
                 v.commentaire_global,
                 veh.nom AS vehicule_nom,
@@ -380,23 +397,13 @@ final class VerificationRepository
                 COUNT(*) AS total_all,
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() THEN 1 ELSE 0 END) AS total_today,
                 SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes_today,
-                SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes_today,
-                COUNT(DISTINCT CASE
-                    WHEN DATE(date_heure) >= DATE_FORMAT(CURDATE(), \'%Y-%m-01\')
-                     AND DATE(date_heure) < CURDATE()
-                    THEN CONCAT(
-                        DATE(date_heure),
-                        \'|\',
-                        CASE WHEN HOUR(date_heure) < :evening_start_hour THEN \'matin\' ELSE \'soir\' END
-                    )
-                    ELSE NULL
-                END) AS month_slots_done
+                SUM(CASE WHEN DATE(date_heure) = CURDATE() AND statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes_today
             FROM verifications
             ' . ($caserneId !== null ? 'WHERE caserne_id = :caserne_id' : '') . '
         ';
 
         $statement = $connection->prepare($sql);
-        $params = ['evening_start_hour' => $eveningStartHour];
+        $params = [];
         if ($caserneId !== null) {
             $params['caserne_id'] = $caserneId;
         }
@@ -420,7 +427,31 @@ final class VerificationRepository
         $today = new \DateTimeImmutable('today');
         $daysElapsed = (int) $monthStart->diff($today)->days;
         $monthSlotsExpected = max(0, $daysElapsed * 2);
-        $monthSlotsDone = (int) ($row['month_slots_done'] ?? 0);
+        $guardDurationSql = $this->hasGuardDurationColumn() ? 'v.garde_duree_heures' : '12';
+        $coverageSql = '
+            SELECT COUNT(DISTINCT CONCAT(DATE(v.date_heure), \'|\', slots.creneau))
+            FROM verifications v
+            INNER JOIN (
+                SELECT \'matin\' AS creneau
+                UNION ALL
+                SELECT \'soir\' AS creneau
+            ) slots
+                ON ' . $guardDurationSql . ' = 24
+                OR slots.creneau = CASE
+                    WHEN HOUR(v.date_heure) < :coverage_evening_start_hour THEN \'matin\'
+                    ELSE \'soir\'
+                END
+            WHERE DATE(v.date_heure) >= DATE_FORMAT(CURDATE(), \'%Y-%m-01\')
+              AND DATE(v.date_heure) < CURDATE()
+              ' . ($caserneId !== null ? 'AND v.caserne_id = :coverage_caserne_id' : '') . '
+        ';
+        $coverageStatement = $connection->prepare($coverageSql);
+        $coverageParams = ['coverage_evening_start_hour' => $eveningStartHour];
+        if ($caserneId !== null) {
+            $coverageParams['coverage_caserne_id'] = $caserneId;
+        }
+        $coverageStatement->execute($coverageParams);
+        $monthSlotsDone = (int) ($coverageStatement->fetchColumn() ?: 0);
         $monthCoverageRate = $monthSlotsExpected > 0
             ? (int) round(($monthSlotsDone / $monthSlotsExpected) * 100)
             : 0;
@@ -469,6 +500,7 @@ final class VerificationRepository
             $params['vehicule_id'] = $vehicleId;
         }
 
+        $guardDurationSql = $this->hasGuardDurationColumn() ? 'v.garde_duree_heures' : '12';
         $sql = '
             SELECT
                 monthly_stats.jour,
@@ -479,9 +511,19 @@ final class VerificationRepository
             FROM (
                 SELECT
                     DATE(v.date_heure) AS jour,
-                    CASE WHEN HOUR(v.date_heure) < :evening_start_hour_a THEN \'matin\' ELSE \'soir\' END AS creneau,
+                    slots.creneau,
                     v.statut_global
                 FROM verifications v
+                INNER JOIN (
+                    SELECT \'matin\' AS creneau
+                    UNION ALL
+                    SELECT \'soir\' AS creneau
+                ) slots
+                    ON ' . $guardDurationSql . ' = 24
+                    OR slots.creneau = CASE
+                        WHEN HOUR(v.date_heure) < :evening_start_hour_a THEN \'matin\'
+                        ELSE \'soir\'
+                    END
                 WHERE ' . implode(' AND ', $where) . '
             ) monthly_stats
             GROUP BY monthly_stats.jour, monthly_stats.creneau
@@ -693,6 +735,24 @@ final class VerificationRepository
         }
 
         return $this->valeurSaisieColumnExists;
+    }
+
+    private function hasGuardDurationColumn(): bool
+    {
+        if ($this->guardDurationColumnExists !== null) {
+            return $this->guardDurationColumnExists;
+        }
+
+        $connection = Database::getConnection();
+
+        try {
+            $statement = $connection->query("SHOW COLUMNS FROM verifications LIKE 'garde_duree_heures'");
+            $this->guardDurationColumnExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException $exception) {
+            $this->guardDurationColumnExists = false;
+        }
+
+        return $this->guardDurationColumnExists;
     }
 
     private function hasControleInputSchema(): bool

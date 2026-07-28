@@ -61,6 +61,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <div>
                             <p class="font-semibold text-slate-900"><?= htmlspecialchars((string) ($meta['label'] ?? $eventCode), ENT_QUOTES, 'UTF-8') ?></p>
                             <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string) ($meta['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php if ($eventCode === 'anomaly.created'): ?>
+                                <p class="mt-1 text-xs font-medium text-slate-600">Cette regle sert aussi de valeur par defaut aux vehicules sans ciblage personnalise.</p>
+                            <?php endif; ?>
                         </div>
                         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
                             <input type="hidden" name="event_enabled[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>]" value="0">

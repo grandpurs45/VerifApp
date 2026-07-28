@@ -34,6 +34,9 @@ declare(strict_types=1);
                 <p class="mt-1 text-sm font-semibold text-amber-200">
                     Statut : <?= htmlspecialchars((string) $verification['statut_global'], ENT_QUOTES, 'UTF-8') ?>
                 </p>
+                <p class="mt-1 text-sm text-slate-300">
+                    Garde : <?= (int) ($verification['garde_duree_heures'] ?? 12) === 24 ? '24 h (matin + soir)' : '12 h' ?>
+                </p>
             <?php endif; ?>
 
             <a href="/index.php?controller=home&action=terrain" class="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-amber-300 px-5 py-4 text-base font-extrabold text-slate-900 shadow-lg active:scale-[0.99]">

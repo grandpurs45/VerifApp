@@ -457,11 +457,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         $typeLabel = $controlType === 'mesure'
                             ? 'Valeur mesuree'
                             : ($controlType === 'quantite' ? 'Presence et quantite' : 'Etat fonctionnel');
+                        $expectedQuantity = $controlType === 'quantite' && is_numeric($controle['valeur_attendue'] ?? null)
+                            ? max(0, (int) round((float) $controle['valeur_attendue']))
+                            : null;
+                        $quantityLabel = $controlType === 'quantite'
+                            ? ($expectedQuantity !== null ? 'Quantite attendue: ' . $expectedQuantity : 'Quantite non renseignee')
+                            : '';
                         $searchText = mb_strtolower(trim(implode(' ', [
                             (string) ($controle['libelle'] ?? ''),
                             $posteName,
                             $zonePath,
                             $typeLabel,
+                            $quantityLabel,
                         ])));
                         $isActive = (int) ($controle['actif'] ?? 0) === 1;
                         ?>
@@ -479,6 +486,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             <span><?= htmlspecialchars($posteName, ENT_QUOTES, 'UTF-8') ?></span>
                                             <span class="text-slate-300">|</span>
                                             <span><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                            <?php if ($controlType === 'quantite'): ?>
+                                                <span class="text-slate-300">|</span>
+                                                <span class="rounded-full px-2 py-0.5 font-semibold <?= $expectedQuantity !== null ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700' ?>">
+                                                    <?= htmlspecialchars($quantityLabel, ENT_QUOTES, 'UTF-8') ?>
+                                                </span>
+                                            <?php endif; ?>
                                             <span class="text-slate-300">|</span>
                                             <span>Position <?= (int) ($controle['ordre'] ?? 0) ?></span>
                                         </div>

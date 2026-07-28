@@ -5,11 +5,14 @@ declare(strict_types=1);
 $successMap = [
     'vehicle_qr_saved' => 'QR vehicule genere / regenere.',
     'vehicle_qr_deleted' => 'QR vehicule supprime.',
+    'anomaly_routing_saved' => 'Destinataires des anomalies enregistres.',
 ];
 
 $errorMap = [
     'invalid_vehicle' => 'Vehicule invalide.',
     'vehicle_qr_store_failed' => 'Impossible de mettre a jour le QR vehicule.',
+    'anomaly_routing_empty' => 'Selectionnez au moins un groupe ou une personne pour le ciblage personnalise.',
+    'anomaly_routing_save_failed' => 'Impossible d enregistrer les destinataires des anomalies.',
 ];
 
 $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 'Operation terminee.') : null;
@@ -19,6 +22,20 @@ $vehicleName = (string) ($vehicle['nom'] ?? '');
 $vehicleId = (int) ($vehicle['id'] ?? 0);
 $vehicleType = (string) ($vehicle['type_vehicule'] ?? '');
 $vehicleStatus = ((int) ($vehicle['actif'] ?? 0) === 1) ? 'Actif' : 'Inactif';
+$anomalyRoutingMode = ($vehicleAnomalyRouting['mode'] ?? 'default') === 'custom' ? 'custom' : 'default';
+$selectedAnomalyRoles = is_array($vehicleAnomalyRouting['roles'] ?? null)
+    ? array_map('strval', $vehicleAnomalyRouting['roles'])
+    : [];
+$selectedAnomalyUsers = is_array($vehicleAnomalyRouting['users'] ?? null)
+    ? array_map('intval', $vehicleAnomalyRouting['users'])
+    : [];
+$globalAnomalyRoleCount = is_array($globalAnomalyRouting['roles'] ?? null)
+    ? count($globalAnomalyRouting['roles'])
+    : 0;
+$globalAnomalyUserCount = is_array($globalAnomalyRouting['users'] ?? null)
+    ? count($globalAnomalyRouting['users'])
+    : 0;
+$globalAnomalyEnabled = !empty($globalAnomalyRouting['enabled']);
 
 $pageTitle = 'Fiche vehicule - VerifApp';
 $pageHeading = 'Fiche vehicule';
@@ -62,6 +79,106 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </span>
         <a href="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= $vehicleId ?>" class="ml-2 inline-flex rounded-xl border border-slate-300 bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold">Configurer zones & materiel</a>
     </div>
+</section>
+
+<section class="bg-white rounded-2xl shadow p-4 md:p-6">
+    <div>
+        <h2 class="text-lg font-bold text-slate-900">Destinataires des anomalies</h2>
+        <p class="mt-1 text-sm text-slate-600">
+            Definissez qui est notifie lorsqu une anomalie est creee sur ce vehicule.
+        </p>
+    </div>
+
+    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_anomaly_routing_save" class="mt-4 space-y-4">
+        <input type="hidden" name="vehicle_id" value="<?= $vehicleId ?>">
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label data-routing-mode-option="default" class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 <?= $anomalyRoutingMode === 'default' ? 'border-slate-900 bg-slate-50' : 'border-slate-200' ?>">
+                <input type="radio" name="routing_mode" value="default" class="mt-0.5" <?= $anomalyRoutingMode === 'default' ? 'checked' : '' ?>>
+                <span>
+                    <span class="block text-sm font-semibold text-slate-900">Regle generale</span>
+                    <span class="mt-1 block text-xs text-slate-500">
+                        <?php if ($globalAnomalyEnabled): ?>
+                            Regle actuelle : <?= $globalAnomalyRoleCount ?> groupe(s), <?= $globalAnomalyUserCount ?> personne(s).
+                        <?php else: ?>
+                            Notifications d anomalies desactivees dans les parametres generaux.
+                        <?php endif; ?>
+                    </span>
+                </span>
+            </label>
+            <label data-routing-mode-option="custom" class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 <?= $anomalyRoutingMode === 'custom' ? 'border-slate-900 bg-slate-50' : 'border-slate-200' ?>">
+                <input type="radio" name="routing_mode" value="custom" class="mt-0.5" <?= $anomalyRoutingMode === 'custom' ? 'checked' : '' ?>>
+                <span>
+                    <span class="block text-sm font-semibold text-slate-900">Ciblage personnalise</span>
+                    <span class="mt-1 block text-xs text-slate-500">Remplace les destinataires generaux pour ce vehicule.</span>
+                </span>
+            </label>
+        </div>
+
+        <div data-anomaly-custom-routing class="<?= $anomalyRoutingMode === 'custom' ? '' : 'hidden' ?>">
+            <div class="grid grid-cols-1 gap-5 border-t border-slate-200 pt-4 lg:grid-cols-2">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Groupes par role</h3>
+                    <div class="mt-2 grid grid-cols-1 gap-2">
+                        <?php foreach ($notificationRoles as $role): ?>
+                            <?php
+                            $roleCode = (string) ($role['code'] ?? '');
+                            if ($roleCode === '') {
+                                continue;
+                            }
+                            ?>
+                            <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    name="routing_roles[]"
+                                    value="<?= htmlspecialchars($roleCode, ENT_QUOTES, 'UTF-8') ?>"
+                                    <?= in_array($roleCode, $selectedAnomalyRoles, true) ? 'checked' : '' ?>
+                                >
+                                <?= htmlspecialchars((string) ($role['nom'] ?? $roleCode), ENT_QUOTES, 'UTF-8') ?>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Personnes specifiques</h3>
+                    <div class="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                        <?php if ($notificationUsers === []): ?>
+                            <p class="text-sm text-slate-500">Aucun utilisateur actif dans cette caserne.</p>
+                        <?php else: ?>
+                            <?php foreach ($notificationUsers as $notificationUser): ?>
+                                <?php
+                                $notificationUserId = (int) ($notificationUser['id'] ?? 0);
+                                $notificationUserName = trim(
+                                    (string) ($notificationUser['prenom'] ?? '') . ' ' . (string) ($notificationUser['nom'] ?? '')
+                                );
+                                if ($notificationUserName === '') {
+                                    $notificationUserName = (string) ($notificationUser['email'] ?? ('Utilisateur #' . $notificationUserId));
+                                }
+                                ?>
+                                <label class="flex items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        name="routing_users[]"
+                                        value="<?= $notificationUserId ?>"
+                                        <?= in_array($notificationUserId, $selectedAnomalyUsers, true) ? 'checked' : '' ?>
+                                    >
+                                    <span class="min-w-0">
+                                        <span class="block font-semibold text-slate-800"><?= htmlspecialchars($notificationUserName, ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="block truncate text-xs text-slate-500"><?= htmlspecialchars((string) ($notificationUser['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                    </span>
+                                </label>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            Enregistrer les destinataires
+        </button>
+    </form>
 </section>
 
 <section class="bg-white rounded-2xl shadow p-4 md:p-6">
@@ -138,6 +255,24 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         }
 
         document.querySelectorAll('[data-local-qr]').forEach(renderLocalQr);
+
+        const routingModeInputs = document.querySelectorAll('input[name="routing_mode"]');
+        const customRouting = document.querySelector('[data-anomaly-custom-routing]');
+        const refreshRoutingMode = function () {
+            const selectedMode = document.querySelector('input[name="routing_mode"]:checked');
+            if (customRouting) {
+                customRouting.classList.toggle('hidden', !selectedMode || selectedMode.value !== 'custom');
+            }
+            document.querySelectorAll('[data-routing-mode-option]').forEach(function (option) {
+                const isSelected = selectedMode && option.getAttribute('data-routing-mode-option') === selectedMode.value;
+                option.classList.toggle('border-slate-900', isSelected);
+                option.classList.toggle('bg-slate-50', isSelected);
+                option.classList.toggle('border-slate-200', !isSelected);
+            });
+        };
+        routingModeInputs.forEach(function (input) {
+            input.addEventListener('change', refreshRoutingMode);
+        });
 
         const toast = document.getElementById('manager-toast');
         if (toast) {
