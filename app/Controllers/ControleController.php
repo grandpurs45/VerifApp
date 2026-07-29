@@ -40,7 +40,7 @@ final class ControleController
             $verificationEveningHour = 18;
         }
 
-        if ($vehicle !== null) {
+        if ($vehicle !== null && (int) ($vehicle['actif'] ?? 0) === 1 && (int) ($vehicle['verification_active'] ?? 0) === 1) {
             $poste = $posteRepository->findByIdForVehicle($posteId, $vehicleId, $caserneId);
 
             if ($poste !== null) {

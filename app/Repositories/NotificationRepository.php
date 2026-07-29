@@ -115,9 +115,12 @@ final class NotificationRepository
                 if ($vehicleRouting['mode'] === 'custom') {
                     $settings['roles'] = $vehicleRouting['roles'];
                     $settings['users'] = $vehicleRouting['users'];
+                    $settings['groups'] = $vehicleRouting['groups'];
                 }
             }
         }
+
+        $groupUserIds = $this->findUserIdsForGroups($caserneId, $settings['groups'] ?? []);
 
         $inAppRecipients = [];
         if ($settings['in_app_enabled']) {
@@ -126,9 +129,9 @@ final class NotificationRepository
                 $eventCode,
                 $settings['roles'],
                 $settings['users'],
-                $additionalRecipientUserIds,
+                array_merge($additionalRecipientUserIds, $groupUserIds),
                 'in_app',
-                $actorUserId
+                null
             );
         }
 
@@ -139,12 +142,21 @@ final class NotificationRepository
                 $eventCode,
                 $settings['roles'],
                 $settings['users'],
-                $additionalRecipientUserIds,
-                $actorUserId
+                array_merge($additionalRecipientUserIds, $groupUserIds),
+                null
             );
         }
 
         if ($inAppRecipients === [] && $emailRecipients === []) {
+            error_log(sprintf(
+                '[VerifApp notifications] aucun destinataire event=%s caserne=%d vehicle=%d roles=%d users=%d groups=%d',
+                $eventCode,
+                $caserneId,
+                (int) ($context['vehicle_id'] ?? 0),
+                count($settings['roles']),
+                count($settings['users']),
+                count($settings['groups'] ?? [])
+            ));
             return true;
         }
 
@@ -195,7 +207,25 @@ final class NotificationRepository
         }
 
         if ($emailRecipients !== []) {
-            $this->sendEmailNotifications($caserneId, $eventCode, $title, $message, $link, $emailRecipients, $context);
+            $emailSent = $this->sendEmailNotifications(
+                $caserneId,
+                $eventCode,
+                $title,
+                $message,
+                $link,
+                $emailRecipients,
+                $context
+            );
+            if (!$emailSent) {
+                error_log(sprintf(
+                    '[VerifApp notifications] echec email event=%s caserne=%d destinataires=%d erreur=%s',
+                    $eventCode,
+                    $caserneId,
+                    count($emailRecipients),
+                    $this->lastEmailError !== '' ? $this->lastEmailError : 'inconnue'
+                ));
+                return false;
+            }
         }
 
         return true;
@@ -411,7 +441,7 @@ final class NotificationRepository
         foreach (self::eventCatalog() as $eventCode => $_eventMeta) {
             $defaults[$eventCode] = [
                 'in_app_enabled' => true,
-                'email_enabled' => false,
+                'email_enabled' => true,
             ];
         }
 
@@ -497,7 +527,7 @@ final class NotificationRepository
     }
 
     /**
-     * @return array{mode: 'default'|'custom', roles: array<int, string>, users: array<int, int>}
+     * @return array{mode: 'default'|'custom', roles: array<int, string>, users: array<int, int>, groups: array<int, int>}
      */
     public function readVehicleAnomalyRouting(int $caserneId, int $vehicleId): array
     {
@@ -506,6 +536,7 @@ final class NotificationRepository
                 'mode' => 'default',
                 'roles' => [],
                 'users' => [],
+                'groups' => [],
             ];
         }
 
@@ -515,6 +546,7 @@ final class NotificationRepository
                 'mode' => 'default',
                 'roles' => [],
                 'users' => [],
+                'groups' => [],
             ];
         }
 
@@ -526,16 +558,19 @@ final class NotificationRepository
                 'mode' => 'default',
                 'roles' => [],
                 'users' => [],
+                'groups' => [],
             ];
         }
 
         $rolesRaw = (string) ($settingRepository->get($prefix . '_roles' . $suffix) ?? '__none__');
         $usersRaw = (string) ($settingRepository->get($prefix . '_users' . $suffix) ?? '__none__');
+        $groupsRaw = (string) ($settingRepository->get($prefix . '_groups' . $suffix) ?? '__none__');
 
         return [
             'mode' => 'custom',
             'roles' => $this->normalizeRoles(explode(',', $rolesRaw)),
             'users' => $this->normalizeUserIds(explode(',', $usersRaw)),
+            'groups' => $this->normalizeUserIds(explode(',', $groupsRaw)),
         ];
     }
 
@@ -548,7 +583,8 @@ final class NotificationRepository
         int $vehicleId,
         string $mode,
         array $roles,
-        array $userIds
+        array $userIds,
+        array $groupIds = []
     ): bool {
         if ($caserneId <= 0 || $vehicleId <= 0) {
             return false;
@@ -572,13 +608,20 @@ final class NotificationRepository
 
         $selectedRoles = $this->normalizeRoles($roles);
         $selectedUsers = $this->normalizeUserIds($userIds);
-        if ($selectedRoles === [] && $selectedUsers === []) {
+        $selectedGroups = $this->normalizeUserIds($groupIds);
+        if ($selectedRoles === [] && $selectedUsers === [] && $selectedGroups === []) {
             return false;
         }
 
         if (!$settingRepository->set(
             $prefix . '_roles' . $suffix,
             $selectedRoles === [] ? '__none__' : implode(',', $selectedRoles)
+        )) {
+            return false;
+        }
+        if (!$settingRepository->set(
+            $prefix . '_groups' . $suffix,
+            $selectedGroups === [] ? '__none__' : implode(',', $selectedGroups)
         )) {
             return false;
         }
@@ -603,7 +646,8 @@ final class NotificationRepository
         bool $emailEnabled,
         array $enabledByEvent,
         array $rolesByEvent,
-        array $usersByEvent
+        array $usersByEvent,
+        array $groupsByEvent = []
     ): bool {
         $settingRepository = new AppSettingRepository();
         if (!$settingRepository->isAvailable()) {
@@ -623,6 +667,7 @@ final class NotificationRepository
             $defaultRoles = $this->normalizeRoles((array) ($meta['default_roles'] ?? []));
             $selectedRoles = $this->normalizeRoles($rolesByEvent[$eventCode] ?? $defaultRoles);
             $selectedUsers = $this->normalizeUserIds($usersByEvent[$eventCode] ?? []);
+            $selectedGroups = $this->normalizeUserIds($groupsByEvent[$eventCode] ?? []);
 
             $saveMap['notifications_event_' . $eventKey . '_enabled' . $suffix] =
                 (isset($enabledByEvent[$eventCode]) && $enabledByEvent[$eventCode]) ? '1' : '0';
@@ -630,6 +675,8 @@ final class NotificationRepository
                 $selectedRoles === [] ? '__none__' : implode(',', $selectedRoles);
             $saveMap['notifications_event_' . $eventKey . '_users' . $suffix] =
                 $selectedUsers === [] ? '__none__' : implode(',', $selectedUsers);
+            $saveMap['notifications_event_' . $eventKey . '_groups' . $suffix] =
+                $selectedGroups === [] ? '__none__' : implode(',', $selectedGroups);
         }
 
         foreach ($saveMap as $key => $value) {
@@ -739,7 +786,7 @@ final class NotificationRepository
 
         $channel = strtolower(trim($channel));
         $channelClause = $channel === 'email'
-            ? 'COALESCE(ns.email_enabled, 0) = 1'
+            ? 'COALESCE(ns.email_enabled, 1) = 1'
             : 'COALESCE(ns.in_app_enabled, 1) = 1';
 
         $connection = Database::getConnection();
@@ -1081,6 +1128,10 @@ final class NotificationRepository
             }
         }
 
+        if ($eventCode === 'anomaly.created') {
+            return $this->buildAnomalyEmailBodies($caserneLabel, $title, $message, $href, $context);
+        }
+
         if ($eventCode === 'pharmacy.output.created' && isset($context['lines']) && is_array($context['lines'])) {
             $declarant = trim((string) ($context['declarant'] ?? ''));
             $textRows = [];
@@ -1171,6 +1222,115 @@ final class NotificationRepository
         return [
             'text' => $fallbackText,
             'html' => $fallbackHtml,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array{text:string,html:string}
+     */
+    private function buildAnomalyEmailBodies(
+        string $caserneLabel,
+        string $title,
+        string $message,
+        ?string $href,
+        array $context
+    ): array {
+        $vehicle = trim((string) ($context['vehicle'] ?? 'Engin non renseigne'));
+        $poste = trim((string) ($context['poste'] ?? 'Poste non renseigne'));
+        $notifier = trim((string) ($context['notifier'] ?? 'Non renseigne'));
+        $globalComment = trim((string) ($context['global_comment'] ?? ''));
+        $anomalies = isset($context['anomalies']) && is_array($context['anomalies'])
+            ? $context['anomalies']
+            : [];
+
+        $textRows = [];
+        $htmlRows = [];
+        foreach ($anomalies as $anomaly) {
+            if (!is_array($anomaly)) {
+                continue;
+            }
+            $label = trim((string) ($anomaly['label'] ?? 'Controle non conforme'));
+            $zone = trim((string) ($anomaly['zone'] ?? ''));
+            $value = trim((string) ($anomaly['value'] ?? ''));
+            $comment = trim((string) ($anomaly['comment'] ?? ''));
+            $details = [];
+            if ($value !== '') {
+                $details[] = 'Valeur: ' . $value;
+            }
+            if ($comment !== '') {
+                $details[] = $comment;
+            }
+            $detailText = $details !== [] ? implode(' | ', $details) : 'Non-conforme';
+            $textRows[] = '- ' . $label
+                . ($zone !== '' ? ' (' . $zone . ')' : '')
+                . ' : ' . $detailText;
+            $htmlRows[] = '<tr>'
+                . '<td style="padding:10px;border:1px solid #dbe5f1;font-weight:700;">' . $this->escapeHtml($label) . '</td>'
+                . '<td style="padding:10px;border:1px solid #dbe5f1;">' . ($zone !== '' ? $this->escapeHtml($zone) : '-') . '</td>'
+                . '<td style="padding:10px;border:1px solid #dbe5f1;">'
+                . ($value !== '' ? ('<div><strong>Valeur:</strong> ' . $this->escapeHtml($value) . '</div>') : '')
+                . ($comment !== '' ? ('<div' . ($value !== '' ? ' style="margin-top:4px;"' : '') . '>' . $this->escapeHtml($comment) . '</div>') : '')
+                . ($value === '' && $comment === '' ? 'Non&#8209;conforme' : '')
+                . '</td>'
+                . '</tr>';
+        }
+
+        if ($textRows === []) {
+            $textRows[] = '- Une non-conformite a ete signalee.';
+            $htmlRows[] = '<tr><td colspan="3" style="padding:10px;border:1px solid #dbe5f1;">Une non-conformite a ete signalee.</td></tr>';
+        }
+
+        $textLines = [
+            trim($title),
+            '',
+            trim($message),
+            '',
+            'Engin: ' . $vehicle,
+            'Poste: ' . $poste,
+            'Signale par: ' . $notifier,
+            '',
+            'Anomalies:',
+            ...$textRows,
+        ];
+        if ($globalComment !== '') {
+            $textLines[] = '';
+            $textLines[] = 'Commentaire general: ' . $globalComment;
+        }
+        if ($href !== null) {
+            $textLines[] = '';
+            $textLines[] = 'Voir les anomalies: ' . $href;
+        }
+        $textLines[] = '';
+        $textLines[] = 'Caserne: ' . $caserneLabel;
+
+        $html = '<!doctype html><html><body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f1;border-radius:8px;overflow:hidden;">'
+            . '<tr><td style="padding:18px 20px;background:#0f172a;color:#ffffff;">'
+            . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp - Anomalie terrain</div>'
+            . '<div style="font-size:21px;font-weight:700;margin-top:6px;">' . $this->escapeHtml($title) . '</div>'
+            . '</td></tr>'
+            . '<tr><td style="padding:18px 20px;">'
+            . '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;">' . $this->escapeHtml($message) . '</p>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;border-collapse:collapse;font-size:14px;">'
+            . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Engin</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($vehicle) . '</td></tr>'
+            . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Poste</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($poste) . '</td></tr>'
+            . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Signale par</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($notifier) . '</td></tr>'
+            . '</table>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">'
+            . '<thead><tr>'
+            . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Anomalie</th>'
+            . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Emplacement</th>'
+            . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Detail terrain</th>'
+            . '</tr></thead><tbody>' . implode('', $htmlRows) . '</tbody></table>'
+            . ($globalComment !== '' ? ('<div style="margin-top:14px;padding:10px 12px;border-left:4px solid #94a3b8;background:#f8fafc;font-size:14px;"><strong>Commentaire general:</strong><br>' . nl2br($this->escapeHtml($globalComment)) . '</div>') : '')
+            . ($href !== null ? ('<p style="margin:18px 0 0 0;"><a href="' . $this->escapeHtml($href) . '" style="display:inline-block;padding:10px 14px;border-radius:6px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700;">Voir les anomalies</a></p>') : '')
+            . '<p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">Caserne: <strong>' . $this->escapeHtml($caserneLabel) . '</strong></p>'
+            . '</td></tr></table></body></html>';
+
+        return [
+            'text' => implode("\r\n", $textLines),
+            'html' => $html,
         ];
     }
 
@@ -1266,7 +1426,7 @@ final class NotificationRepository
     }
 
     /**
-     * @return array{enabled: bool, roles: array<int, string>, users: array<int, int>, in_app_enabled: bool, email_enabled: bool}
+     * @return array{enabled: bool, roles: array<int, string>, users: array<int, int>, groups: array<int, int>, in_app_enabled: bool, email_enabled: bool}
      */
     private function readEventSettings(?int $caserneId, string $eventCode): array
     {
@@ -1277,6 +1437,7 @@ final class NotificationRepository
                 'enabled' => false,
                 'roles' => [],
                 'users' => [],
+                'groups' => [],
                 'in_app_enabled' => true,
                 'email_enabled' => false,
             ];
@@ -1287,6 +1448,7 @@ final class NotificationRepository
         $enabledRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_enabled', $caserneId, '1');
         $rolesRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_roles', $caserneId, implode(',', $defaultRoles));
         $usersRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_users', $caserneId, '');
+        $groupsRaw = $this->readScopedSetting('notifications_event_' . $eventKey . '_groups', $caserneId, '');
         $inAppRaw = $this->readScopedSetting('notifications_channel_in_app_enabled', $caserneId, '1');
         $emailRaw = $this->readScopedSetting('notifications_channel_email_enabled', $caserneId, '0');
 
@@ -1300,6 +1462,7 @@ final class NotificationRepository
             'enabled' => $enabledRaw !== '0',
             'roles' => $roles,
             'users' => $users,
+            'groups' => $this->normalizeUserIds(explode(',', $groupsRaw)),
             'in_app_enabled' => $inAppRaw !== '0',
             'email_enabled' => $emailRaw === '1',
         ];
@@ -1360,6 +1523,38 @@ final class NotificationRepository
         }
 
         return array_values($normalized);
+    }
+
+    private function findUserIdsForGroups(int $caserneId, array $groupIds): array
+    {
+        $groupIds = $this->normalizeUserIds($groupIds);
+        if ($caserneId <= 0 || $groupIds === []) {
+            return [];
+        }
+
+        $params = ['caserne_id' => $caserneId];
+        $placeholders = [];
+        foreach ($groupIds as $index => $groupId) {
+            $key = 'group_' . $index;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $groupId;
+        }
+
+        try {
+            $statement = Database::getConnection()->prepare('
+                SELECT DISTINCT ngm.utilisateur_id
+                FROM notification_group_members ngm
+                INNER JOIN notification_groups ng ON ng.id = ngm.group_id
+                WHERE ng.caserne_id = :caserne_id
+                  AND ng.actif = 1
+                  AND ng.id IN (' . implode(',', $placeholders) . ')
+            ');
+            $statement->execute($params);
+
+            return array_values(array_filter(array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function vehicleAnomalySettingPrefix(int $vehicleId): string

@@ -9,6 +9,48 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.4.0] - 2026-07-30
+
+### Added
+- Notifications:
+  - ajout de groupes de notification independants des roles, avec gestion des membres
+  - ciblage des groupes dans les regles generales et les regles propres a chaque engin
+- Anomalies:
+  - ajout d un historique des occurrences pour regrouper les remontees successives d un meme probleme actif
+  - affichage des dates de premiere et derniere remontee, du nombre d occurrences et de leur detail
+- Securite:
+  - journalisation des ouvertures de QR Codes avec date, module, engin, identite connue, IP et navigateur
+  - consultation des ouvertures QR dans l audit de securite
+  - compteur visible, indication de la caserne et diagnostic en cas d indisponibilite du journal QR
+- Parc et materiel:
+  - ajout du glisser-deposer pour reordonner les zones d un meme niveau
+  - ajout d un reglage par engin pour activer ou suspendre les verifications
+
+### Changed
+- Gestion utilisateurs:
+  - formulaire de creation restructure avec libelles et messages d erreur par champ
+  - conservation des valeurs, des casernes et des roles lorsqu une creation est refusee
+- Verification terrain:
+  - les engins dont les verifications sont suspendues sont exclus du formulaire mobile et des objectifs journaliers
+- Anomalies:
+  - une nouvelle non-conformite sur le meme engin, poste et controle alimente l anomalie active existante
+  - liste compacte avec indicateurs de priorisation et panneau de traitement repliable
+
+### Fixed
+- Notifications email:
+  - correction du ciblage email lorsqu aucune preference personnelle n a encore ete enregistree
+  - un utilisateur cible reste destinataire lorsqu il est aussi l auteur de la verification
+  - clarification de la double activation requise entre le canal de notification et le transport email
+  - journalisation serveur des notifications sans destinataire et des echecs du transport email
+  - email d anomalie enrichi avec engin, poste, declarant et detail des controles non conformes
+- Gestion utilisateurs:
+  - correction d une double declaration JavaScript qui invalidait les interactions de la page
+
+### Database
+- Ajout de la migration `040_prepare_v14_features.sql`.
+- Ajout de `vehicules.verification_active`.
+- Ajout des tables `anomaly_occurrences`, `notification_groups`, `notification_group_members` et `qr_access_logs`.
+
 ## [1.3.0] - 2026-07-28
 
 ### Added

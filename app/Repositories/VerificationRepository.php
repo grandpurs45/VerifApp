@@ -17,6 +17,7 @@ final class VerificationRepository
     private ?bool $valeurSaisieColumnExists = null;
     private ?bool $zoneOrderColumnExists = null;
     private ?bool $guardDurationColumnExists = null;
+    private ?bool $anomalyOccurrencesTableExists = null;
 
     public function createWithLines(
         int $caserneId,
@@ -102,6 +103,9 @@ final class VerificationRepository
             }
 
             $anomalyStatement = null;
+            $activeAnomalyStatement = null;
+            $occurrenceStatement = null;
+            $controlLockStatement = null;
             if ($this->hasAnomaliesTable()) {
                 $anomalyStatement = $connection->prepare(
                     '
@@ -109,6 +113,30 @@ final class VerificationRepository
                     VALUES (:verification_ligne_id, :statut, :priorite, :commentaire, NOW(), NULL)
                     '
                 );
+                if ($this->hasAnomalyOccurrencesTable()) {
+                    $controlLockStatement = $connection->prepare(
+                        'SELECT id FROM controles WHERE id = :controle_id FOR UPDATE'
+                    );
+                    $activeAnomalyStatement = $connection->prepare('
+                        SELECT a.id
+                        FROM anomalies a
+                        INNER JOIN anomaly_occurrences ao ON ao.anomalie_id = a.id
+                        INNER JOIN verification_lignes previous_line ON previous_line.id = ao.verification_ligne_id
+                        INNER JOIN verifications previous_verification ON previous_verification.id = previous_line.verification_id
+                        WHERE previous_verification.caserne_id = :caserne_id
+                          AND previous_verification.vehicule_id = :vehicule_id
+                          AND previous_verification.poste_id = :poste_id
+                          AND previous_line.controle_id = :controle_id
+                          AND a.statut IN (\'ouverte\', \'en_cours\')
+                        ORDER BY a.date_creation DESC, a.id DESC
+                        LIMIT 1
+                        FOR UPDATE
+                    ');
+                    $occurrenceStatement = $connection->prepare('
+                        INSERT INTO anomaly_occurrences (anomalie_id, verification_ligne_id, date_remontee)
+                        VALUES (:anomalie_id, :verification_ligne_id, NOW())
+                    ');
+                }
             }
 
             foreach ($lines as $line) {
@@ -128,12 +156,32 @@ final class VerificationRepository
                 $verificationLineId = (int) $connection->lastInsertId();
 
                 if ($line['resultat'] === 'nok' && $anomalyStatement !== null) {
-                    $anomalyStatement->execute([
-                        'verification_ligne_id' => $verificationLineId,
-                        'statut' => 'ouverte',
-                        'priorite' => 'moyenne',
-                        'commentaire' => $line['commentaire'],
-                    ]);
+                    $anomalyId = 0;
+                    if ($activeAnomalyStatement !== null) {
+                        $controlLockStatement?->execute(['controle_id' => (int) $line['controle_id']]);
+                        $activeAnomalyStatement->execute([
+                            'caserne_id' => $caserneId,
+                            'vehicule_id' => $vehicleId,
+                            'poste_id' => $posteId,
+                            'controle_id' => (int) $line['controle_id'],
+                        ]);
+                        $anomalyId = (int) ($activeAnomalyStatement->fetchColumn() ?: 0);
+                    }
+                    if ($anomalyId <= 0) {
+                        $anomalyStatement->execute([
+                            'verification_ligne_id' => $verificationLineId,
+                            'statut' => 'ouverte',
+                            'priorite' => 'moyenne',
+                            'commentaire' => $line['commentaire'],
+                        ]);
+                        $anomalyId = (int) $connection->lastInsertId();
+                    }
+                    if ($occurrenceStatement !== null && $anomalyId > 0) {
+                        $occurrenceStatement->execute([
+                            'anomalie_id' => $anomalyId,
+                            'verification_ligne_id' => $verificationLineId,
+                        ]);
+                    }
                 }
             }
 
@@ -215,7 +263,11 @@ final class VerificationRepository
         $anomalySelect = $hasAnomalies
             ? 'SUM(CASE WHEN a.statut IN (\'ouverte\', \'en_cours\') THEN 1 ELSE 0 END) AS anomalies_ouvertes'
             : '0 AS anomalies_ouvertes';
-        $anomalyJoin = $hasAnomalies ? 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id' : '';
+        $anomalyJoin = $hasAnomalies
+            ? ($this->hasAnomalyOccurrencesTable()
+                ? 'LEFT JOIN anomaly_occurrences ao ON ao.verification_ligne_id = vl.id LEFT JOIN anomalies a ON a.id = ao.anomalie_id'
+                : 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id')
+            : '';
         $zoneOrderJoin = $this->hasZoneOrderColumn() ? 'LEFT JOIN zones zsort ON zsort.id = c.zone_id' : '';
         $zoneOrderSql = $this->hasZoneOrderColumn() ? 'COALESCE(zsort.ordre, 0) ASC,' : '';
 
@@ -344,6 +396,30 @@ final class VerificationRepository
             $connection->beginTransaction();
 
             if ($this->hasAnomaliesTable()) {
+                if ($this->hasAnomalyOccurrencesTable()) {
+                    $reassignAnomalies = $connection->prepare('
+                        UPDATE anomalies a
+                        INNER JOIN verification_lignes original_line ON original_line.id = a.verification_ligne_id
+                        SET a.verification_ligne_id = (
+                            SELECT ao.verification_ligne_id
+                            FROM anomaly_occurrences ao
+                            INNER JOIN verification_lignes replacement_line ON replacement_line.id = ao.verification_ligne_id
+                            WHERE ao.anomalie_id = a.id
+                              AND replacement_line.verification_id <> :verification_id
+                            ORDER BY ao.date_remontee ASC, ao.id ASC
+                            LIMIT 1
+                        )
+                        WHERE original_line.verification_id = :verification_id
+                          AND EXISTS (
+                              SELECT 1
+                              FROM anomaly_occurrences ao2
+                              INNER JOIN verification_lignes replacement_line2 ON replacement_line2.id = ao2.verification_ligne_id
+                              WHERE ao2.anomalie_id = a.id
+                                AND replacement_line2.verification_id <> :verification_id
+                          )
+                    ');
+                    $reassignAnomalies->execute(['verification_id' => $verificationId]);
+                }
                 $deleteAnomalies = $connection->prepare(
                     '
                     DELETE a
@@ -608,7 +684,11 @@ final class VerificationRepository
                 NULL AS anomalie_date_creation,
                 NULL AS anomalie_date_resolution
             ';
-        $anomalyJoin = $hasAnomalies ? 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id' : '';
+        $anomalyJoin = $hasAnomalies
+            ? ($this->hasAnomalyOccurrencesTable()
+                ? 'LEFT JOIN anomaly_occurrences ao ON ao.verification_ligne_id = vl.id LEFT JOIN anomalies a ON a.id = ao.anomalie_id'
+                : 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id')
+            : '';
 
         $sql = '
             SELECT
@@ -663,6 +743,22 @@ final class VerificationRepository
         }
 
         return $this->anomaliesTableExists;
+    }
+
+    private function hasAnomalyOccurrencesTable(): bool
+    {
+        if ($this->anomalyOccurrencesTableExists !== null) {
+            return $this->anomalyOccurrencesTableExists;
+        }
+
+        try {
+            $statement = Database::getConnection()->query("SHOW TABLES LIKE 'anomaly_occurrences'");
+            $this->anomalyOccurrencesTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException) {
+            $this->anomalyOccurrencesTableExists = false;
+        }
+
+        return $this->anomalyOccurrencesTableExists;
     }
 
     private function hasZoneOrderColumn(): bool

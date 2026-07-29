@@ -22,6 +22,7 @@ $vehicleName = (string) ($vehicle['nom'] ?? '');
 $vehicleId = (int) ($vehicle['id'] ?? 0);
 $vehicleType = (string) ($vehicle['type_vehicule'] ?? '');
 $vehicleStatus = ((int) ($vehicle['actif'] ?? 0) === 1) ? 'Actif' : 'Inactif';
+$verificationEnabled = (int) ($vehicle['verification_active'] ?? 0) === 1;
 $anomalyRoutingMode = ($vehicleAnomalyRouting['mode'] ?? 'default') === 'custom' ? 'custom' : 'default';
 $selectedAnomalyRoles = is_array($vehicleAnomalyRouting['roles'] ?? null)
     ? array_map('strval', $vehicleAnomalyRouting['roles'])
@@ -29,11 +30,17 @@ $selectedAnomalyRoles = is_array($vehicleAnomalyRouting['roles'] ?? null)
 $selectedAnomalyUsers = is_array($vehicleAnomalyRouting['users'] ?? null)
     ? array_map('intval', $vehicleAnomalyRouting['users'])
     : [];
+$selectedAnomalyGroups = is_array($vehicleAnomalyRouting['groups'] ?? null)
+    ? array_map('intval', $vehicleAnomalyRouting['groups'])
+    : [];
 $globalAnomalyRoleCount = is_array($globalAnomalyRouting['roles'] ?? null)
     ? count($globalAnomalyRouting['roles'])
     : 0;
 $globalAnomalyUserCount = is_array($globalAnomalyRouting['users'] ?? null)
     ? count($globalAnomalyRouting['users'])
+    : 0;
+$globalAnomalyGroupCount = is_array($globalAnomalyRouting['groups'] ?? null)
+    ? count($globalAnomalyRouting['groups'])
     : 0;
 $globalAnomalyEnabled = !empty($globalAnomalyRouting['enabled']);
 
@@ -79,6 +86,23 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </span>
         <a href="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= $vehicleId ?>" class="ml-2 inline-flex rounded-xl border border-slate-300 bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold">Configurer zones & materiel</a>
     </div>
+    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="mt-4 flex flex-col gap-3 rounded-xl border <?= $verificationEnabled ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50' ?> p-4 md:flex-row md:items-center md:justify-between">
+        <input type="hidden" name="id" value="<?= $vehicleId ?>">
+        <input type="hidden" name="type_vehicule_id" value="<?= (int) ($vehicle['type_vehicule_id'] ?? 0) ?>">
+        <input type="hidden" name="indicatif" value="<?= htmlspecialchars((string) ($vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="actif" value="<?= (int) ($vehicle['actif'] ?? 0) ?>">
+        <div>
+            <p class="font-semibold text-slate-900">Inclure cet engin dans les verifications</p>
+            <p class="mt-1 text-sm text-slate-600">Un engin desactive ici ne compte pas dans les objectifs et n apparait pas sur le formulaire mobile.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <select name="verification_active" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                <option value="1" <?= $verificationEnabled ? 'selected' : '' ?>>Verifications actives</option>
+                <option value="0" <?= !$verificationEnabled ? 'selected' : '' ?>>Verifications desactivees</option>
+            </select>
+            <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
+        </div>
+    </form>
 </section>
 
 <section class="bg-white rounded-2xl shadow p-4 md:p-6">
@@ -99,7 +123,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <span class="block text-sm font-semibold text-slate-900">Regle generale</span>
                     <span class="mt-1 block text-xs text-slate-500">
                         <?php if ($globalAnomalyEnabled): ?>
-                            Regle actuelle : <?= $globalAnomalyRoleCount ?> groupe(s), <?= $globalAnomalyUserCount ?> personne(s).
+                            Regle actuelle : <?= $globalAnomalyGroupCount ?> groupe(s), <?= $globalAnomalyRoleCount ?> role(s), <?= $globalAnomalyUserCount ?> personne(s).
                         <?php else: ?>
                             Notifications d anomalies desactivees dans les parametres generaux.
                         <?php endif; ?>
@@ -116,9 +140,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </div>
 
         <div data-anomaly-custom-routing class="<?= $anomalyRoutingMode === 'custom' ? '' : 'hidden' ?>">
-            <div class="grid grid-cols-1 gap-5 border-t border-slate-200 pt-4 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-5 border-t border-slate-200 pt-4 lg:grid-cols-3">
                 <div>
-                    <h3 class="text-sm font-bold text-slate-800">Groupes par role</h3>
+                    <h3 class="text-sm font-bold text-slate-800">Roles</h3>
                     <div class="mt-2 grid grid-cols-1 gap-2">
                         <?php foreach ($notificationRoles as $role): ?>
                             <?php
@@ -135,6 +159,25 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                     <?= in_array($roleCode, $selectedAnomalyRoles, true) ? 'checked' : '' ?>
                                 >
                                 <?= htmlspecialchars((string) ($role['nom'] ?? $roleCode), ENT_QUOTES, 'UTF-8') ?>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Groupes de notification</h3>
+                    <div class="mt-2 grid grid-cols-1 gap-2">
+                        <?php if ($notificationGroups === []): ?>
+                            <p class="text-sm text-slate-500">Aucun groupe configure dans les parametres.</p>
+                        <?php endif; ?>
+                        <?php foreach ($notificationGroups as $notificationGroup): ?>
+                            <?php $notificationGroupId = (int) ($notificationGroup['id'] ?? 0); ?>
+                            <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                <input type="checkbox" name="routing_groups[]" value="<?= $notificationGroupId ?>" <?= in_array($notificationGroupId, $selectedAnomalyGroups, true) ? 'checked' : '' ?>>
+                                <span>
+                                    <span class="block font-semibold"><?= htmlspecialchars((string) ($notificationGroup['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span class="block text-xs text-slate-500"><?= (int) ($notificationGroup['member_count'] ?? 0) ?> membre(s)</span>
+                                </span>
                             </label>
                         <?php endforeach; ?>
                     </div>

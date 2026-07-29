@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Repositories\NotificationRepository;
+use App\Repositories\NotificationGroupRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 
@@ -101,6 +102,8 @@ final class ManagerNotificationController
         }
         $userRepository = new UserRepository();
         $targetUsers = $userRepository->findAllActiveForCaserne($caserneId);
+        $groupRepository = new NotificationGroupRepository();
+        $notificationGroups = $caserneId !== null ? $groupRepository->findAll($caserneId) : [];
 
         $success = isset($_GET['success']) ? (string) $_GET['success'] : '';
         $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
@@ -124,6 +127,7 @@ final class ManagerNotificationController
         $enabledByEvent = [];
         $rolesByEvent = [];
         $usersByEvent = [];
+        $groupsByEvent = [];
         foreach ($eventCatalog as $eventCode => $_meta) {
             $eventKey = str_replace('.', '_', $eventCode);
             $enabledByEvent[$eventCode] = isset($_POST['event_enabled'][$eventKey]) && (string) $_POST['event_enabled'][$eventKey] === '1';
@@ -131,6 +135,8 @@ final class ManagerNotificationController
             $rolesByEvent[$eventCode] = array_values(array_map('strval', $rawRoles));
             $rawUsers = is_array($_POST['event_users'][$eventKey] ?? null) ? $_POST['event_users'][$eventKey] : [];
             $usersByEvent[$eventCode] = array_values(array_map('intval', $rawUsers));
+            $rawGroups = is_array($_POST['event_groups'][$eventKey] ?? null) ? $_POST['event_groups'][$eventKey] : [];
+            $groupsByEvent[$eventCode] = array_values(array_map('intval', $rawGroups));
         }
         $inAppEnabled = isset($_POST['channel_in_app_enabled']) && (string) $_POST['channel_in_app_enabled'] === '1';
         $emailEnabled = isset($_POST['channel_email_enabled']) && (string) $_POST['channel_email_enabled'] === '1';
@@ -142,10 +148,41 @@ final class ManagerNotificationController
             $emailEnabled,
             $enabledByEvent,
             $rolesByEvent,
-            $usersByEvent
+            $usersByEvent,
+            $groupsByEvent
         );
 
         $this->redirect('/index.php?controller=manager_notifications&action=settings' . ($ok ? '&success=saved' : '&error=save'));
+    }
+
+    public function groupSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_notifications&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        $groupId = (int) ($_POST['group_id'] ?? 0);
+        $name = trim((string) ($_POST['group_name'] ?? ''));
+        $memberIds = is_array($_POST['member_ids'] ?? null) ? $_POST['member_ids'] : [];
+        $repository = new NotificationGroupRepository();
+        $ok = $caserneId !== null && $repository->save($caserneId, $groupId, $name, $memberIds);
+
+        $this->redirect('/index.php?controller=manager_notifications&action=settings&' . ($ok ? 'success=group_saved' : 'error=group_save'));
+    }
+
+    public function groupDelete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_notifications&action=settings');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        $groupId = (int) ($_POST['group_id'] ?? 0);
+        $repository = new NotificationGroupRepository();
+        $ok = $caserneId !== null && $repository->delete($caserneId, $groupId);
+
+        $this->redirect('/index.php?controller=manager_notifications&action=settings&' . ($ok ? 'success=group_deleted' : 'error=group_delete'));
     }
 
     public function preferencesSave(): void

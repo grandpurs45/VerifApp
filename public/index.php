@@ -252,6 +252,8 @@ $managerRoutes = [
     'manager_notifications/mark_all_read',
     'manager_notifications/settings',
     'manager_notifications/settings_save',
+    'manager_notifications/group_save',
+    'manager_notifications/group_delete',
     'manager_notifications/preferences_save',
     'manager_auth/switch_caserne',
     'manager_admin/menu',
@@ -291,6 +293,7 @@ $managerRoutes = [
     'manager_assets/vehicle_anomaly_routing_save',
     'manager_assets/vehicle_delete',
     'manager_assets/zone_save',
+    'manager_assets/zone_order_save',
     'manager_assets/zone_delete',
     'manager_assets/poste_save',
     'manager_assets/poste_delete',
@@ -387,6 +390,8 @@ $managerRoutePermissions = [
     'manager_notifications/preferences_save' => 'dashboard.view',
     'manager_notifications/settings' => 'users.manage',
     'manager_notifications/settings_save' => 'users.manage',
+    'manager_notifications/group_save' => 'users.manage',
+    'manager_notifications/group_delete' => 'users.manage',
     'manager_auth/switch_caserne' => 'dashboard.view',
     'manager_admin/menu' => 'users.manage',
     'manager_admin/settings' => 'users.manage',
@@ -425,6 +430,7 @@ $managerRoutePermissions = [
     'manager_assets/vehicle_anomaly_routing_save' => 'assets.manage',
     'manager_assets/vehicle_delete' => 'assets.manage',
     'manager_assets/zone_save' => 'assets.manage',
+    'manager_assets/zone_order_save' => 'assets.manage',
     'manager_assets/zone_delete' => 'assets.manage',
     'manager_assets/poste_save' => 'assets.manage',
     'manager_assets/poste_delete' => 'assets.manage',
@@ -613,6 +619,18 @@ if ($controllerName !== null) {
         return;
     }
 
+    if ($controllerName === 'manager_notifications' && $action === 'group_save') {
+        $controller = new \App\Controllers\ManagerNotificationController();
+        $controller->groupSave();
+        exit;
+    }
+
+    if ($controllerName === 'manager_notifications' && $action === 'group_delete') {
+        $controller = new \App\Controllers\ManagerNotificationController();
+        $controller->groupDelete();
+        exit;
+    }
+
     if ($controllerName === 'manager_notifications' && $action === 'preferences_save') {
         $controller = new ManagerNotificationController();
         $controller->preferencesSave();
@@ -797,6 +815,12 @@ if ($controllerName !== null) {
         $controller = new ManagerAssetController();
         $controller->zoneSave();
         return;
+    }
+
+    if ($controllerName === 'manager_assets' && $action === 'zone_order_save') {
+        $controller = new \App\Controllers\ManagerAssetController();
+        $controller->zoneOrderSave();
+        exit;
     }
 
     if ($controllerName === 'manager_assets' && $action === 'zone_delete') {

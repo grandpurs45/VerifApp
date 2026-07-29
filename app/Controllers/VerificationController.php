@@ -12,6 +12,7 @@ use App\Repositories\PosteRepository;
 use App\Repositories\VehicleRepository;
 use App\Repositories\VerificationRepository;
 use App\Repositories\ZoneRepository;
+use App\Repositories\QrAccessLogRepository;
 
 final class VerificationController
 {
@@ -54,7 +55,7 @@ final class VerificationController
         $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
         $poste = $posteRepository->findByIdForVehicle($posteId, $vehicleId, $caserneId);
 
-        if ($vehicle === null || $poste === null) {
+        if ($vehicle === null || (int) ($vehicle['actif'] ?? 0) !== 1 || (int) ($vehicle['verification_active'] ?? 0) !== 1 || $poste === null) {
             $this->redirect('/index.php?controller=home&action=index');
         }
 
@@ -70,6 +71,7 @@ final class VerificationController
         $commentaires = is_array($_POST['commentaires'] ?? null) ? $_POST['commentaires'] : [];
         $allowedStatuses = ['ok', 'nok'];
         $lines = [];
+        $anomalyDetails = [];
 
         foreach ($controles as $controle) {
             $controleId = (int) $controle['id'];
@@ -114,6 +116,17 @@ final class VerificationController
                 'commentaire' => $comment === '' ? null : $comment,
                 'valeur_saisie' => $valueInput,
             ];
+            if ($result === 'nok') {
+                $unit = trim((string) ($controle['unite'] ?? ''));
+                $anomalyDetails[] = [
+                    'label' => trim((string) ($controle['libelle'] ?? 'Controle non conforme')),
+                    'zone' => trim((string) ($controle['zone'] ?? '')),
+                    'comment' => $comment,
+                    'value' => $valueInput !== null
+                        ? rtrim(rtrim(number_format($valueInput, 2, '.', ''), '0'), '.') . ($unit !== '' ? ' ' . $unit : '')
+                        : '',
+                ];
+            }
         }
 
         $verificationId = $verificationRepository->createWithLines(
@@ -126,22 +139,22 @@ final class VerificationController
             $globalComment === '' ? null : $globalComment,
             $lines
         );
+        (new QrAccessLogRepository())->attachIdentity('verifications', $agent, $utilisateurId);
 
-        $anomalyCount = 0;
-        foreach ($lines as $line) {
-            if (($line['resultat'] ?? '') === 'nok') {
-                $anomalyCount++;
-            }
-        }
+        $anomalyCount = count($anomalyDetails);
         if ($anomalyCount > 0) {
             $vehicleName = trim((string) ($vehicle['nom'] ?? 'Engin'));
             $posteName = trim((string) ($poste['nom'] ?? 'Poste'));
+            $firstAnomalyLabel = trim((string) ($anomalyDetails[0]['label'] ?? 'Anomalie'));
+            $notificationTitle = $anomalyCount === 1
+                ? 'Anomalie - ' . $vehicleName . ' - ' . $firstAnomalyLabel
+                : $anomalyCount . ' anomalies - ' . $vehicleName;
             $notificationRepository = new NotificationRepository();
             $notificationRepository->createForCaserneEvent(
                 $caserneId,
                 'anomaly.created',
-                $anomalyCount === 1 ? 'Nouvelle anomalie detectee' : $anomalyCount . ' nouvelles anomalies detectees',
-                $vehicleName . ' / ' . $posteName . ' - verification realisee par ' . $agent,
+                $notificationTitle,
+                'Nouvelle non-conformite detectee pendant une verification.',
                 '/index.php?controller=anomalies&action=index&statut=actives',
                 $utilisateurId,
                 $agent,
@@ -150,7 +163,10 @@ final class VerificationController
                     'vehicle_id' => $vehicleId,
                     'vehicle' => $vehicleName,
                     'poste' => $posteName,
+                    'notifier' => $agent,
                     'anomaly_count' => $anomalyCount,
+                    'anomalies' => $anomalyDetails,
+                    'global_comment' => $globalComment,
                 ]
             );
         }
@@ -230,7 +246,7 @@ final class VerificationController
             $month = (int) $today->format('m');
         }
 
-        $vehicles = $vehicleRepository->findAllActive($caserneId);
+        $vehicles = $vehicleRepository->findAllVerificationEnabled($caserneId);
         $vehiclesById = [];
         foreach ($vehicles as $vehicle) {
             $vehiclesById[(int) ($vehicle['id'] ?? 0)] = $vehicle;

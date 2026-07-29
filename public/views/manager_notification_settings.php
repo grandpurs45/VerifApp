@@ -11,15 +11,75 @@ $pageBackLabel = 'Retour administration';
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
-<?php if ($success === 'saved'): ?>
+<?php if (in_array($success, ['saved', 'group_saved', 'group_deleted'], true)): ?>
     <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-        Parametres notifications enregistres.
+        <?= $success === 'group_saved' ? 'Groupe de notification enregistre.' : ($success === 'group_deleted' ? 'Groupe de notification supprime.' : 'Parametres notifications enregistres.') ?>
     </section>
 <?php elseif ($error !== ''): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         Impossible d enregistrer les parametres notifications.
     </section>
 <?php endif; ?>
+
+<section class="rounded-2xl bg-white shadow p-4 md:p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-bold">Groupes de notification</h2>
+            <p class="mt-1 text-sm text-slate-600">Les groupes sont independants des roles et servent uniquement au ciblage des alertes.</p>
+        </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <form method="post" action="/index.php?controller=manager_notifications&action=group_save" class="rounded-xl border border-slate-200 p-4">
+            <h3 class="font-semibold text-slate-900">Nouveau groupe</h3>
+            <label class="mt-3 block">
+                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Nom</span>
+                <input type="text" name="group_name" required maxlength="120" placeholder="Ex: Responsables VSAV" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            </label>
+            <div class="mt-3 max-h-52 space-y-2 overflow-y-auto">
+                <?php foreach ($targetUsers as $targetUser): ?>
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                        <input type="checkbox" name="member_ids[]" value="<?= (int) ($targetUser['id'] ?? 0) ?>">
+                        <span><?= htmlspecialchars(trim((string) ($targetUser['prenom'] ?? '') . ' ' . (string) ($targetUser['nom'] ?? '')), ENT_QUOTES, 'UTF-8') ?></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+            <button type="submit" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Creer le groupe</button>
+        </form>
+
+        <div class="space-y-3">
+            <?php if ($notificationGroups === []): ?>
+                <p class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Aucun groupe configure.</p>
+            <?php endif; ?>
+            <?php foreach ($notificationGroups as $notificationGroup): ?>
+                <?php $groupMemberIds = array_map('intval', (array) ($notificationGroup['member_ids'] ?? [])); ?>
+                <details class="rounded-xl border border-slate-200 p-4">
+                    <summary class="cursor-pointer list-none font-semibold text-slate-900">
+                        <?= htmlspecialchars((string) ($notificationGroup['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        <span class="ml-2 text-xs font-normal text-slate-500"><?= (int) ($notificationGroup['member_count'] ?? 0) ?> membre(s)</span>
+                    </summary>
+                    <form method="post" action="/index.php?controller=manager_notifications&action=group_save" class="mt-3">
+                        <input type="hidden" name="group_id" value="<?= (int) ($notificationGroup['id'] ?? 0) ?>">
+                        <input type="text" name="group_name" required maxlength="120" value="<?= htmlspecialchars((string) ($notificationGroup['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        <div class="mt-3 max-h-52 space-y-2 overflow-y-auto">
+                            <?php foreach ($targetUsers as $targetUser): ?>
+                                <?php $targetId = (int) ($targetUser['id'] ?? 0); ?>
+                                <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                    <input type="checkbox" name="member_ids[]" value="<?= $targetId ?>" <?= in_array($targetId, $groupMemberIds, true) ? 'checked' : '' ?>>
+                                    <span><?= htmlspecialchars(trim((string) ($targetUser['prenom'] ?? '') . ' ' . (string) ($targetUser['nom'] ?? '')), ENT_QUOTES, 'UTF-8') ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
+                            <button type="submit" formaction="/index.php?controller=manager_notifications&action=group_delete" data-confirm="Supprimer ce groupe ?" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">Supprimer</button>
+                        </div>
+                    </form>
+                </details>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
 
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <h2 class="text-lg font-bold">Canaux</h2>
@@ -37,8 +97,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <input type="hidden" name="channel_email_enabled" value="0">
                 <input type="checkbox" name="channel_email_enabled" value="1" <?= !empty($channels['email_enabled']) ? 'checked' : '' ?>>
                 <span>
-                    <span class="block text-sm font-semibold">Email (preparation)</span>
-                    <span class="block text-xs text-slate-500">Canal email (serveur SMTP requis).</span>
+                    <span class="block text-sm font-semibold">Email</span>
+                    <span class="block text-xs text-slate-500">Envoi aux destinataires cibles ayant une adresse valide. Le transport doit aussi etre actif dans Administration.</span>
                 </span>
             </label>
         </div>
@@ -55,6 +115,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 ];
                 $selectedRoles = is_array($eventSettings['roles'] ?? null) ? $eventSettings['roles'] : [];
                 $selectedUsers = is_array($eventSettings['users'] ?? null) ? array_map('intval', $eventSettings['users']) : [];
+                $selectedGroups = is_array($eventSettings['groups'] ?? null) ? array_map('intval', $eventSettings['groups']) : [];
                 ?>
                 <article class="rounded-xl border border-slate-200 p-3">
                     <div class="flex items-start justify-between gap-3">
@@ -71,9 +132,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             Actif
                         </label>
                     </div>
-                    <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
                         <div>
-                            <h4 class="text-sm font-bold text-slate-800">Groupes par role</h4>
+                            <h4 class="text-sm font-bold text-slate-800">Roles</h4>
                             <div class="mt-2 grid grid-cols-1 gap-2">
                                 <?php foreach ($roles as $role): ?>
                                     <?php
@@ -90,6 +151,24 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             <?= in_array($roleCode, $selectedRoles, true) ? 'checked' : '' ?>
                                         >
                                         <?= htmlspecialchars((string) ($role['nom'] ?? $roleCode), ENT_QUOTES, 'UTF-8') ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800">Groupes de notification</h4>
+                            <div class="mt-2 grid grid-cols-1 gap-2">
+                                <?php if ($notificationGroups === []): ?>
+                                    <p class="text-sm text-slate-500">Aucun groupe configure.</p>
+                                <?php endif; ?>
+                                <?php foreach ($notificationGroups as $notificationGroup): ?>
+                                    <?php $groupId = (int) ($notificationGroup['id'] ?? 0); ?>
+                                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                        <input type="checkbox" name="event_groups[<?= htmlspecialchars($eventKey, ENT_QUOTES, 'UTF-8') ?>][]" value="<?= $groupId ?>" <?= in_array($groupId, $selectedGroups, true) ? 'checked' : '' ?>>
+                                        <span>
+                                            <span class="block font-semibold"><?= htmlspecialchars((string) ($notificationGroup['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            <span class="block text-xs text-slate-500"><?= (int) ($notificationGroup['member_count'] ?? 0) ?> membre(s)</span>
+                                        </span>
                                     </label>
                                 <?php endforeach; ?>
                             </div>

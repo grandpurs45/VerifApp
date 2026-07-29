@@ -1,4 +1,4 @@
-# Runbook Incident VerifApp (v1)
+# Runbook Incident VerifApp (v1.4)
 
 Guide court d intervention en cas d incident production.
 
@@ -85,11 +85,26 @@ Actions:
 - lancer `email test` depuis parametres.
 - verifier blocage provider SMTP.
 
+### Notification anomalie non recue
+- verifier que le canal email et l evenement `anomaly.created` sont actifs.
+- verifier le ciblage general puis le ciblage propre a l engin.
+- verifier l appartenance au groupe de notifications et la preference email du destinataire.
+- confirmer que l utilisateur cible possede une adresse email valide.
+- lancer le mail de test pour isoler le transport SMTP.
+- rechercher `[VerifApp notifications]` dans les logs du conteneur web.
+
 ## 6. Incident verification terrain
 - verifier token QR terrain valide (caserne).
 - verifier session/brouillon (TTL).
 - verifier controles zones/postes associes au vehicule.
 - verifier creation anomalie en cas NOK.
+- verifier que l engin est inclus dans les verifications.
+
+### Journal QR vide
+- verifier que la migration `040_prepare_v14_features.sql` est appliquee.
+- selectionner la bonne caserne dans `Administration > Audit securite`.
+- verifier le compteur `Journal QR`, puis la colonne caserne du tableau.
+- rechercher `[VerifApp QR audit]` dans les logs du conteneur web.
 
 ## 7. Procedure rollback standard
 1. geler les actions risquant d ecraser des donnees.

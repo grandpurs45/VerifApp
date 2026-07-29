@@ -79,6 +79,11 @@ final class ManagerUserController
             ));
         }
 
+        $createFormState = is_array($_SESSION['manager_user_create_form'] ?? null)
+            ? $_SESSION['manager_user_create_form']
+            : ['values' => [], 'errors' => []];
+        unset($_SESSION['manager_user_create_form']);
+
         require dirname(__DIR__, 2) . '/public/views/manager_users.php';
     }
 
@@ -204,7 +209,7 @@ final class ManagerUserController
 
             $membershipRole = trim((string) ($caserneRoles[$caserneIdRaw] ?? $role ?? ''));
             if ($membershipRole === '' || !isset($validRoleCodes[$membershipRole])) {
-                $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+                $this->redirectCreateError('invalid', ['casernes' => 'Le role selectionne pour cette caserne est invalide.']);
             }
             $caserneAssignments[$caserneId] = $membershipRole;
         }
@@ -214,7 +219,7 @@ final class ManagerUserController
                 $this->redirect('/index.php?controller=manager_auth&action=select_caserne_form');
             }
             if (!isset($caserneAssignments[$currentCaserneId])) {
-                $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+                $this->redirectCreateError('invalid', ['casernes' => 'Selectionne la caserne courante.']);
             }
             $caserneAssignments = [
                 $currentCaserneId => (string) $caserneAssignments[$currentCaserneId],
@@ -260,7 +265,26 @@ final class ManagerUserController
         }
 
         if ($name === '' || $firstName === '' || !$this->isValidLogin($login) || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $caserneAssignments === []) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=invalid');
+            $fieldErrors = [];
+            if ($name === '') {
+                $fieldErrors['nom'] = 'Le nom est obligatoire.';
+            }
+            if ($firstName === '') {
+                $fieldErrors['prenom'] = 'Le prenom est obligatoire.';
+            }
+            if (!$this->isValidLogin($login)) {
+                $fieldErrors['login'] = 'Le login genere est invalide.';
+            }
+            if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                $fieldErrors['email'] = 'Saisis une adresse email valide.';
+            }
+            if ($caserneAssignments === []) {
+                $fieldErrors['casernes'] = 'Selectionne au moins une caserne.';
+            }
+            if ($id <= 0) {
+                $this->redirectCreateError('invalid', $fieldErrors);
+            }
+            $this->redirect('/index.php?controller=manager_users&action=show&id=' . $id . '&error=invalid');
         }
 
         $primaryRole = (string) reset($caserneAssignments);
@@ -326,7 +350,9 @@ final class ManagerUserController
 
         $passwordPolicy = PasswordPolicy::validate($password);
         if (($passwordPolicy['ok'] ?? false) !== true) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=password_policy');
+            $this->redirectCreateError('password_policy', [
+                'password' => 'Le mot de passe ne respecte pas la politique de securite.',
+            ]);
         }
 
         $existingByEmail = $userRepository->findByEmail($email);
@@ -377,7 +403,7 @@ final class ManagerUserController
         );
 
         if (!$ok) {
-            $this->redirect('/index.php?controller=manager_users&action=index&error=create_failed');
+            $this->redirectCreateError('create_failed', ['email' => 'Impossible de creer ce compte. Verifie que l email est unique.']);
         }
 
         $newUserId = $userRepository->findLastInsertId();
@@ -637,6 +663,26 @@ final class ManagerUserController
     {
         header('Location: ' . $location);
         exit;
+    }
+
+    private function redirectCreateError(string $code, array $fieldErrors): never
+    {
+        $caserneEnabled = is_array($_POST['caserne_enabled'] ?? null) ? $_POST['caserne_enabled'] : [];
+        $caserneRoles = is_array($_POST['caserne_roles'] ?? null) ? $_POST['caserne_roles'] : [];
+        $_SESSION['manager_user_create_form'] = [
+            'values' => [
+                'nom' => trim((string) ($_POST['nom'] ?? '')),
+                'prenom' => trim((string) ($_POST['prenom'] ?? '')),
+                'login' => $this->normalizeLogin((string) ($_POST['login'] ?? '')),
+                'email' => trim((string) ($_POST['email'] ?? '')),
+                'actif' => (string) ($_POST['actif'] ?? '1'),
+                'caserne_enabled' => $caserneEnabled,
+                'caserne_roles' => $caserneRoles,
+            ],
+            'errors' => $fieldErrors,
+        ];
+
+        $this->redirect('/index.php?controller=manager_users&action=index&error=' . rawurlencode($code) . '#create-user-form');
     }
 
     private function currentCaserneId(): int

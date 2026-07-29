@@ -63,3 +63,14 @@ docker compose --env-file .env.docker restart web
 - Restaurer un backup dans la mauvaise base ecrase les donnees.
 - Si la version code restauree est plus ancienne, verifier compatibilite migrations.
 - Ne jamais modifier une migration deja appliquee; ajouter une migration corrective.
+
+## 8. Retour depuis v1.4.0
+La migration 040 ajoute des tables et une colonne sans supprimer les donnees historiques.
+
+Pour revenir en v1.3:
+1. restaurer le code du tag `v1.3.0`
+2. restaurer le backup cree avant la mise a niveau v1.4
+3. ne pas supprimer manuellement `anomaly_occurrences`, `notification_groups`, `notification_group_members` ou `qr_access_logs`
+4. verifier le healthcheck, la connexion et une verification terrain
+
+Le retour du code seul peut laisser un schema plus recent que l application. La restauration du backup base reste la procedure recommandee.

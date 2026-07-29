@@ -1,4 +1,4 @@
-# Onboarding Nouvelle Caserne (v1)
+# Onboarding Nouvelle Caserne (v1.4)
 
 Procedure recommandee pour integrer une nouvelle caserne dans VerifApp sans interrompre l exploitation.
 
@@ -31,6 +31,7 @@ Dans `Administration -> Parametres application`, verifier pour la caserne active
 - heure de bascule matin/soir des verifications mensuelles.
 - TTL session gestionnaire (si parametre caserne active).
 - notifications activees selon besoin (in-app / email).
+- groupes de notifications crees et membres affectes.
 - QR tokens caserne (verification, pharmacie, inventaire) generes.
 
 ## 5. Initialisation metier
@@ -39,7 +40,9 @@ Pour la nouvelle caserne:
 2. Creer les vehicules.
 3. Construire les zones/sous-zones par vehicule.
 4. Ajouter le materiel par vehicule.
-5. Configurer pharmacie:
+5. Reordonner les zones et tester tous les postes.
+6. Activer chaque engin pret avec `Inclure cet engin dans les verifications`.
+7. Configurer pharmacie:
   - liste articles,
   - seuils,
   - regles sortie CR.
@@ -68,7 +71,8 @@ Option:
 - 1 inventaire terrain: OK.
 - Notifications in-app: OK.
 - Notifications email (si activees): OK.
-- Audit securite visible pour la caserne: OK.
+- Audit securite et journal QR visibles pour la caserne: OK.
+- Engins incomplets absents du formulaire mobile: OK.
 
 ## 8. Support post-demarrage (J+1 / J+7)
 - J+1:

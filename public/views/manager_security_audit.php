@@ -4,12 +4,40 @@ declare(strict_types=1);
 
 $pageTitle = 'Audit securite - VerifApp';
 $pageHeading = 'Audit securite';
-$pageSubtitle = 'Connexions gestionnaire: succes, echecs et verrouillages.';
+$pageSubtitle = 'Connexions gestionnaire et ouvertures des QR Codes.';
 $pageBackUrl = '/index.php?controller=manager_admin&action=menu';
 $pageBackLabel = 'Retour administration';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
+
+<section class="rounded-lg border border-slate-200 bg-white p-5">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <p class="text-xs font-semibold uppercase text-slate-500">Journal QR</p>
+            <p class="mt-1 text-3xl font-extrabold text-slate-950"><?= count($qrAccesses ?? []) ?></p>
+            <p class="mt-1 text-sm text-slate-600">
+                <?php if (($isPlatformAdmin ?? false) === true && ($selectedCaserneId ?? null) === null): ?>
+                    Ouvertures de toutes les casernes
+                <?php else: ?>
+                    Ouvertures de la caserne selectionnee
+                <?php endif; ?>
+            </p>
+        </div>
+        <a href="#qr-access-log" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            Voir les ouvertures QR
+        </a>
+    </div>
+    <?php if (($qrAccessAvailable ?? false) !== true): ?>
+        <p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+            Journal QR indisponible. Verifie que la migration 040 est appliquee.
+        </p>
+    <?php elseif (($qrAccessError ?? '') !== ''): ?>
+        <p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+            <?= htmlspecialchars((string) $qrAccessError, ENT_QUOTES, 'UTF-8') ?>
+        </p>
+    <?php endif; ?>
+</section>
 
 <section class="rounded-2xl bg-white shadow p-5">
     <form method="get" action="/index.php" class="grid grid-cols-1 md:grid-cols-6 gap-2">
@@ -93,6 +121,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <section class="rounded-2xl bg-white shadow p-5 overflow-x-auto">
+    <h2 class="mb-4 text-lg font-bold text-slate-900">Connexions gestionnaire</h2>
     <table class="min-w-full text-sm">
         <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -141,6 +170,55 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </td>
                         <td class="px-2 py-2"><?= htmlspecialchars((string) ($event['ip_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                         <td class="px-2 py-2"><?= htmlspecialchars((string) ($event['reason'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</section>
+
+<section id="qr-access-log" class="scroll-mt-4 rounded-lg border border-slate-200 bg-white p-5 overflow-x-auto">
+    <div class="mb-4">
+        <h2 class="text-lg font-bold text-slate-900">Ouvertures des QR Codes</h2>
+        <p class="mt-1 text-sm text-slate-600">Les identites anonymes sont completees lorsque le nom est saisi dans le formulaire terrain.</p>
+    </div>
+    <table class="min-w-full text-sm">
+        <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-2 py-2">Date</th>
+                <?php if (($isPlatformAdmin ?? false) === true): ?>
+                    <th class="px-2 py-2">Caserne</th>
+                <?php endif; ?>
+                <th class="px-2 py-2">Module</th>
+                <th class="px-2 py-2">Engin</th>
+                <th class="px-2 py-2">Identite</th>
+                <th class="px-2 py-2">IP</th>
+                <th class="px-2 py-2">Navigateur</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (($qrAccesses ?? []) === []): ?>
+                <tr>
+                    <td colspan="<?= ($isPlatformAdmin ?? false) === true ? 7 : 6 ?>" class="px-2 py-4 text-slate-500">
+                        Aucune ouverture tracee pour la caserne selectionnee.
+                    </td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($qrAccesses as $access): ?>
+                    <?php
+                    $moduleLabels = ['verifications' => 'Verifications', 'pharmacy' => 'Sortie pharmacie', 'inventory' => 'Inventaire'];
+                    $identity = trim((string) ($access['identite'] ?? ''));
+                    ?>
+                    <tr class="border-t border-slate-100">
+                        <td class="px-2 py-2 whitespace-nowrap"><?= htmlspecialchars((string) ($access['opened_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <?php if (($isPlatformAdmin ?? false) === true): ?>
+                            <td class="px-2 py-2 font-semibold text-slate-700"><?= htmlspecialchars((string) ($access['caserne_nom'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        <?php endif; ?>
+                        <td class="px-2 py-2"><span class="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800"><?= htmlspecialchars($moduleLabels[(string) ($access['module'] ?? '')] ?? (string) ($access['module'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span></td>
+                        <td class="px-2 py-2"><?= htmlspecialchars((string) ($access['vehicule_nom'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-2 py-2 font-semibold text-slate-800"><?= htmlspecialchars($identity !== '' ? $identity : 'Anonyme', ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-2 py-2"><?= htmlspecialchars((string) ($access['ip_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="max-w-xs truncate px-2 py-2 text-xs text-slate-500" title="<?= htmlspecialchars((string) ($access['user_agent'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($access['user_agent'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>

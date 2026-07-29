@@ -9,6 +9,7 @@ use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
 use App\Repositories\NotificationRepository;
 use App\Repositories\PharmacyRepository;
+use App\Repositories\QrAccessLogRepository;
 
 final class PharmacyController
 {
@@ -30,6 +31,7 @@ final class PharmacyController
         if ($configuredToken === '') {
             $_SESSION['pharmacy_access'] = true;
             $this->storePharmacyCaserneContext($caserneId);
+            (new QrAccessLogRepository())->logOpen($caserneId, $next === 'inventory_form' ? 'inventory' : 'pharmacy', null, '');
             $this->redirect('/index.php?controller=pharmacy&action=' . $next);
         }
 
@@ -40,6 +42,7 @@ final class PharmacyController
         if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['pharmacy_access'] = true;
             $this->storePharmacyCaserneContext($caserneId);
+            (new QrAccessLogRepository())->logOpen($caserneId, $next === 'inventory_form' ? 'inventory' : 'pharmacy', null, $providedToken);
             $this->redirect('/index.php?controller=pharmacy&action=' . $next);
         }
 
@@ -195,6 +198,7 @@ final class PharmacyController
             $_SESSION['pharmacy_output_tokens'][$outputToken] = time();
             $this->redirect('/index.php?controller=pharmacy&action=form&error=stock');
         }
+        (new QrAccessLogRepository())->attachIdentity('pharmacy', $declarant);
 
         $notificationRepository = new NotificationRepository();
         $notificationRepository->createForCaserneEvent(
@@ -314,6 +318,7 @@ final class PharmacyController
         if (!$ok) {
             $this->redirect('/index.php?controller=pharmacy&action=inventory_form&error=inventory_save_failed');
         }
+        (new QrAccessLogRepository())->attachIdentity('inventory', $declarant);
 
         $notificationRepository = new NotificationRepository();
         $notificationRepository->createForCaserneEvent(

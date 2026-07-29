@@ -32,6 +32,23 @@ final class VehicleRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function findAllVerificationEnabled(?int $caserneId = null): array
+    {
+        $connection = Database::getConnection();
+        $statement = $connection->prepare('
+            SELECT v.id, v.nom, v.verification_active, tv.nom AS type_vehicule
+            FROM vehicules v
+            INNER JOIN type_vehicules tv ON tv.id = v.type_vehicule_id
+            WHERE v.actif = 1
+              AND v.verification_active = 1
+              ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
+            ORDER BY v.nom ASC
+        ');
+        $statement->execute($caserneId !== null ? ['caserne_id' => $caserneId] : []);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function findAllDetailed(?int $caserneId = null): array
     {
         $connection = Database::getConnection();
@@ -43,6 +60,7 @@ final class VehicleRepository
                 v.type_vehicule_id,
                 v.caserne_id,
                 v.actif,
+                v.verification_active,
                 tv.nom AS type_vehicule
             FROM vehicules v
             INNER JOIN type_vehicules tv ON tv.id = v.type_vehicule_id
@@ -67,6 +85,7 @@ final class VehicleRepository
                 v.type_vehicule_id,
                 v.caserne_id,
                 v.actif,
+                v.verification_active,
                 tv.nom AS type_vehicule
             FROM vehicules v
             INNER JOIN type_vehicules tv
@@ -93,13 +112,13 @@ final class VehicleRepository
         return $vehicle;
     }
 
-    public function create(string $name, int $typeVehiculeId, bool $active, int $caserneId): bool
+    public function create(string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): bool
     {
         $connection = Database::getConnection();
 
         $sql = '
-            INSERT INTO vehicules (caserne_id, nom, type_vehicule_id, actif)
-            VALUES (:caserne_id, :nom, :type_vehicule_id, :actif)
+            INSERT INTO vehicules (caserne_id, nom, type_vehicule_id, actif, verification_active)
+            VALUES (:caserne_id, :nom, :type_vehicule_id, :actif, :verification_active)
         ';
 
         $statement = $connection->prepare($sql);
@@ -109,12 +128,13 @@ final class VehicleRepository
             'nom' => $name,
             'type_vehicule_id' => $typeVehiculeId,
             'actif' => $active ? 1 : 0,
+            'verification_active' => $verificationActive ? 1 : 0,
         ]);
     }
 
-    public function createAndReturnId(string $name, int $typeVehiculeId, bool $active, int $caserneId): ?int
+    public function createAndReturnId(string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): ?int
     {
-        $created = $this->create($name, $typeVehiculeId, $active, $caserneId);
+        $created = $this->create($name, $typeVehiculeId, $active, $caserneId, $verificationActive);
         if (!$created) {
             return null;
         }
@@ -125,7 +145,7 @@ final class VehicleRepository
         return $id > 0 ? $id : null;
     }
 
-    public function update(int $id, string $name, int $typeVehiculeId, bool $active, int $caserneId): bool
+    public function update(int $id, string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): bool
     {
         $connection = Database::getConnection();
 
@@ -134,6 +154,7 @@ final class VehicleRepository
             SET nom = :nom,
                 type_vehicule_id = :type_vehicule_id,
                 actif = :actif
+                , verification_active = :verification_active
             WHERE id = :id
               AND caserne_id = :caserne_id
         ';
@@ -146,6 +167,7 @@ final class VehicleRepository
             'nom' => $name,
             'type_vehicule_id' => $typeVehiculeId,
             'actif' => $active ? 1 : 0,
+            'verification_active' => $verificationActive ? 1 : 0,
         ]);
     }
 

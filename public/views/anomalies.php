@@ -129,18 +129,24 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $assigneeId = isset($anomaly['assigne_a']) ? (int) $anomaly['assigne_a'] : 0;
             $isAssigned = $assigneeId > 0;
             $canAssignToMe = $managerUserId > 0 && !$isAssigned && $statusKey !== 'resolue';
+            $occurrenceCount = max(1, (int) ($anomaly['occurrence_count'] ?? 1));
+            $occurrences = $occurrencesByAnomaly[(int) $anomaly['id']] ?? [];
             ?>
-            <article class="bg-white rounded-2xl shadow p-4 md:p-6">
+            <article class="overflow-hidden rounded-2xl border <?= $statusKey === 'ouverte' ? 'border-red-200' : 'border-slate-200' ?> bg-white shadow">
+                <div class="h-1 <?= $priorityKey === 'critique' ? 'bg-red-600' : ($priorityKey === 'haute' ? 'bg-orange-500' : ($priorityKey === 'moyenne' ? 'bg-sky-500' : 'bg-slate-400')) ?>"></div>
+                <div class="p-4 md:p-6">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-lg font-semibold">
-                            Anomalie #<?= (int) $anomaly['id'] ?> - <?= htmlspecialchars((string) $anomaly['controle_libelle'], ENT_QUOTES, 'UTF-8') ?>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Anomalie #<?= (int) $anomaly['id'] ?></p>
+                        <h2 class="mt-1 text-xl font-bold text-slate-950">
+                            <?= htmlspecialchars((string) $anomaly['controle_libelle'], ENT_QUOTES, 'UTF-8') ?>
                         </h2>
-                        <p class="text-sm text-slate-600 mt-1">
-                            <?= htmlspecialchars((string) $anomaly['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?> / <?= htmlspecialchars((string) $anomaly['poste_nom'], ENT_QUOTES, 'UTF-8') ?>
+                        <p class="mt-2 text-base font-semibold text-slate-800">
+                            <?= htmlspecialchars((string) $anomaly['vehicule_nom'], ENT_QUOTES, 'UTF-8') ?>
+                            <span class="font-normal text-slate-400">/</span>
+                            <?= htmlspecialchars((string) $anomaly['poste_nom'], ENT_QUOTES, 'UTF-8') ?>
                         </p>
-                        <p class="text-sm text-slate-500 mt-1">Zone: <?= htmlspecialchars((string) $anomaly['controle_zone'], ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-sm text-slate-500 mt-1">Creee le <?= htmlspecialchars((string) $anomaly['date_creation'], ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="mt-1 text-sm text-slate-500">Emplacement : <?= htmlspecialchars((string) $anomaly['controle_zone'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold <?= $statusClass ?>">
@@ -149,6 +155,21 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold <?= $priorityClass ?>">
                             Priorite <?= htmlspecialchars($priorityLabel, ENT_QUOTES, 'UTF-8') ?>
                         </span>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div class="rounded-lg bg-slate-50 px-3 py-2">
+                        <p class="text-xs text-slate-500">Premiere remontee</p>
+                        <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars((string) $anomaly['date_creation'], ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 px-3 py-2">
+                        <p class="text-xs text-slate-500">Derniere remontee</p>
+                        <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars((string) ($anomaly['last_report_at'] ?? $anomaly['date_creation']), ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                    <div class="rounded-lg <?= $occurrenceCount > 1 ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-800' ?> px-3 py-2">
+                        <p class="text-xs opacity-70">Occurrences</p>
+                        <p class="text-sm font-bold"><?= $occurrenceCount ?> remontee(s)</p>
                     </div>
                 </div>
 
@@ -163,6 +184,28 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </a>
                     </p>
                 </div>
+
+                <?php if ($occurrences !== []): ?>
+                    <details class="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                        <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-800">
+                            Voir l historique des <?= $occurrenceCount ?> remontee(s)
+                        </summary>
+                        <div class="border-t border-slate-200 px-4 py-2">
+                            <?php foreach ($occurrences as $occurrence): ?>
+                                <div class="flex flex-col gap-1 border-b border-slate-200 py-3 last:border-0 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars((string) ($occurrence['date_remontee'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="text-xs text-slate-500">Par <?= htmlspecialchars((string) ($occurrence['agent'] ?? 'Non renseigne'), ENT_QUOTES, 'UTF-8') ?></p>
+                                        <?php if (trim((string) ($occurrence['commentaire'] ?? '')) !== ''): ?>
+                                            <p class="mt-1 text-sm text-slate-700"><?= htmlspecialchars((string) $occurrence['commentaire'], ENT_QUOTES, 'UTF-8') ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                    <a class="text-sm font-semibold text-sky-700 underline" href="/index.php?controller=verifications&action=show&id=<?= (int) ($occurrence['verification_id'] ?? 0) ?>">Verification #<?= (int) ($occurrence['verification_id'] ?? 0) ?></a>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </details>
+                <?php endif; ?>
 
                 <?php if (($anomaly['commentaire'] ?? null) !== null && trim((string) $anomaly['commentaire']) !== ''): ?>
                     <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -203,6 +246,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </button>
                     <?php endif; ?>
                 </form>
+                </div>
             </article>
         <?php endforeach; ?>
     <?php endif; ?>

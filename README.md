@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.2.1` (voir fichier `VERSION`).
+Version courante: `v1.4.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -39,7 +39,9 @@ VerifApp permet de:
     - valeur mesuree avec seuils min/max
 - Anomalies:
   - creation automatique en cas de `nok`
-  - assignation et suivi
+  - regroupement des remontees identiques en occurrences
+  - vue compacte, assignation, priorite, statut et historique terrain
+  - email detaille avec engin, declarant et controles non conformes
 - Historique:
   - filtres multi-criteres
   - detail verification
@@ -55,6 +57,8 @@ VerifApp permet de:
   - vehicules, zones, sous-zones
   - materiel configure par engin
   - recherche instantanee du materiel + filtre par zone dans la fiche engin
+  - activation des verifications engin par engin
+  - ordre des zones par glisser-deposer
 - Module pharmacie invite (QR) pour sorties de stock.
 - Module inventaire pharmacie (BO + terrain mobile via QR dedie).
 - Sorties pharmacie:
@@ -62,6 +66,8 @@ VerifApp permet de:
   - synthese depuis la derniere commande
   - marquage `commande passee`
 - Roles et acces configurables.
+- Groupes de notifications independants des roles.
+- Audit des ouvertures QR verification, pharmacie et inventaire.
 - Multi-caserne dans une seule instance.
 
 ## Architecture technique
@@ -160,7 +166,7 @@ Reglages notables:
 - expiration session gestionnaire
 - generation QR invites
 - seuil horaire matin/soir des verifications mensuelles par caserne
-- notifications (cloche + email) par evenement et par role
+- notifications (cloche + email) par evenement, role, groupe et utilisateur
 
 Pharmacie (backoffice):
 - `stock`: `/index.php?controller=manager_pharmacy&action=index`
@@ -180,8 +186,20 @@ Notifications email (optionnel):
   - `NOTIFICATIONS_EMAIL_SMTP_USER`
   - `NOTIFICATIONS_EMAIL_SMTP_PASS`
   - `NOTIFICATIONS_EMAIL_SMTP_TIMEOUT` (3 a 60 sec)
-- configurer ensuite les preferences utilisateur dans `Mon compte` (cloche/email)
+- configurer ensuite les preferences utilisateur dans `Mon compte` (cloche/email); sans preference enregistree, un utilisateur explicitement cible accepte les deux canaux actifs
+- creer si besoin des groupes independants des roles dans `Administration -> Parametres notifications`
 - utiliser le bouton `Envoyer email de test` dans `Administration -> Parametres application`
+
+## Preparation et activation des engins
+- Un engin nouvellement cree est exclu des verifications par defaut, afin de permettre la saisie de ses zones et de son materiel.
+- L activation se fait depuis sa fiche avec `Inclure cet engin dans les verifications`.
+- Un engin exclu n apparait pas sur le formulaire terrain et ne compte pas dans les postes attendus de la vue mensuelle.
+- L ordre des zones d un meme niveau peut etre modifie avec la poignee de glisser-deposer.
+
+## Audit des QR Codes
+- Les ouvertures des QR verification, sortie pharmacie et inventaire sont visibles dans `Administration -> Audit securite`.
+- La trace contient l heure, le module, l engin eventuel, l identite lorsqu elle est connue, l IP et le navigateur.
+- Seule une empreinte du token est conservee; le token QR n est jamais stocke en clair dans le journal.
 
 ## Vue mensuelle des verifications
 URL:
@@ -204,7 +222,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 0.17.0`
+  - `./scripts/release.ps1 -Version 1.4.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -235,6 +253,18 @@ Comportement:
 - vue mensuelle
 - page parametres application
 - acces QR verification + pharmacie
+- creation d une anomalie NOK et reception de l email detaille
+- audit QR avec la bonne caserne
+
+### Mise a niveau vers v1.4.0
+- La migration `040_prepare_v14_features.sql` est obligatoire.
+- Elle ajoute:
+  - l activation des verifications par engin
+  - les occurrences d anomalies
+  - les groupes de notifications
+  - le journal des ouvertures QR
+- Les engins existants restent inclus dans les verifications.
+- Les nouveaux engins sont crees hors verification jusqu a leur activation depuis leur fiche.
 
 ## Depannage
 ### Echec generation QR
@@ -260,3 +290,4 @@ Comportement:
 - Guide utilisateur: `docs/USER_GUIDE.md`
 - Runbook incident: `docs/RUNBOOK_INCIDENT.md`
 - Onboarding nouvelle caserne: `docs/ONBOARDING_CASERNE.md`
+- Roadmap: `docs/ROADMAP.md`

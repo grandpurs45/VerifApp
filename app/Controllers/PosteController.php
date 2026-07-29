@@ -21,7 +21,7 @@ final class PosteController
         $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
         $postes = [];
 
-        if ($vehicle !== null) {
+        if ($vehicle !== null && (int) ($vehicle['actif'] ?? 0) === 1 && (int) ($vehicle['verification_active'] ?? 0) === 1) {
             $postes = $posteRepository->findByVehicleId($vehicleId, $caserneId);
             $postes = array_values(array_filter(
                 $postes,

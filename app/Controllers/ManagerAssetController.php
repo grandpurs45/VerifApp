@@ -10,6 +10,7 @@ use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
 use App\Repositories\NotificationRepository;
+use App\Repositories\NotificationGroupRepository;
 use App\Repositories\PosteRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\TypeVehiculeRepository;
@@ -219,6 +220,8 @@ final class ManagerAssetController
         }
         $userRepository = new UserRepository();
         $notificationUsers = $userRepository->findAllActiveForCaserne($caserneId);
+        $notificationGroupRepository = new NotificationGroupRepository();
+        $notificationGroups = $notificationGroupRepository->findAll($caserneId);
         $managerUser = $_SESSION['manager_user'] ?? null;
         $flash = [
             'success' => isset($_GET['success']) ? (string) $_GET['success'] : '',
@@ -251,6 +254,9 @@ final class ManagerAssetController
             : [];
         $selectedUsers = is_array($_POST['routing_users'] ?? null)
             ? array_values(array_map('intval', $_POST['routing_users']))
+            : [];
+        $selectedGroups = is_array($_POST['routing_groups'] ?? null)
+            ? array_values(array_map('intval', $_POST['routing_groups']))
             : [];
 
         if ($mode === 'custom') {
@@ -287,7 +293,17 @@ final class ManagerAssetController
                 static fn (int $userId): bool => isset($allowedUsers[$userId])
             ));
 
-            if ($selectedRoles === [] && $selectedUsers === []) {
+            $allowedGroupIds = [];
+            $groupRepository = new NotificationGroupRepository();
+            foreach ($groupRepository->findAll($caserneId) as $group) {
+                $allowedGroupIds[(int) ($group['id'] ?? 0)] = true;
+            }
+            $selectedGroups = array_values(array_filter(
+                $selectedGroups,
+                static fn (int $groupId): bool => isset($allowedGroupIds[$groupId])
+            ));
+
+            if ($selectedRoles === [] && $selectedUsers === [] && $selectedGroups === []) {
                 $this->redirect(
                     '/index.php?controller=manager_assets&action=vehicle_detail&id=' . $vehicleId . '&error=anomaly_routing_empty'
                 );
@@ -300,7 +316,8 @@ final class ManagerAssetController
             $vehicleId,
             $mode,
             $selectedRoles,
-            $selectedUsers
+            $selectedUsers,
+            $selectedGroups
         );
 
         $this->redirect(
@@ -459,6 +476,7 @@ final class ManagerAssetController
         $typeVehiculeId = isset($_POST['type_vehicule_id']) ? (int) $_POST['type_vehicule_id'] : 0;
         $indicatif = $this->normalizeVehicleIndicatif((string) ($_POST['indicatif'] ?? ''));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
+        $verificationActive = isset($_POST['verification_active']) && (string) $_POST['verification_active'] === '1';
 
         if ($indicatif === '' || $typeVehiculeId <= 0) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
@@ -482,11 +500,11 @@ final class ManagerAssetController
 
         try {
             if ($id > 0) {
-                $vehicleRepository->update($id, $name, $typeVehiculeId, $active, $caserneId);
+                $vehicleRepository->update($id, $name, $typeVehiculeId, $active, $caserneId, $verificationActive);
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_updated');
             }
 
-            $vehicleRepository->create($name, $typeVehiculeId, $active, $caserneId);
+            $vehicleRepository->create($name, $typeVehiculeId, $active, $caserneId, $verificationActive);
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
@@ -592,7 +610,8 @@ final class ManagerAssetController
                 $newVehicleName,
                 $typeVehiculeId,
                 (int) ($sourceVehicle['actif'] ?? 1) === 1,
-                $caserneId
+                $caserneId,
+                false
             );
 
             if ($createdId === null) {
@@ -1069,9 +1088,35 @@ final class ManagerAssetController
         return (float) $value;
     }
 
+    public function zoneOrderSave(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['ok' => false], 405);
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        $vehicleId = (int) ($_POST['vehicle_id'] ?? 0);
+        $parentIdRaw = trim((string) ($_POST['parent_id'] ?? ''));
+        $parentId = $parentIdRaw !== '' ? (int) $parentIdRaw : null;
+        $orderedIdsRaw = trim((string) ($_POST['ordered_ids'] ?? ''));
+        $orderedIds = $orderedIdsRaw === '' ? [] : explode(',', $orderedIdsRaw);
+        $repository = new ZoneRepository();
+        $ok = $caserneId !== null && $repository->reorderSiblings($vehicleId, $parentId, $orderedIds, $caserneId);
+
+        $this->json(['ok' => $ok], $ok ? 200 : 400);
+    }
+
     private function redirect(string $location): void
     {
         header('Location: ' . $location);
+        exit;
+    }
+
+    private function json(array $payload, int $statusCode = 200): never
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_THROW_ON_ERROR);
         exit;
     }
 

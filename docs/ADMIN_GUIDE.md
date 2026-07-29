@@ -1,4 +1,4 @@
-# Guide Admin VerifApp (v1)
+# Guide Admin VerifApp (v1.4)
 
 Ce guide cible les administrateurs plateforme et caserne.
 
@@ -28,8 +28,10 @@ Ce guide cible les administrateurs plateforme et caserne.
   - statistiques
 - Administration:
   - parametres application
+  - parametres et groupes de notifications
   - roles et acces
   - utilisateurs
+  - audit connexions et ouvertures QR
 
 ## 3. Parametres application
 Page: `Administration > Parametres application`
@@ -42,6 +44,8 @@ Principaux reglages:
 - Notifications:
   - in-app
   - email (mail()/SMTP)
+  - groupes de destinataires independants des roles
+  - ciblage general ou specifique par engin
 - Regles UX terrain (densite, brouillons, scroll champs manquants).
 - Reglages QR (generation/regeneration + messages impression).
 
@@ -61,6 +65,8 @@ Actions disponibles:
 - activation/desactivation
 - suppression (avec confirmation forte)
 - actions bulk (activation/desactivation/reset MDP)
+
+En cas d erreur a la creation, les champs non sensibles sont conserves et les erreurs sont affichees sous les champs concernes.
 
 ## 5. Gestion roles et permissions
 Page: `Administration > Roles et acces`
@@ -86,15 +92,35 @@ Permissions critiques:
 - regeneration:
   - invalide les anciens QR/lien
   - reimprimer les affiches apres regeneration
+- audit:
+  - ouvrir `Administration > Audit securite`
+  - verifier le compteur du journal QR et la caserne de chaque trace
+  - les tokens ne sont jamais stockes en clair, uniquement leur empreinte
 
-## 7. Securite operationnelle
+## 7. Notifications et anomalies
+- Un role controle les permissions applicatives.
+- Un groupe de notifications controle uniquement les destinataires des alertes.
+- Un utilisateur peut appartenir a plusieurs groupes de notifications.
+- Le ciblage d un engin surcharge la regle generale pour les anomalies de cet engin.
+- Une anomalie active identique n est pas dupliquee: une occurrence terrain est ajoutee.
+- Apres resolution, une nouvelle non-conformite peut creer une nouvelle anomalie.
+- Les emails d anomalies indiquent l engin, le poste, le declarant et les controles NOK.
+
+## 8. Preparation des engins
+- Un nouvel engin est exclu des verifications par defaut.
+- Saisir ses postes, zones et controles avant de l activer.
+- Activer `Inclure cet engin dans les verifications` depuis sa fiche.
+- Un engin exclu ne figure pas sur le formulaire mobile et ne compte pas dans les objectifs journaliers.
+- Reordonner les zones d un meme niveau avec la poignee de glisser-deposer.
+
+## 9. Securite operationnelle
 - garder `Mode debug` desactive en prod.
 - forcer des mots de passe robustes.
 - surveiller `Audit securite` regulierement.
 - exporter les logs connexions pour revue periodique.
 - limiter les comptes admin plateforme.
 
-## 8. Backup / restore admin
+## 10. Backup / restore admin
 Depuis la racine projet:
 
 ```bash
@@ -108,9 +134,10 @@ Avec restauration `.env`:
 php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore-env
 ```
 
-## 9. Checklist admin hebdo
+## 11. Checklist admin hebdo
 - verifier anomalies ouvertes.
 - verifier alertes stock pharmacie.
 - verifier sorties non acquittees.
 - verifier audit connexions (echecs/verrouillages).
+- verifier le journal des ouvertures QR.
 - verifier presence d au moins 1 backup recent.

@@ -11,6 +11,7 @@ use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
 use App\Repositories\LoginEventRepository;
 use App\Repositories\NotificationRepository;
+use App\Repositories\QrAccessLogRepository;
 use App\Repositories\UserRepository;
 use Throwable;
 
@@ -188,6 +189,10 @@ final class ManagerAdminController
 
         $repository = new LoginEventRepository();
         $events = $repository->findAll($filters, $scopeCaserneId, 400);
+        $qrAccessRepository = new QrAccessLogRepository();
+        $qrAccessAvailable = $qrAccessRepository->isAvailable();
+        $qrAccesses = $qrAccessAvailable ? $qrAccessRepository->findRecent($scopeCaserneId, 300) : [];
+        $qrAccessError = $qrAccessRepository->getLastError();
 
         $casernes = [];
         if ($isPlatformAdmin) {

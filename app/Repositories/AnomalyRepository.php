@@ -12,6 +12,7 @@ final class AnomalyRepository
 {
     private ?bool $tableExists = null;
     private ?bool $assigneeColumnExists = null;
+    private ?bool $occurrencesTableExists = null;
 
     public function isAvailable(): bool
     {
@@ -81,6 +82,10 @@ final class AnomalyRepository
             ? 'a.assigne_a, COALESCE(ua.nom, ua.email) AS assigne_nom'
             : 'NULL AS assigne_a, NULL AS assigne_nom';
         $assigneeJoin = $this->hasAssigneeColumn() ? 'LEFT JOIN utilisateurs ua ON ua.id = a.assigne_a' : '';
+        $occurrenceSelect = $this->hasOccurrencesTable()
+            ? '(SELECT COUNT(*) FROM anomaly_occurrences aoc WHERE aoc.anomalie_id = a.id) AS occurrence_count,
+               (SELECT MAX(aol.date_remontee) FROM anomaly_occurrences aol WHERE aol.anomalie_id = a.id) AS last_report_at'
+            : '1 AS occurrence_count, a.date_creation AS last_report_at';
 
         $sql = '
             SELECT
@@ -92,6 +97,7 @@ final class AnomalyRepository
                 a.commentaire,
                 a.date_creation,
                 a.date_resolution,
+                ' . $occurrenceSelect . ',
                 v.id AS verification_id,
                 v.date_heure AS verification_date,
                 v.agent AS verification_agent,
@@ -124,6 +130,50 @@ final class AnomalyRepository
         $statement->execute($params);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function findOccurrencesByAnomalyIds(array $anomalyIds, ?int $caserneId = null): array
+    {
+        $anomalyIds = array_values(array_unique(array_filter(array_map('intval', $anomalyIds))));
+        if (!$this->hasOccurrencesTable() || $anomalyIds === []) {
+            return [];
+        }
+
+        $params = [];
+        $placeholders = [];
+        foreach ($anomalyIds as $index => $anomalyId) {
+            $key = 'anomaly_' . $index;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $anomalyId;
+        }
+        if ($caserneId !== null) {
+            $params['caserne_id'] = $caserneId;
+        }
+
+        $statement = Database::getConnection()->prepare('
+            SELECT
+                ao.anomalie_id,
+                ao.date_remontee,
+                v.id AS verification_id,
+                v.agent,
+                vl.commentaire,
+                vl.valeur_saisie,
+                vl.resultat
+            FROM anomaly_occurrences ao
+            INNER JOIN verification_lignes vl ON vl.id = ao.verification_ligne_id
+            INNER JOIN verifications v ON v.id = vl.verification_id
+            WHERE ao.anomalie_id IN (' . implode(',', $placeholders) . ')
+              ' . ($caserneId !== null ? 'AND v.caserne_id = :caserne_id' : '') . '
+            ORDER BY ao.date_remontee DESC, ao.id DESC
+        ');
+        $statement->execute($params);
+
+        $grouped = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $grouped[(int) $row['anomalie_id']][] = $row;
+        }
+
+        return $grouped;
     }
 
     public function updateStatus(int $anomalyId, string $status, string $priority, ?string $comment, ?int $assigneeId, ?int $caserneId = null): bool
@@ -319,5 +369,21 @@ final class AnomalyRepository
         }
 
         return $this->assigneeColumnExists;
+    }
+
+    private function hasOccurrencesTable(): bool
+    {
+        if ($this->occurrencesTableExists !== null) {
+            return $this->occurrencesTableExists;
+        }
+
+        try {
+            $statement = Database::getConnection()->query("SHOW TABLES LIKE 'anomaly_occurrences'");
+            $this->occurrencesTableExists = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (PDOException) {
+            $this->occurrencesTableExists = false;
+        }
+
+        return $this->occurrencesTableExists;
     }
 }

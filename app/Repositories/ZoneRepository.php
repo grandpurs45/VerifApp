@@ -7,6 +7,7 @@ namespace App\Repositories;
 use App\Core\Database;
 use PDO;
 use PDOException;
+use Throwable;
 
 final class ZoneRepository
 {
@@ -234,6 +235,61 @@ final class ZoneRepository
         $statement = $connection->prepare('DELETE FROM zones WHERE id = :id AND caserne_id = :caserne_id');
 
         return $statement->execute(['id' => $id, 'caserne_id' => $caserneId]);
+    }
+
+    public function reorderSiblings(int $vehicleId, ?int $parentId, array $orderedIds, int $caserneId): bool
+    {
+        $orderedIds = array_values(array_unique(array_filter(array_map('intval', $orderedIds))));
+        if (!$this->hasTable() || !$this->hasOrderColumn() || $vehicleId <= 0 || $caserneId <= 0 || $orderedIds === []) {
+            return false;
+        }
+
+        $connection = Database::getConnection();
+        $parentSql = $parentId !== null && $parentId > 0 ? 'parent_id = :parent_id' : 'parent_id IS NULL';
+        $params = ['vehicule_id' => $vehicleId, 'caserne_id' => $caserneId];
+        if ($parentId !== null && $parentId > 0) {
+            $params['parent_id'] = $parentId;
+        }
+        $lookup = $connection->prepare('
+            SELECT id FROM zones
+            WHERE vehicule_id = :vehicule_id
+              AND caserne_id = :caserne_id
+              AND ' . $parentSql . '
+            ORDER BY ordre, nom
+        ');
+        $lookup->execute($params);
+        $actualIds = array_map('intval', $lookup->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        $expected = $actualIds;
+        $received = $orderedIds;
+        sort($expected);
+        sort($received);
+        if ($expected !== $received) {
+            return false;
+        }
+
+        try {
+            $connection->beginTransaction();
+            $update = $connection->prepare('
+                UPDATE zones
+                SET ordre = :ordre
+                WHERE id = :id AND vehicule_id = :vehicule_id AND caserne_id = :caserne_id
+            ');
+            foreach ($orderedIds as $index => $zoneId) {
+                $update->execute([
+                    'ordre' => ($index + 1) * 10,
+                    'id' => $zoneId,
+                    'vehicule_id' => $vehicleId,
+                    'caserne_id' => $caserneId,
+                ]);
+            }
+            $connection->commit();
+            return true;
+        } catch (Throwable) {
+            if ($connection->inTransaction()) {
+                $connection->rollBack();
+            }
+            return false;
+        }
     }
 
     public function belongsToVehicle(int $zoneId, int $vehicleId, ?int $caserneId = null): bool

@@ -35,6 +35,13 @@ if (!empty($passwordPolicy['require_special'])) {
     $passwordRules[] = 'caractere special';
 }
 $passwordRulesText = $passwordRules !== [] ? implode(', ', $passwordRules) : 'regles minimales';
+$createValues = is_array($createFormState['values'] ?? null) ? $createFormState['values'] : [];
+$createErrors = is_array($createFormState['errors'] ?? null) ? $createFormState['errors'] : [];
+$createCaserneEnabled = is_array($createValues['caserne_enabled'] ?? null) ? $createValues['caserne_enabled'] : [];
+$createCaserneRoles = is_array($createValues['caserne_roles'] ?? null) ? $createValues['caserne_roles'] : [];
+$fieldClass = static fn (string $field): string => isset($createErrors[$field])
+    ? 'border-red-400 bg-red-50 focus:border-red-500'
+    : 'border-slate-300';
 
 $pageTitle = 'Utilisateurs - VerifApp';
 $pageHeading = 'Utilisateurs';
@@ -80,19 +87,43 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <h2 class="text-xl font-bold">Creer un utilisateur</h2>
-    <form id="create-user-form" method="post" action="/index.php?controller=manager_users&action=save" class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2">
+    <p class="mt-1 text-sm text-slate-600">Renseigne l identite, puis les acces par caserne. Les valeurs sont conservees en cas d erreur.</p>
+    <form id="create-user-form" method="post" action="/index.php?controller=manager_users&action=save" class="mt-5 space-y-5">
         <input type="hidden" name="id" value="0">
-        <input type="text" name="nom" required placeholder="Nom" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <input type="text" name="prenom" required placeholder="Prenom" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <input id="create-login" type="text" name="login" placeholder="Login genere" pattern="[a-z0-9._-]{3,80}" readonly class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm md:col-span-2">
-        <input type="email" name="email" required placeholder="email@exemple.fr" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <?php foreach (['nom' => 'Nom', 'prenom' => 'Prenom'] as $field => $label): ?>
+                <label>
+                    <span class="text-sm font-semibold text-slate-800"><?= $label ?></span>
+                    <input type="text" name="<?= $field ?>" required value="<?= htmlspecialchars((string) ($createValues[$field] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-xl border px-3 py-2 text-sm <?= $fieldClass($field) ?>">
+                    <?php if (isset($createErrors[$field])): ?><span class="mt-1 block text-xs font-semibold text-red-600"><?= htmlspecialchars((string) $createErrors[$field], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+                </label>
+            <?php endforeach; ?>
+            <label>
+                <span class="text-sm font-semibold text-slate-800">Email</span>
+                <input type="email" name="email" required value="<?= htmlspecialchars((string) ($createValues['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="email@exemple.fr" class="mt-1 w-full rounded-xl border px-3 py-2 text-sm <?= $fieldClass('email') ?>">
+                <?php if (isset($createErrors['email'])): ?><span class="mt-1 block text-xs font-semibold text-red-600"><?= htmlspecialchars((string) $createErrors['email'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+            </label>
+            <label>
+                <span class="text-sm font-semibold text-slate-800">Login</span>
+                <input id="create-login" type="text" name="login" value="<?= htmlspecialchars((string) ($createValues['login'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Genere depuis le nom" pattern="[a-z0-9._-]{3,80}" readonly class="mt-1 w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm <?= $fieldClass('login') ?>">
+                <?php if (isset($createErrors['login'])): ?><span class="mt-1 block text-xs font-semibold text-red-600"><?= htmlspecialchars((string) $createErrors['login'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+            </label>
+            <label>
+                <span class="text-sm font-semibold text-slate-800">Mot de passe initial</span>
+                <input type="password" name="password" required minlength="<?= $passwordMinLength ?>" placeholder="<?= $passwordMinLength ?> caracteres minimum" class="mt-1 w-full rounded-xl border px-3 py-2 text-sm <?= $fieldClass('password') ?>">
+                <span class="mt-1 block text-xs text-slate-500"><?= htmlspecialchars($passwordRulesText, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php if (isset($createErrors['password'])): ?><span class="mt-1 block text-xs font-semibold text-red-600"><?= htmlspecialchars((string) $createErrors['password'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+            </label>
+            <label>
+                <span class="text-sm font-semibold text-slate-800">Etat du compte</span>
+                <select name="actif" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <option value="1" <?= (string) ($createValues['actif'] ?? '1') === '1' ? 'selected' : '' ?>>Actif</option>
+                    <option value="0" <?= (string) ($createValues['actif'] ?? '1') === '0' ? 'selected' : '' ?>>Inactif</option>
+                </select>
+            </label>
+        </div>
         <input type="hidden" name="role" value="<?= htmlspecialchars($defaultRoleCode, ENT_QUOTES, 'UTF-8') ?>">
-        <input type="password" name="password" required minlength="<?= $passwordMinLength ?>" placeholder="Mot de passe" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-1">
-            <option value="1">Actif</option>
-            <option value="0">Inactif</option>
-        </select>
-        <div class="md:col-span-12 rounded-xl border border-slate-200 p-3">
+        <div class="rounded-xl border <?= isset($createErrors['casernes']) ? 'border-red-400 bg-red-50' : 'border-slate-200' ?> p-4">
             <?php if (!$isPlatformAdmin && count($casernes) === 1): ?>
                 <?php $singleCaserne = $casernes[0]; $singleCaserneId = (int) ($singleCaserne['id'] ?? 0); ?>
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Affectation caserne</p>
@@ -103,7 +134,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     </div>
                     <select name="caserne_roles[<?= $singleCaserneId ?>]" class="md:col-span-7 rounded-xl border border-slate-300 px-3 py-2 text-sm create-caserne-role">
                         <?php foreach ($roleOptions as $code => $label): ?>
-                            <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === $defaultRoleCode ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === (string) ($createCaserneRoles[$singleCaserneId] ?? $defaultRoleCode) ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -117,23 +148,24 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <?php $caserneId = (int) ($caserne['id'] ?? 0); ?>
                         <div class="create-caserne-row grid grid-cols-1 md:grid-cols-12 gap-2 items-center" data-caserne-name="<?= htmlspecialchars(mb_strtolower((string) ($caserne['nom'] ?? ''), 'UTF-8'), ENT_QUOTES, 'UTF-8') ?>">
                             <label class="md:col-span-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                <input type="checkbox" name="caserne_enabled[<?= $caserneId ?>]" value="1" class="h-4 w-4 rounded border-slate-300 create-caserne-check">
+                                <input type="checkbox" name="caserne_enabled[<?= $caserneId ?>]" value="1" class="h-4 w-4 rounded border-slate-300 create-caserne-check" <?= isset($createCaserneEnabled[$caserneId]) ? 'checked' : '' ?>>
                                 <?= htmlspecialchars((string) ($caserne['nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                             </label>
                             <select name="caserne_roles[<?= $caserneId ?>]" class="md:col-span-7 rounded-xl border border-slate-300 px-3 py-2 text-sm create-caserne-role">
                                 <?php foreach ($roleOptions as $code => $label): ?>
-                                    <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === $defaultRoleCode ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>" <?= $code === (string) ($createCaserneRoles[$caserneId] ?? $defaultRoleCode) ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+            <?php if (isset($createErrors['casernes'])): ?><p class="mt-2 text-xs font-semibold text-red-600"><?= htmlspecialchars((string) $createErrors['casernes'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </div>
         <?php if (!$isPlatformAdmin): ?>
             <p class="md:col-span-12 text-xs text-slate-500">Role admin plateforme masque pour ce compte.</p>
         <?php endif; ?>
-        <button type="submit" class="md:col-span-12 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Creer utilisateur</button>
+        <button type="submit" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white md:w-auto">Creer utilisateur</button>
     </form>
 </section>
 
@@ -324,7 +356,6 @@ document.addEventListener('DOMContentLoaded', function () {
     bindAdminAutoSelect('.create-caserne-role', '.create-caserne-check');
     bindAdminAutoSelect('.edit-caserne-role', '.edit-caserne-check');
 
-    const createForm = document.getElementById('create-user-form');
     if (createForm) {
         createForm.addEventListener('submit', function (event) {
             const checks = Array.from(createForm.querySelectorAll('.create-caserne-check'));

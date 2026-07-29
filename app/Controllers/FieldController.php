@@ -8,6 +8,7 @@ use App\Core\Env;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\CaserneRepository;
 use App\Repositories\VehicleRepository;
+use App\Repositories\QrAccessLogRepository;
 
 final class FieldController
 {
@@ -27,6 +28,7 @@ final class FieldController
             if (hash_equals($vehicleToken, $providedToken)) {
                 $_SESSION['field_access'] = true;
                 $this->storeFieldCaserneContext($caserneId);
+                (new QrAccessLogRepository())->logOpen($caserneId, 'verifications', $vehicleId, $providedToken);
                 $this->redirectFieldEntry($caserneId, $vehicleId);
             }
 
@@ -36,6 +38,7 @@ final class FieldController
         if ($configuredToken === '') {
             $_SESSION['field_access'] = true;
             $this->storeFieldCaserneContext($caserneId);
+            (new QrAccessLogRepository())->logOpen($caserneId, 'verifications', $vehicleId > 0 ? $vehicleId : null, '');
             $this->redirectFieldEntry($caserneId, $vehicleId);
         }
 
@@ -46,6 +49,7 @@ final class FieldController
         if (hash_equals($configuredToken, $providedToken)) {
             $_SESSION['field_access'] = true;
             $this->storeFieldCaserneContext($caserneId);
+            (new QrAccessLogRepository())->logOpen($caserneId, 'verifications', $vehicleId > 0 ? $vehicleId : null, $providedToken);
             $this->redirectFieldEntry($caserneId, $vehicleId);
         }
 
@@ -122,7 +126,11 @@ final class FieldController
         if ($vehicleId > 0 && $caserneId > 0) {
             $vehicleRepository = new VehicleRepository();
             $vehicle = $vehicleRepository->findById($vehicleId, $caserneId);
-            if ($vehicle !== null && (int) ($vehicle['actif'] ?? 0) === 1) {
+            if (
+                $vehicle !== null
+                && (int) ($vehicle['actif'] ?? 0) === 1
+                && (int) ($vehicle['verification_active'] ?? 0) === 1
+            ) {
                 $this->redirect('/index.php?controller=postes&action=list&vehicle_id=' . $vehicleId . '&from_vehicle_qr=1');
             }
         }

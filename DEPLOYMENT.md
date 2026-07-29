@@ -3,7 +3,7 @@
 Ce guide vise un deploiement simple de VerifApp sur serveur PHP + MySQL/MariaDB.
 
 ## Prerequis
-- PHP 8.1+
+- PHP 8.2+
 - Extension PDO MySQL activee
 - MySQL/MariaDB
 - Acces SSH/SFTP au serveur
@@ -41,6 +41,17 @@ php scripts/migrate.php
 
 Le script applique automatiquement les migrations non executees et garde l'historique dans `schema_migrations`.
 
+### Upgrade v1.4.0
+La migration `040_prepare_v14_features.sql` doit apparaitre avec le statut `OK` lors de la premiere mise a niveau.
+
+Elle cree:
+- `anomaly_occurrences`
+- `notification_groups`
+- `notification_group_members`
+- `qr_access_logs`
+
+Elle ajoute aussi `vehicules.verification_active`. Les engins existants restent actifs; les engins crees apres la mise a niveau doivent etre explicitement inclus dans les verifications depuis leur fiche.
+
 ## 4bis) Backup avant upgrade (recommande)
 Creer un backup complet (data + conf):
 
@@ -64,6 +75,11 @@ Uniquement en environnement de test/demo.
 - Reponse JSON attendue:
   - `status: ok`
   - `db: ok`
+- Tester ensuite:
+  - une ouverture QR et sa presence dans `Administration > Audit securite`
+  - une verification NOK et l email detaille d anomalie
+  - l activation/desactivation d un engin de test
+  - la lecture de l historique des occurrences d une anomalie
 
 ## 6bis) Premiere connexion gestionnaire
 - Compte par defaut cree par migration:

@@ -1,4 +1,4 @@
-# Guide Utilisateur VerifApp (v1)
+# Guide Utilisateur VerifApp (v1.4)
 
 Ce guide couvre l usage quotidien terrain et backoffice non admin.
 
@@ -16,8 +16,11 @@ Ce guide couvre l usage quotidien terrain et backoffice non admin.
 Etapes:
 1. Scanner QR officiel de la caserne (ou QR vehicule).
 2. Choisir vehicule puis poste (si non preselectionne).
-3. Renseigner tous les controles.
-4. Enregistrer la verification.
+3. Renseigner son nom et choisir une garde de 12 h ou 24 h.
+4. Renseigner tous les controles.
+5. Enregistrer la verification.
+
+Une garde de 24 h couvre les creneaux matin et soir de la journee.
 
 Types de reponses possibles:
 - Presence: `Present` / `Manquant`
@@ -57,7 +60,9 @@ Etapes:
 - la caserne active est visible dans la barre laterale.
 
 ## 6. Anomalies
-- creer automatiquement si controle NOK.
+- creation automatique si controle NOK.
+- une nouvelle remontee identique alimente l anomalie active existante.
+- le nombre et l historique des occurrences sont consultables dans le detail.
 - assigner un responsable.
 - changer priorite/statut.
 - commenter le suivi.

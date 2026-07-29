@@ -22,7 +22,7 @@ final class HomeController
     {
         $vehicleRepository = new VehicleRepository();
         $caserneId = $this->resolveActiveCaserneId();
-        $vehicles = $vehicleRepository->findAllActive($caserneId);
+        $vehicles = $vehicleRepository->findAllVerificationEnabled($caserneId);
 
         require dirname(__DIR__, 2) . '/public/views/home.php';
     }

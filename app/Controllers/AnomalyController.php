@@ -33,6 +33,10 @@ final class AnomalyController
         ];
 
         $anomalies = $anomalyRepository->findAll($filters, $caserneId);
+        $occurrencesByAnomaly = $anomalyRepository->findOccurrencesByAnomalyIds(
+            array_map(static fn (array $anomaly): int => (int) ($anomaly['id'] ?? 0), $anomalies),
+            $caserneId
+        );
         $anomaliesAvailable = $anomalyRepository->isAvailable();
         $vehicles = $vehicleRepository->findAllActive($caserneId);
         $postes = $posteRepository->findAll($caserneId);
@@ -42,7 +46,7 @@ final class AnomalyController
             array_filter($filters, static fn ($value): bool => $value !== '')
         ));
 
-        require dirname(__DIR__, 2) . '/public/views/anomalies.php';
+        require dirname(__DIR__, 2) . '/public/views/anomalies_compact.php';
     }
 
     public function update(): void

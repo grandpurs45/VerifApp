@@ -99,7 +99,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <option value="1">Actif</option>
                     <option value="0">Inactif</option>
                 </select>
-                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter</button>
+                <select name="verification_active" class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-2">
+                    <option value="0">Verifications desactivees</option>
+                    <option value="1">Verifications actives</option>
+                </select>
+                <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-12 w-full">Ajouter</button>
             </form>
 
             <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -143,6 +147,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <input type="hidden" name="type_vehicule_id" id="selected-vehicle-type" value="">
                     <input type="hidden" name="indicatif" id="selected-vehicle-indicatif" value="">
                     <input type="hidden" name="actif" id="selected-vehicle-active" value="">
+                    <input type="hidden" name="verification_active" id="selected-vehicle-verification-active" value="">
                 </form>
             </div>
 
@@ -158,6 +163,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             <th class="px-3 py-2 text-left font-semibold">Materiels</th>
                             <th class="px-3 py-2 text-left font-semibold">QR engin</th>
                             <th class="px-3 py-2 text-left font-semibold">Etat</th>
+                            <th class="px-3 py-2 text-left font-semibold">Verifications</th>
                             <th class="px-3 py-2 text-left font-semibold">Actions rapides</th>
                         </tr>
                     </thead>
@@ -169,6 +175,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 data-vehicle-type-id="<?= (int) $vehicle['type_vehicule_id'] ?>"
                                 data-vehicle-indicatif="<?= htmlspecialchars((string) ($vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                 data-vehicle-active="<?= (int) $vehicle['actif'] ?>"
+                                data-vehicle-verification-active="<?= (int) ($vehicle['verification_active'] ?? 1) ?>"
                                 data-vehicle-zones-url="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= (int) $vehicle['id'] ?>">
                                 <td class="px-3 py-2">
                                     <input type="checkbox" data-vehicle-select class="h-4 w-4 rounded border-slate-300">
@@ -192,6 +199,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 <td class="px-3 py-2">
                                     <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold <?= (int) $vehicle['actif'] === 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700' ?>">
                                         <?= (int) $vehicle['actif'] === 1 ? 'Actif' : 'Inactif' ?>
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold <?= (int) ($vehicle['verification_active'] ?? 1) === 1 ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800' ?>">
+                                        <?= (int) ($vehicle['verification_active'] ?? 1) === 1 ? 'Incluses' : 'Hors service' ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-2">
@@ -270,6 +282,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             const selectedVehicleTypeInput = document.getElementById('selected-vehicle-type');
             const selectedVehicleIndicatifInput = document.getElementById('selected-vehicle-indicatif');
             const selectedVehicleActiveInput = document.getElementById('selected-vehicle-active');
+            const selectedVehicleVerificationActiveInput = document.getElementById('selected-vehicle-verification-active');
             const selectedVehicleConfigureLink = document.getElementById('selected-vehicle-configure-link');
             const vehicleActionActivate = document.getElementById('vehicle-action-activate');
             const vehicleActionDeactivate = document.getElementById('vehicle-action-deactivate');
@@ -322,6 +335,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     if (selectedVehicleIndicatifInput) selectedVehicleIndicatifInput.value = '';
                     if (selectedVehicleTypeInput) selectedVehicleTypeInput.value = '';
                     if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = '';
+                    if (selectedVehicleVerificationActiveInput) selectedVehicleVerificationActiveInput.value = '';
                     if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = '';
                     if (selectedVehicleConfigureLink) {
                         selectedVehicleConfigureLink.setAttribute('href', '#');
@@ -348,6 +362,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 const vehicleTypeId = selectedRow.dataset.vehicleTypeId || '';
                 const vehicleIndicatif = selectedRow.dataset.vehicleIndicatif || '';
                 const vehicleActive = selectedRow.dataset.vehicleActive || '1';
+                const vehicleVerificationActive = selectedRow.dataset.vehicleVerificationActive || '0';
                 const vehicleZonesUrl = selectedRow.dataset.vehicleZonesUrl || '#';
 
                 if (selectedVehicleIdInput) selectedVehicleIdInput.value = vehicleId;
@@ -355,6 +370,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 if (selectedVehicleTypeInput) selectedVehicleTypeInput.value = vehicleTypeId;
                 if (selectedVehicleIndicatifInput) selectedVehicleIndicatifInput.value = vehicleIndicatif;
                 if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = vehicleActive;
+                if (selectedVehicleVerificationActiveInput) selectedVehicleVerificationActiveInput.value = vehicleVerificationActive;
                 if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = vehicleId;
                 if (selectedVehicleConfigureLink) {
                     selectedVehicleConfigureLink.setAttribute('href', vehicleZonesUrl);

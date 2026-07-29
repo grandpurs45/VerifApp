@@ -197,9 +197,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </label>
         <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-2 w-full">Ajouter zone</button>
     </form>
-    <p class="mb-3 text-xs text-slate-500">Sous-zones illimitees: ex. Cellule &gt; Sac PS &gt; Sacoche rouge. Position terrain: plus le chiffre est petit, plus la zone apparait tot. Astuce: numerote de 10 en 10.</p>
+    <p class="mb-3 text-xs text-slate-500">Glisse la poignee pour reordonner les zones d un meme niveau. Le nouvel ordre est enregistre automatiquement.</p>
 
-    <div class="space-y-3">
+    <div class="space-y-3" data-zone-sortable data-parent-id="">
         <?php
         $renderZoneNode = function (array $zone, int $level) use (&$renderZoneNode, $zonesByParent, $zones, $vehicleId, $collectDescendants, $countSubtree): void {
             $zoneId = (int) ($zone['id'] ?? 0);
@@ -212,10 +212,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $excludedParentIds = array_merge([$zoneId], $collectDescendants($zoneId));
             $detailsOpen = '';
             ?>
-            <details class="rounded-xl border border-slate-200 bg-slate-50/70"<?= $detailsOpen ?>>
+            <details class="rounded-xl border border-slate-200 bg-slate-50/70" data-zone-item data-zone-id="<?= $zoneId ?>"<?= $detailsOpen ?>>
                 <summary class="list-none cursor-pointer px-3 py-2">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
+                            <span draggable="true" data-zone-drag-handle class="inline-flex h-7 w-7 cursor-grab items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600" title="Glisser pour reordonner" aria-label="Glisser pour reordonner">&#8942;&#8942;</span>
                             <span class="inline-flex rounded-full bg-slate-200 text-slate-700 px-2 py-0.5 text-xs font-semibold">N<?= $level + 1 ?></span>
                             <span class="inline-flex rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold" title="Position d affichage terrain">Pos. <?= $displayOrder ?></span>
                             <span class="text-sm font-semibold text-slate-900"><?= htmlspecialchars($zoneName, ENT_QUOTES, 'UTF-8') ?></span>
@@ -279,7 +280,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         </div>
                     </form>
                     <?php if ($children !== []): ?>
-                        <div class="mt-2 ml-2 border-l-2 border-slate-200 pl-2 space-y-2">
+                        <div class="mt-2 ml-2 border-l-2 border-slate-200 pl-2 space-y-2" data-zone-sortable data-parent-id="<?= $zoneId ?>">
                             <?php foreach ($children as $childZone): ?>
                                 <?php $renderZoneNode($childZone, $level + 1); ?>
                             <?php endforeach; ?>
@@ -944,6 +945,98 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 }
             });
         }
+
+        let draggedZoneItem = null;
+        let draggedZoneContainer = null;
+        document.querySelectorAll('[data-zone-drag-handle]').forEach(function (handle) {
+            handle.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            handle.addEventListener('dragstart', function (event) {
+                draggedZoneItem = handle.closest('[data-zone-item]');
+                draggedZoneContainer = draggedZoneItem ? draggedZoneItem.parentElement.closest('[data-zone-sortable]') : null;
+                if (!draggedZoneItem || !draggedZoneContainer) {
+                    event.preventDefault();
+                    return;
+                }
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', draggedZoneItem.getAttribute('data-zone-id') || '');
+                draggedZoneItem.classList.add('opacity-50');
+            });
+            handle.addEventListener('dragend', async function () {
+                if (!draggedZoneItem || !draggedZoneContainer) {
+                    return;
+                }
+                draggedZoneItem.classList.remove('opacity-50');
+                const orderedIds = Array.from(draggedZoneContainer.children)
+                    .filter(function (child) { return child.matches('[data-zone-item]'); })
+                    .map(function (child) { return child.getAttribute('data-zone-id') || ''; })
+                    .filter(Boolean);
+                const parentId = draggedZoneContainer.getAttribute('data-parent-id') || '';
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const body = new URLSearchParams({
+                    vehicle_id: '<?= $vehicleId ?>',
+                    parent_id: parentId,
+                    ordered_ids: orderedIds.join(','),
+                    _csrf_token: csrfToken
+                });
+                try {
+                    const response = await fetch('/index.php?controller=manager_assets&action=zone_order_save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: body.toString()
+                    });
+                    const payload = await response.json();
+                    if (!response.ok || !payload.ok) {
+                        throw new Error('save_failed');
+                    }
+                    Array.from(draggedZoneContainer.children)
+                        .filter(function (child) { return child.matches('[data-zone-item]'); })
+                        .forEach(function (item, index) {
+                            const badge = item.querySelector('summary [title="Position d affichage terrain"]');
+                            if (badge) {
+                                badge.textContent = 'Pos. ' + String((index + 1) * 10);
+                            }
+                            const input = item.querySelector(':scope > div input[name="ordre"]');
+                            if (input) {
+                                input.value = String((index + 1) * 10);
+                            }
+                        });
+                } catch (error) {
+                    window.alert('Impossible d enregistrer le nouvel ordre des zones.');
+                    window.location.reload();
+                } finally {
+                    draggedZoneItem = null;
+                    draggedZoneContainer = null;
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-zone-sortable]').forEach(function (container) {
+            container.addEventListener('dragover', function (event) {
+                if (!draggedZoneItem || draggedZoneContainer !== container) {
+                    return;
+                }
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                const candidates = Array.from(container.children).filter(function (child) {
+                    return child.matches('[data-zone-item]') && child !== draggedZoneItem;
+                });
+                const next = candidates.find(function (candidate) {
+                    const box = candidate.getBoundingClientRect();
+                    return event.clientY < box.top + (box.height / 2);
+                });
+                if (next) {
+                    container.insertBefore(draggedZoneItem, next);
+                } else {
+                    container.appendChild(draggedZoneItem);
+                }
+            });
+        });
     })();
 </script>
 
