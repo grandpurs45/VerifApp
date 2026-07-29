@@ -80,6 +80,7 @@ final class ManagerNotificationController
         $caserneId = $this->resolveManagerCaserneId();
         $repository = new NotificationRepository();
         $notificationSettings = $repository->readAdminSettings($caserneId);
+        $anomalyReminderInterval = $repository->readAnomalyReminderInterval($caserneId);
         $channels = [
             'in_app_enabled' => true,
             'email_enabled' => false,
@@ -140,6 +141,10 @@ final class ManagerNotificationController
         }
         $inAppEnabled = isset($_POST['channel_in_app_enabled']) && (string) $_POST['channel_in_app_enabled'] === '1';
         $emailEnabled = isset($_POST['channel_email_enabled']) && (string) $_POST['channel_email_enabled'] === '1';
+        $anomalyReminderInterval = (int) ($_POST['anomaly_reminder_occurrence_interval'] ?? 3);
+        if ($anomalyReminderInterval < 2 || $anomalyReminderInterval > 100) {
+            $this->redirect('/index.php?controller=manager_notifications&action=settings&error=invalid_reminder_interval');
+        }
 
         $repository = new NotificationRepository();
         $ok = $repository->saveAdminSettings(
@@ -151,6 +156,9 @@ final class ManagerNotificationController
             $usersByEvent,
             $groupsByEvent
         );
+        if ($ok) {
+            $ok = $repository->saveAnomalyReminderInterval($caserneId, $anomalyReminderInterval);
+        }
 
         $this->redirect('/index.php?controller=manager_notifications&action=settings' . ($ok ? '&success=saved' : '&error=save'));
     }

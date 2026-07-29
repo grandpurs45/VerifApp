@@ -23,6 +23,7 @@ $vehicleId = (int) ($vehicle['id'] ?? 0);
 $vehicleType = (string) ($vehicle['type_vehicule'] ?? '');
 $vehicleStatus = ((int) ($vehicle['actif'] ?? 0) === 1) ? 'Actif' : 'Inactif';
 $verificationEnabled = (int) ($vehicle['verification_active'] ?? 0) === 1;
+$verificationFrequency = (string) ($vehicle['verification_frequency'] ?? 'daily');
 $anomalyRoutingMode = ($vehicleAnomalyRouting['mode'] ?? 'default') === 'custom' ? 'custom' : 'default';
 $selectedAnomalyRoles = is_array($vehicleAnomalyRouting['roles'] ?? null)
     ? array_map('strval', $vehicleAnomalyRouting['roles'])
@@ -86,20 +87,30 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </span>
         <a href="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= $vehicleId ?>" class="ml-2 inline-flex rounded-xl border border-slate-300 bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold">Configurer zones & materiel</a>
     </div>
-    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="mt-4 flex flex-col gap-3 rounded-xl border <?= $verificationEnabled ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50' ?> p-4 md:flex-row md:items-center md:justify-between">
+    <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="mt-4 flex flex-col gap-3 rounded-xl border <?= $verificationEnabled ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50' ?> p-4 lg:flex-row lg:items-end lg:justify-between">
         <input type="hidden" name="id" value="<?= $vehicleId ?>">
         <input type="hidden" name="type_vehicule_id" value="<?= (int) ($vehicle['type_vehicule_id'] ?? 0) ?>">
         <input type="hidden" name="indicatif" value="<?= htmlspecialchars((string) ($vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="actif" value="<?= (int) ($vehicle['actif'] ?? 0) ?>">
-        <div>
+        <div class="lg:max-w-xl">
             <p class="font-semibold text-slate-900">Inclure cet engin dans les verifications</p>
             <p class="mt-1 text-sm text-slate-600">Un engin desactive ici ne compte pas dans les objectifs et n apparait pas sur le formulaire mobile.</p>
         </div>
-        <div class="flex items-center gap-2">
-            <select name="verification_active" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
-                <option value="1" <?= $verificationEnabled ? 'selected' : '' ?>>Verifications actives</option>
-                <option value="0" <?= !$verificationEnabled ? 'selected' : '' ?>>Verifications desactivees</option>
-            </select>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-[auto_auto_auto] sm:items-end">
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold text-slate-600">Etat</span>
+                <select name="verification_active" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                    <option value="1" <?= $verificationEnabled ? 'selected' : '' ?>>Verifications actives</option>
+                    <option value="0" <?= !$verificationEnabled ? 'selected' : '' ?>>Verifications desactivees</option>
+                </select>
+            </label>
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold text-slate-600">Frequence attendue</span>
+                <select name="verification_frequency" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                    <option value="daily" <?= $verificationFrequency === 'daily' ? 'selected' : '' ?>>1 fois par jour</option>
+                    <option value="twice_daily" <?= $verificationFrequency === 'twice_daily' ? 'selected' : '' ?>>Matin et soir</option>
+                </select>
+            </label>
             <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
         </div>
     </form>

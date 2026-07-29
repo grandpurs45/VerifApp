@@ -119,6 +119,7 @@ final class VerificationController
             if ($result === 'nok') {
                 $unit = trim((string) ($controle['unite'] ?? ''));
                 $anomalyDetails[] = [
+                    'controle_id' => $controleId,
                     'label' => trim((string) ($controle['libelle'] ?? 'Controle non conforme')),
                     'zone' => trim((string) ($controle['zone'] ?? '')),
                     'comment' => $comment,
@@ -141,34 +142,106 @@ final class VerificationController
         );
         (new QrAccessLogRepository())->attachIdentity('verifications', $agent, $utilisateurId);
 
-        $anomalyCount = count($anomalyDetails);
-        if ($anomalyCount > 0) {
+        $anomalyReports = $verificationRepository->getLastAnomalyReports();
+        if ($anomalyDetails !== []) {
             $vehicleName = trim((string) ($vehicle['nom'] ?? 'Engin'));
             $posteName = trim((string) ($poste['nom'] ?? 'Poste'));
-            $firstAnomalyLabel = trim((string) ($anomalyDetails[0]['label'] ?? 'Anomalie'));
-            $notificationTitle = $anomalyCount === 1
-                ? 'Anomalie - ' . $vehicleName . ' - ' . $firstAnomalyLabel
-                : $anomalyCount . ' anomalies - ' . $vehicleName;
             $notificationRepository = new NotificationRepository();
-            $notificationRepository->createForCaserneEvent(
+            $detailsByControlId = [];
+            foreach ($anomalyDetails as $anomalyDetail) {
+                $detailsByControlId[(int) ($anomalyDetail['controle_id'] ?? 0)] = $anomalyDetail;
+            }
+
+            $newAnomalyDetails = [];
+            if ($anomalyReports === []) {
+                $newAnomalyDetails = $anomalyDetails;
+            } else {
+                foreach ($anomalyReports as $report) {
+                    if (empty($report['is_new'])) {
+                        continue;
+                    }
+                    $controlId = (int) ($report['controle_id'] ?? 0);
+                    if (isset($detailsByControlId[$controlId])) {
+                        $newAnomalyDetails[] = $detailsByControlId[$controlId];
+                    }
+                }
+            }
+
+            if ($newAnomalyDetails !== []) {
+                $newAnomalyCount = count($newAnomalyDetails);
+                $firstAnomalyLabel = trim((string) ($newAnomalyDetails[0]['label'] ?? 'Anomalie'));
+                $notificationTitle = $newAnomalyCount === 1
+                    ? 'Anomalie - ' . $vehicleName . ' - ' . $firstAnomalyLabel
+                    : $newAnomalyCount . ' anomalies - ' . $vehicleName;
+                $notificationRepository->createForCaserneEvent(
+                    $caserneId,
+                    'anomaly.created',
+                    $notificationTitle,
+                    'Nouvelle non-conformite detectee pendant une verification.',
+                    '/index.php?controller=anomalies&action=index&statut=actives',
+                    $utilisateurId,
+                    $agent,
+                    [
+                        'verification_id' => $verificationId,
+                        'vehicle_id' => $vehicleId,
+                        'vehicle' => $vehicleName,
+                        'poste' => $posteName,
+                        'notifier' => $agent,
+                        'anomaly_count' => $newAnomalyCount,
+                        'anomalies' => $newAnomalyDetails,
+                        'global_comment' => $globalComment,
+                    ]
+                );
+            }
+
+            $reminderInterval = (int) $this->getScopedSettingValue(
+                'anomaly_reminder_occurrence_interval',
+                'ANOMALY_REMINDER_OCCURRENCE_INTERVAL',
                 $caserneId,
-                'anomaly.created',
-                $notificationTitle,
-                'Nouvelle non-conformite detectee pendant une verification.',
-                '/index.php?controller=anomalies&action=index&statut=actives',
-                $utilisateurId,
-                $agent,
-                [
-                    'verification_id' => $verificationId,
-                    'vehicle_id' => $vehicleId,
-                    'vehicle' => $vehicleName,
-                    'poste' => $posteName,
-                    'notifier' => $agent,
-                    'anomaly_count' => $anomalyCount,
-                    'anomalies' => $anomalyDetails,
-                    'global_comment' => $globalComment,
-                ]
+                '3'
             );
+            $reminderInterval = max(2, min(100, $reminderInterval));
+            foreach ($anomalyReports as $report) {
+                $occurrenceCount = (int) ($report['occurrence_count'] ?? 0);
+                if (!$this->shouldSendAnomalyReminder($report, $reminderInterval)) {
+                    continue;
+                }
+                $controlId = (int) ($report['controle_id'] ?? 0);
+                $detail = $detailsByControlId[$controlId] ?? null;
+                if (!is_array($detail)) {
+                    continue;
+                }
+                $anomalyId = (int) ($report['anomaly_id'] ?? 0);
+                $firstReportTimestamp = strtotime((string) ($report['first_report_at'] ?? ''));
+                $firstReportDate = $firstReportTimestamp !== false ? date('d/m/Y', $firstReportTimestamp) : 'date inconnue';
+                $anomalyLabel = trim((string) ($detail['label'] ?? 'anomalie'));
+                $reminderMessage = 'L anomalie numero ' . $anomalyId
+                    . ' concernant ' . $anomalyLabel . ' du ' . $vehicleName
+                    . ' a ete remontee ' . $occurrenceCount . ' fois depuis le ' . $firstReportDate . '.';
+                $notificationRepository->createForCaserneEvent(
+                    $caserneId,
+                    'anomaly.created',
+                    'Rappel anomalie #' . $anomalyId . ' - ' . $vehicleName,
+                    $reminderMessage,
+                    '/index.php?controller=anomalies&action=index&statut=actives',
+                    $utilisateurId,
+                    $agent,
+                    [
+                        'notification_kind' => 'reminder',
+                        'anomaly_id' => $anomalyId,
+                        'occurrence_count' => $occurrenceCount,
+                        'first_report_date' => $firstReportDate,
+                        'verification_id' => $verificationId,
+                        'vehicle_id' => $vehicleId,
+                        'vehicle' => $vehicleName,
+                        'poste' => $posteName,
+                        'notifier' => $agent,
+                        'anomaly_count' => 1,
+                        'anomalies' => [$detail],
+                        'global_comment' => $globalComment,
+                    ]
+                );
+            }
         }
 
         $this->redirect('/index.php?controller=verifications&action=saved&id=' . $verificationId);
@@ -259,6 +332,7 @@ final class VerificationController
             ? [$vehiclesById[$selectedVehicleId]]
             : $vehicles;
         $expectedPostes = [];
+        $expectedChecks = [];
         foreach ($coverageVehicles as $vehicle) {
             $vehicleId = (int) ($vehicle['id'] ?? 0);
             if ($vehicleId <= 0) {
@@ -272,21 +346,40 @@ final class VerificationController
                 if ($controleRepository->findByVehicleAndPosteId($vehicleId, $posteId, $caserneId) === []) {
                     continue;
                 }
-                $expectedPostes[$vehicleId . '|' . $posteId] = [
+                $frequency = (string) ($vehicle['verification_frequency'] ?? 'daily');
+                $posteKey = $vehicleId . '|' . $posteId;
+                $expectedPostes[$posteKey] = [
                     'vehicule_id' => $vehicleId,
                     'vehicule_nom' => (string) ($vehicle['nom'] ?? ''),
                     'poste_id' => $posteId,
                     'poste_nom' => (string) ($poste['nom'] ?? ''),
+                    'verification_frequency' => $frequency,
                 ];
+                if ($frequency === 'twice_daily') {
+                    $expectedChecks[$posteKey . '|matin'] = true;
+                    $expectedChecks[$posteKey . '|soir'] = true;
+                } else {
+                    $expectedChecks[$posteKey . '|jour'] = true;
+                }
             }
         }
-        $expectedPostesPerDay = count($expectedPostes);
+        $expectedPostesPerDay = count($expectedChecks);
+        $verificationEveningHour = (int) $this->getScopedSettingValue(
+            'verification_evening_hour',
+            'VERIFICATION_EVENING_HOUR',
+            $caserneId,
+            '18'
+        );
+        if ($verificationEveningHour < 0 || $verificationEveningHour > 23) {
+            $verificationEveningHour = 18;
+        }
 
         $statsRows = $verificationRepository->findMonthlyDailyPosteStats(
             $year,
             $month,
             $caserneId,
-            $selectedVehicleId > 0 ? $selectedVehicleId : null
+            $selectedVehicleId > 0 ? $selectedVehicleId : null,
+            $verificationEveningHour
         );
 
         $daysInMonth = (int) (new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
@@ -296,6 +389,9 @@ final class VerificationController
             $dailyCoverage[$date] = [
                 'postes_verifies' => [],
                 'postes_verifies_count' => 0,
+                'matin_couverts' => 0,
+                'soir_couverts' => 0,
+                'jour_couverts' => 0,
                 'postes_attendus' => $expectedPostesPerDay,
                 'pourcentage' => 0,
                 'complet' => false,
@@ -329,7 +425,17 @@ final class VerificationController
             $dailyCoverage[$date]['conformes'] += $conformes;
             $dailyCoverage[$date]['non_conformes'] += $nonConformes;
             if (isset($expectedPostes[$posteKey])) {
-                $dailyCoverage[$date]['postes_verifies'][$posteKey] = true;
+                $frequency = (string) ($expectedPostes[$posteKey]['verification_frequency'] ?? 'daily');
+                if ($frequency === 'twice_daily') {
+                    if ((int) ($row['morning_covered'] ?? 0) === 1) {
+                        $dailyCoverage[$date]['postes_verifies'][$posteKey . '|matin'] = true;
+                    }
+                    if ((int) ($row['evening_covered'] ?? 0) === 1) {
+                        $dailyCoverage[$date]['postes_verifies'][$posteKey . '|soir'] = true;
+                    }
+                } else {
+                    $dailyCoverage[$date]['postes_verifies'][$posteKey . '|jour'] = true;
+                }
             }
             $totals['total_verifs'] += $total;
             $totals['conformes'] += $conformes;
@@ -350,6 +456,15 @@ final class VerificationController
             $dayNumber = (int) substr($date, 8, 2);
             $verifiedCount = count($dayCoverage['postes_verifies']);
             $dayCoverage['postes_verifies_count'] = $verifiedCount;
+            foreach (array_keys($dayCoverage['postes_verifies']) as $coverageKey) {
+                if (str_ends_with($coverageKey, '|matin')) {
+                    $dayCoverage['matin_couverts']++;
+                } elseif (str_ends_with($coverageKey, '|soir')) {
+                    $dayCoverage['soir_couverts']++;
+                } else {
+                    $dayCoverage['jour_couverts']++;
+                }
+            }
             $dayCoverage['eligible'] = $dayNumber <= $eligibleDays;
             $dayCoverage['pourcentage'] = $expectedPostesPerDay > 0
                 ? min(100, (int) round(($verifiedCount / $expectedPostesPerDay) * 100))
@@ -463,6 +578,16 @@ final class VerificationController
         }
 
         return 'ok';
+    }
+
+    private function shouldSendAnomalyReminder(array $report, int $interval): bool
+    {
+        $interval = max(2, min(100, $interval));
+        $occurrenceCount = (int) ($report['occurrence_count'] ?? 0);
+
+        return empty($report['is_new'])
+            && $occurrenceCount >= $interval
+            && $occurrenceCount % $interval === 0;
     }
 
     private function applyZonePaths(int $vehicleId, array $lines): array

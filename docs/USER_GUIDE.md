@@ -20,7 +20,7 @@ Etapes:
 4. Renseigner tous les controles.
 5. Enregistrer la verification.
 
-Une garde de 24 h couvre les creneaux matin et soir de la journee.
+Une garde de 24 h couvre les creneaux matin et soir de la journee. Une garde de 12 h couvre uniquement le creneau correspondant a l heure de saisie.
 
 Types de reponses possibles:
 - Presence: `Present` / `Manquant`
@@ -63,6 +63,7 @@ Etapes:
 - creation automatique si controle NOK.
 - une nouvelle remontee identique alimente l anomalie active existante.
 - le nombre et l historique des occurrences sont consultables dans le detail.
+- un rappel email est envoye lorsque le nombre d occurrences atteint le seuil configure par la caserne.
 - assigner un responsable.
 - changer priorite/statut.
 - commenter le suivi.

@@ -105,12 +105,16 @@ Permissions critiques:
 - Une anomalie active identique n est pas dupliquee: une occurrence terrain est ajoutee.
 - Apres resolution, une nouvelle non-conformite peut creer une nouvelle anomalie.
 - Les emails d anomalies indiquent l engin, le poste, le declarant et les controles NOK.
+- Regler le seuil de rappel dans `Administration > Parametres notifications`.
+- Le premier signalement envoie un mail immediat. Une anomalie connue envoie ensuite un rappel lorsque son compteur atteint un multiple du seuil.
 
 ## 8. Preparation des engins
 - Un nouvel engin est exclu des verifications par defaut.
 - Saisir ses postes, zones et controles avant de l activer.
 - Activer `Inclure cet engin dans les verifications` depuis sa fiche.
+- Choisir `1 fois par jour` ou `Matin et soir` dans la frequence attendue.
 - Un engin exclu ne figure pas sur le formulaire mobile et ne compte pas dans les objectifs journaliers.
+- En mode `Matin et soir`, chaque poste compte pour deux couvertures quotidiennes. Une saisie en garde 24 h couvre les deux.
 - Reordonner les zones d un meme niveau avec la poignee de glisser-deposer.
 
 ## 9. Securite operationnelle

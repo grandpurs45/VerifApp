@@ -18,6 +18,15 @@ final class VerificationRepository
     private ?bool $zoneOrderColumnExists = null;
     private ?bool $guardDurationColumnExists = null;
     private ?bool $anomalyOccurrencesTableExists = null;
+    private array $lastAnomalyReports = [];
+
+    /**
+     * @return array<int, array{anomaly_id:int,controle_id:int,is_new:bool,occurrence_count:int,first_report_at:string}>
+     */
+    public function getLastAnomalyReports(): array
+    {
+        return $this->lastAnomalyReports;
+    }
 
     public function createWithLines(
         int $caserneId,
@@ -31,6 +40,7 @@ final class VerificationRepository
     ): int {
         $connection = Database::getConnection();
         $hasNok = false;
+        $this->lastAnomalyReports = [];
 
         foreach ($lines as $line) {
             if (($line['resultat'] ?? '') === 'nok') {
@@ -106,6 +116,7 @@ final class VerificationRepository
             $activeAnomalyStatement = null;
             $occurrenceStatement = null;
             $controlLockStatement = null;
+            $anomalySummaryStatement = null;
             if ($this->hasAnomaliesTable()) {
                 $anomalyStatement = $connection->prepare(
                     '
@@ -118,7 +129,7 @@ final class VerificationRepository
                         'SELECT id FROM controles WHERE id = :controle_id FOR UPDATE'
                     );
                     $activeAnomalyStatement = $connection->prepare('
-                        SELECT a.id
+                        SELECT a.id, a.date_creation
                         FROM anomalies a
                         INNER JOIN anomaly_occurrences ao ON ao.anomalie_id = a.id
                         INNER JOIN verification_lignes previous_line ON previous_line.id = ao.verification_ligne_id
@@ -135,6 +146,15 @@ final class VerificationRepository
                     $occurrenceStatement = $connection->prepare('
                         INSERT INTO anomaly_occurrences (anomalie_id, verification_ligne_id, date_remontee)
                         VALUES (:anomalie_id, :verification_ligne_id, NOW())
+                    ');
+                    $anomalySummaryStatement = $connection->prepare('
+                        SELECT
+                            a.date_creation,
+                            COUNT(ao.id) AS occurrence_count
+                        FROM anomalies a
+                        LEFT JOIN anomaly_occurrences ao ON ao.anomalie_id = a.id
+                        WHERE a.id = :anomalie_id
+                        GROUP BY a.id, a.date_creation
                     ');
                 }
             }
@@ -157,6 +177,7 @@ final class VerificationRepository
 
                 if ($line['resultat'] === 'nok' && $anomalyStatement !== null) {
                     $anomalyId = 0;
+                    $isNewAnomaly = false;
                     if ($activeAnomalyStatement !== null) {
                         $controlLockStatement?->execute(['controle_id' => (int) $line['controle_id']]);
                         $activeAnomalyStatement->execute([
@@ -165,7 +186,8 @@ final class VerificationRepository
                             'poste_id' => $posteId,
                             'controle_id' => (int) $line['controle_id'],
                         ]);
-                        $anomalyId = (int) ($activeAnomalyStatement->fetchColumn() ?: 0);
+                        $activeAnomaly = $activeAnomalyStatement->fetch(PDO::FETCH_ASSOC);
+                        $anomalyId = is_array($activeAnomaly) ? (int) ($activeAnomaly['id'] ?? 0) : 0;
                     }
                     if ($anomalyId <= 0) {
                         $anomalyStatement->execute([
@@ -175,12 +197,31 @@ final class VerificationRepository
                             'commentaire' => $line['commentaire'],
                         ]);
                         $anomalyId = (int) $connection->lastInsertId();
+                        $isNewAnomaly = true;
                     }
                     if ($occurrenceStatement !== null && $anomalyId > 0) {
                         $occurrenceStatement->execute([
                             'anomalie_id' => $anomalyId,
                             'verification_ligne_id' => $verificationLineId,
                         ]);
+                        $anomalySummaryStatement?->execute(['anomalie_id' => $anomalyId]);
+                        $summary = $anomalySummaryStatement?->fetch(PDO::FETCH_ASSOC);
+                        $summary = is_array($summary) ? $summary : [];
+                        $this->lastAnomalyReports[] = [
+                            'anomaly_id' => $anomalyId,
+                            'controle_id' => (int) $line['controle_id'],
+                            'is_new' => $isNewAnomaly,
+                            'occurrence_count' => max(1, (int) ($summary['occurrence_count'] ?? 1)),
+                            'first_report_at' => (string) ($summary['date_creation'] ?? ''),
+                        ];
+                    } elseif ($anomalyId > 0) {
+                        $this->lastAnomalyReports[] = [
+                            'anomaly_id' => $anomalyId,
+                            'controle_id' => (int) $line['controle_id'],
+                            'is_new' => true,
+                            'occurrence_count' => 1,
+                            'first_report_at' => date('Y-m-d H:i:s'),
+                        ];
                     }
                 }
             }
@@ -616,10 +657,14 @@ final class VerificationRepository
         int $year,
         int $month,
         ?int $caserneId = null,
-        ?int $vehicleId = null
+        ?int $vehicleId = null,
+        int $eveningStartHour = 18
     ): array
     {
         $connection = Database::getConnection();
+        if ($eveningStartHour < 0 || $eveningStartHour > 23) {
+            $eveningStartHour = 18;
+        }
 
         $start = sprintf('%04d-%02d-01', $year, $month);
         $end = date('Y-m-d', strtotime($start . ' +1 month'));
@@ -630,6 +675,8 @@ final class VerificationRepository
         $params = [
             'start_date' => $start . ' 00:00:00',
             'end_date' => $end . ' 00:00:00',
+            'evening_start_hour_morning' => $eveningStartHour,
+            'evening_start_hour_evening' => $eveningStartHour,
         ];
 
         if ($caserneId !== null) {
@@ -642,6 +689,7 @@ final class VerificationRepository
             $params['vehicule_id'] = $vehicleId;
         }
 
+        $guardDurationSql = $this->hasGuardDurationColumn() ? 'v.garde_duree_heures' : '12';
         $sql = '
             SELECT
                 DATE(v.date_heure) AS jour,
@@ -649,7 +697,17 @@ final class VerificationRepository
                 v.poste_id,
                 COUNT(*) AS total_verifs,
                 SUM(CASE WHEN v.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
-                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes
+                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes,
+                MAX(CASE
+                    WHEN ' . $guardDurationSql . ' = 24
+                      OR HOUR(v.date_heure) < :evening_start_hour_morning
+                    THEN 1 ELSE 0
+                END) AS morning_covered,
+                MAX(CASE
+                    WHEN ' . $guardDurationSql . ' = 24
+                      OR HOUR(v.date_heure) >= :evening_start_hour_evening
+                    THEN 1 ELSE 0
+                END) AS evening_covered
             FROM verifications v
             WHERE ' . implode(' AND ', $where) . '
             GROUP BY DATE(v.date_heure), v.vehicule_id, v.poste_id

@@ -52,6 +52,14 @@ Elle cree:
 
 Elle ajoute aussi `vehicules.verification_active`. Les engins existants restent actifs; les engins crees apres la mise a niveau doivent etre explicitement inclus dans les verifications depuis leur fiche.
 
+### Upgrade v1.4.1
+La migration `041_add_verification_frequency.sql` doit apparaitre avec le statut `OK` lors de la premiere mise a niveau.
+
+Apres deploiement:
+- configurer les vehicules exigeant une verification matin et soir
+- verifier qu une garde de 24 h couvre les deux creneaux dans la vue mensuelle
+- regler et tester le seuil de rappel des anomalies connues
+
 ## 4bis) Backup avant upgrade (recommande)
 Creer un backup complet (data + conf):
 
@@ -109,6 +117,7 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 - Ne pas versionner `.env`.
 - Toujours tester les migrations en preprod avant prod.
 - Les migrations appliquees en production ne doivent pas etre modifiees; ajouter une migration corrective.
+- La migration `041_add_verification_frequency.sql` conserve les vehicules existants en mode `1 fois par jour`.
 
 ## Depannage: generation QR impossible
 Depuis `0.11.0`, les tokens QR sont stockes en base (`app_settings`) et non plus ecrits dans `.env`.

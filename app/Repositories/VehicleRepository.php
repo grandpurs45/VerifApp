@@ -36,7 +36,7 @@ final class VehicleRepository
     {
         $connection = Database::getConnection();
         $statement = $connection->prepare('
-            SELECT v.id, v.nom, v.verification_active, tv.nom AS type_vehicule
+            SELECT v.id, v.nom, v.verification_active, v.verification_frequency, tv.nom AS type_vehicule
             FROM vehicules v
             INNER JOIN type_vehicules tv ON tv.id = v.type_vehicule_id
             WHERE v.actif = 1
@@ -61,6 +61,7 @@ final class VehicleRepository
                 v.caserne_id,
                 v.actif,
                 v.verification_active,
+                v.verification_frequency,
                 tv.nom AS type_vehicule
             FROM vehicules v
             INNER JOIN type_vehicules tv ON tv.id = v.type_vehicule_id
@@ -86,6 +87,7 @@ final class VehicleRepository
                 v.caserne_id,
                 v.actif,
                 v.verification_active,
+                v.verification_frequency,
                 tv.nom AS type_vehicule
             FROM vehicules v
             INNER JOIN type_vehicules tv
@@ -112,13 +114,21 @@ final class VehicleRepository
         return $vehicle;
     }
 
-    public function create(string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): bool
+    public function create(
+        string $name,
+        int $typeVehiculeId,
+        bool $active,
+        int $caserneId,
+        bool $verificationActive = false,
+        string $verificationFrequency = 'daily'
+    ): bool
     {
         $connection = Database::getConnection();
+        $verificationFrequency = $verificationFrequency === 'twice_daily' ? 'twice_daily' : 'daily';
 
         $sql = '
-            INSERT INTO vehicules (caserne_id, nom, type_vehicule_id, actif, verification_active)
-            VALUES (:caserne_id, :nom, :type_vehicule_id, :actif, :verification_active)
+            INSERT INTO vehicules (caserne_id, nom, type_vehicule_id, actif, verification_active, verification_frequency)
+            VALUES (:caserne_id, :nom, :type_vehicule_id, :actif, :verification_active, :verification_frequency)
         ';
 
         $statement = $connection->prepare($sql);
@@ -129,12 +139,27 @@ final class VehicleRepository
             'type_vehicule_id' => $typeVehiculeId,
             'actif' => $active ? 1 : 0,
             'verification_active' => $verificationActive ? 1 : 0,
+            'verification_frequency' => $verificationFrequency,
         ]);
     }
 
-    public function createAndReturnId(string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): ?int
+    public function createAndReturnId(
+        string $name,
+        int $typeVehiculeId,
+        bool $active,
+        int $caserneId,
+        bool $verificationActive = false,
+        string $verificationFrequency = 'daily'
+    ): ?int
     {
-        $created = $this->create($name, $typeVehiculeId, $active, $caserneId, $verificationActive);
+        $created = $this->create(
+            $name,
+            $typeVehiculeId,
+            $active,
+            $caserneId,
+            $verificationActive,
+            $verificationFrequency
+        );
         if (!$created) {
             return null;
         }
@@ -145,16 +170,26 @@ final class VehicleRepository
         return $id > 0 ? $id : null;
     }
 
-    public function update(int $id, string $name, int $typeVehiculeId, bool $active, int $caserneId, bool $verificationActive = false): bool
+    public function update(
+        int $id,
+        string $name,
+        int $typeVehiculeId,
+        bool $active,
+        int $caserneId,
+        bool $verificationActive = false,
+        string $verificationFrequency = 'daily'
+    ): bool
     {
         $connection = Database::getConnection();
+        $verificationFrequency = $verificationFrequency === 'twice_daily' ? 'twice_daily' : 'daily';
 
         $sql = '
             UPDATE vehicules
             SET nom = :nom,
                 type_vehicule_id = :type_vehicule_id,
-                actif = :actif
-                , verification_active = :verification_active
+                actif = :actif,
+                verification_active = :verification_active,
+                verification_frequency = :verification_frequency
             WHERE id = :id
               AND caserne_id = :caserne_id
         ';
@@ -168,6 +203,7 @@ final class VehicleRepository
             'type_vehicule_id' => $typeVehiculeId,
             'actif' => $active ? 1 : 0,
             'verification_active' => $verificationActive ? 1 : 0,
+            'verification_frequency' => $verificationFrequency,
         ]);
     }
 

@@ -14,6 +14,12 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - formulaire de creation utilisateur plus robuste
 - journal des ouvertures QR
 
+### v1.4.1
+- rappels d anomalies connues selon un seuil configurable
+- frequence de verification quotidienne ou matin et soir par vehicule
+- couverture mensuelle par poste et par creneau
+- prise en compte des gardes de 24 h sur les deux creneaux
+
 ## Prochain cycle
 
 ### v1.5

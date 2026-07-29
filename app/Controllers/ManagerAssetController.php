@@ -477,6 +477,10 @@ final class ManagerAssetController
         $indicatif = $this->normalizeVehicleIndicatif((string) ($_POST['indicatif'] ?? ''));
         $active = isset($_POST['actif']) && (string) $_POST['actif'] === '1';
         $verificationActive = isset($_POST['verification_active']) && (string) $_POST['verification_active'] === '1';
+        $verificationFrequency = (string) ($_POST['verification_frequency'] ?? 'daily');
+        if (!in_array($verificationFrequency, ['daily', 'twice_daily'], true)) {
+            $verificationFrequency = 'daily';
+        }
 
         if ($indicatif === '' || $typeVehiculeId <= 0) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
@@ -500,11 +504,26 @@ final class ManagerAssetController
 
         try {
             if ($id > 0) {
-                $vehicleRepository->update($id, $name, $typeVehiculeId, $active, $caserneId, $verificationActive);
+                $vehicleRepository->update(
+                    $id,
+                    $name,
+                    $typeVehiculeId,
+                    $active,
+                    $caserneId,
+                    $verificationActive,
+                    $verificationFrequency
+                );
                 $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_updated');
             }
 
-            $vehicleRepository->create($name, $typeVehiculeId, $active, $caserneId, $verificationActive);
+            $vehicleRepository->create(
+                $name,
+                $typeVehiculeId,
+                $active,
+                $caserneId,
+                $verificationActive,
+                $verificationFrequency
+            );
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&success=vehicle_created');
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
@@ -611,7 +630,8 @@ final class ManagerAssetController
                 $typeVehiculeId,
                 (int) ($sourceVehicle['actif'] ?? 1) === 1,
                 $caserneId,
-                false
+                false,
+                (string) ($sourceVehicle['verification_frequency'] ?? 'daily')
             );
 
             if ($createdId === null) {

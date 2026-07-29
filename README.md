@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.4.0` (voir fichier `VERSION`).
+Version courante: `v1.4.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -42,6 +42,7 @@ VerifApp permet de:
   - regroupement des remontees identiques en occurrences
   - vue compacte, assignation, priorite, statut et historique terrain
   - email detaille avec engin, declarant et controles non conformes
+  - rappels d anomalies connues selon un seuil d occurrences configurable
 - Historique:
   - filtres multi-criteres
   - detail verification
@@ -49,6 +50,8 @@ VerifApp permet de:
 - Vue mensuelle matin/soir:
   - lecture calendrier rapide
   - indicateurs de couverture et conformite
+  - frequence configurable par vehicule: quotidienne ou matin + soir
+  - une garde de 24 h couvre les deux creneaux
 - Dashboard par module:
   - indicateurs regroupes par categorie (`Anomalies`, `Verifications`, `Pharmacie`)
   - taux de verification du mois jusqu a J-1 (jour en cours exclu)
@@ -222,7 +225,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.4.0`
+  - `./scripts/release.ps1 -Version 1.4.1`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -265,6 +268,12 @@ Comportement:
   - le journal des ouvertures QR
 - Les engins existants restent inclus dans les verifications.
 - Les nouveaux engins sont crees hors verification jusqu a leur activation depuis leur fiche.
+
+### Mise a niveau vers v1.4.1
+- La migration `041_add_verification_frequency.sql` ajoute la frequence de couverture par vehicule.
+- Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
+- Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
+- Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
 
 ## Depannage
 ### Echec generation QR

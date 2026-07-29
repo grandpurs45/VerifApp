@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 $pageTitle = 'Vue mensuelle - VerifApp';
 $pageHeading = 'Verifications mensuelles';
-$pageSubtitle = 'Couverture quotidienne des postes de verification.';
+$pageSubtitle = 'Couverture quotidienne selon la frequence de chaque vehicule.';
 $pageBackUrl = '/index.php?controller=manager&action=dashboard';
 $pageBackLabel = 'Retour dashboard';
 
@@ -55,7 +55,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $totals['total_verifs'] ?></p>
     </article>
     <article class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">Postes / jour</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">Verifs attendues / jour</p>
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $expectedPostesPerDay ?></p>
     </article>
     <article class="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
@@ -70,12 +70,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <section class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
     <p>
-        Regle appliquee: chaque poste comportant au moins un controle actif pour les engins selectionnes doit etre verifie au moins une fois par jour.
-        Plusieurs verifications du meme poste dans la journee comptent comme une seule couverture.
+        Regle appliquee selon chaque vehicule: une verification par poste et par jour, ou une verification par poste le matin et le soir.
+        Une garde de 24 h couvre les deux creneaux. Une garde de 12 h couvre uniquement le creneau correspondant a l heure de saisie
+        (soir a partir de <?= (int) $verificationEveningHour ?> h).
     </p>
     <details class="mt-2">
         <summary class="cursor-pointer font-semibold text-slate-900">
-            Voir les <?= (int) $expectedPostesPerDay ?> poste(s) pris en compte
+            Voir les <?= (int) $expectedPostesPerDay ?> verification(s) attendue(s) par jour
         </summary>
         <?php if ($expectedPostes === []): ?>
             <p class="mt-2 text-slate-500">Aucun poste verifiable dans ce perimetre.</p>
@@ -86,6 +87,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <span class="font-semibold text-slate-900"><?= htmlspecialchars((string) ($expectedPoste['vehicule_nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="text-slate-400">/</span>
                         <?= htmlspecialchars((string) ($expectedPoste['poste_nom'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        <span class="ml-1 font-semibold text-slate-500">
+                            (<?= ($expectedPoste['verification_frequency'] ?? 'daily') === 'twice_daily' ? 'matin + soir' : '1 fois / jour' ?>)
+                        </span>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -122,6 +126,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             $dayComplete = (bool) ($dayData['complet'] ?? false);
             $dayEligible = (bool) ($dayData['eligible'] ?? false);
             $dayNonConformes = (int) ($dayData['non_conformes'] ?? 0);
+            $morningCovered = (int) ($dayData['matin_couverts'] ?? 0);
+            $eveningCovered = (int) ($dayData['soir_couverts'] ?? 0);
+            $dailyCovered = (int) ($dayData['jour_couverts'] ?? 0);
             $dayStarted = $verifiedPostes > 0;
             $dayClass = !$dayEligible
                 ? 'border-slate-200 bg-slate-50 text-slate-400'
@@ -144,6 +151,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 <div class="mt-3">
                     <?php if ($dayEligible): ?>
                         <p class="text-center text-xs font-bold text-slate-700"><?= $verifiedPostes ?> / <?= $expectedPostes ?></p>
+                        <?php if ($morningCovered + $eveningCovered > 0): ?>
+                            <p class="mt-1 text-center text-[10px] text-slate-500">M <?= $morningCovered ?> / S <?= $eveningCovered ?><?= $dailyCovered > 0 ? ' / J ' . $dailyCovered : '' ?></p>
+                        <?php elseif ($dailyCovered > 0): ?>
+                            <p class="mt-1 text-center text-[10px] text-slate-500">Jour <?= $dailyCovered ?></p>
+                        <?php endif; ?>
                         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                             <div
                                 class="h-full rounded-full <?= $dayComplete ? 'bg-emerald-500' : ($dayStarted ? 'bg-amber-500' : 'bg-slate-400') ?>"
@@ -169,8 +181,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="px-3 py-2 text-left">Jour</th>
-                    <th class="px-3 py-2 text-left">Postes verifies</th>
-                    <th class="px-3 py-2 text-left">Postes attendus</th>
+                    <th class="px-3 py-2 text-left">Couvertures realisees</th>
+                    <th class="px-3 py-2 text-left">Couvertures attendues</th>
+                    <th class="px-3 py-2 text-left">Matin / soir / jour</th>
                     <th class="px-3 py-2 text-left">Conformite</th>
                     <th class="px-3 py-2 text-left">Verifications</th>
                     <th class="px-3 py-2 text-left">Non conformes</th>
@@ -185,6 +198,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     $dayRate = (int) ($dayData['pourcentage'] ?? 0);
                     $dayTotal = (int) ($dayData['total_verifs'] ?? 0);
                     $dayNok = (int) ($dayData['non_conformes'] ?? 0);
+                    $morningCovered = (int) ($dayData['matin_couverts'] ?? 0);
+                    $eveningCovered = (int) ($dayData['soir_couverts'] ?? 0);
+                    $dailyCovered = (int) ($dayData['jour_couverts'] ?? 0);
                     $dayEligible = (bool) ($dayData['eligible'] ?? false);
                     $dayComplete = (bool) ($dayData['complet'] ?? false);
                     ?>
@@ -192,6 +208,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <td class="px-3 py-2 font-semibold text-slate-800"><?= htmlspecialchars($date, ENT_QUOTES, 'UTF-8') ?></td>
                         <td class="px-3 py-2 font-semibold"><?= $dayEligible ? $verifiedPostes : '-' ?></td>
                         <td class="px-3 py-2"><?= $dayEligible ? $expectedPostes : '-' ?></td>
+                        <td class="px-3 py-2"><?= $dayEligible ? 'M ' . $morningCovered . ' / S ' . $eveningCovered . ' / J ' . $dailyCovered : '-' ?></td>
                         <td class="px-3 py-2 font-semibold <?= $dayComplete ? 'text-emerald-700' : 'text-slate-700' ?>">
                             <?= $dayEligible ? $dayRate . '%' : '-' ?>
                         </td>

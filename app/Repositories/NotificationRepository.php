@@ -55,8 +55,8 @@ final class NotificationRepository
     {
         return [
             'anomaly.created' => [
-                'label' => 'Anomalies: nouvelle anomalie',
-                'description' => 'Une verification non conforme vient de creer une anomalie.',
+                'label' => 'Anomalies: creation et rappels',
+                'description' => 'Une verification cree une anomalie ou atteint le seuil de rappel d une anomalie connue.',
                 'default_roles' => ['admin', 'responsable_materiel'],
             ],
             'anomaly.updated' => [
@@ -524,6 +524,31 @@ final class NotificationRepository
         }
 
         return $settings;
+    }
+
+    public function readAnomalyReminderInterval(?int $caserneId): int
+    {
+        $value = (int) $this->readScopedSetting(
+            'anomaly_reminder_occurrence_interval',
+            $caserneId,
+            '3'
+        );
+
+        return max(2, min(100, $value));
+    }
+
+    public function saveAnomalyReminderInterval(int $caserneId, int $interval): bool
+    {
+        if ($caserneId <= 0 || $interval < 2 || $interval > 100) {
+            return false;
+        }
+
+        $settingRepository = new AppSettingRepository();
+        return $settingRepository->isAvailable()
+            && $settingRepository->set(
+                'anomaly_reminder_occurrence_interval_caserne_' . $caserneId,
+                (string) $interval
+            );
     }
 
     /**
@@ -1236,6 +1261,7 @@ final class NotificationRepository
         ?string $href,
         array $context
     ): array {
+        $isReminder = ($context['notification_kind'] ?? '') === 'reminder';
         $vehicle = trim((string) ($context['vehicle'] ?? 'Engin non renseigne'));
         $poste = trim((string) ($context['poste'] ?? 'Poste non renseigne'));
         $notifier = trim((string) ($context['notifier'] ?? 'Non renseigne'));
@@ -1307,7 +1333,9 @@ final class NotificationRepository
         $html = '<!doctype html><html><body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f1;border-radius:8px;overflow:hidden;">'
             . '<tr><td style="padding:18px 20px;background:#0f172a;color:#ffffff;">'
-            . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp - Anomalie terrain</div>'
+            . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp - '
+            . ($isReminder ? 'Rappel anomalie terrain' : 'Anomalie terrain')
+            . '</div>'
             . '<div style="font-size:21px;font-weight:700;margin-top:6px;">' . $this->escapeHtml($title) . '</div>'
             . '</td></tr>'
             . '<tr><td style="padding:18px 20px;">'

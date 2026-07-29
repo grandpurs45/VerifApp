@@ -9,6 +9,27 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.4.1] - 2026-07-30
+
+### Added
+- Notifications:
+  - ajout d un seuil configurable par caserne pour les rappels d anomalies connues
+  - le premier signalement reste immediat, puis un rappel est envoye a chaque multiple du seuil
+- Verifications:
+  - ajout d une frequence par vehicule: `1 fois par jour` ou `matin et soir`
+
+### Changed
+- Historique mensuel:
+  - calcul de couverture par poste et par creneau selon la frequence du vehicule
+  - une garde de 24 h couvre matin et soir; une garde de 12 h couvre uniquement son creneau
+- Emails d anomalies:
+  - les occurrences intermediaires d une anomalie connue ne generent plus de mail
+  - le rappel indique le numero, l engin, le controle, le nombre de remontees et la date initiale
+
+### Database
+- Ajout de la migration `041_add_verification_frequency.sql`.
+- Ajout de `vehicules.verification_frequency`.
+
 ## [1.4.0] - 2026-07-30
 
 ### Added

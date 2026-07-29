@@ -103,6 +103,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <option value="0">Verifications desactivees</option>
                     <option value="1">Verifications actives</option>
                 </select>
+                <select name="verification_frequency" class="rounded-xl border border-slate-300 px-4 py-3 text-sm md:col-span-4">
+                    <option value="daily">1 verification par poste / jour</option>
+                    <option value="twice_daily">1 verification par poste matin et soir</option>
+                </select>
                 <button type="submit" data-loading-label="Ajout..." class="rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold md:col-span-12 w-full">Ajouter</button>
             </form>
 
@@ -148,6 +152,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <input type="hidden" name="indicatif" id="selected-vehicle-indicatif" value="">
                     <input type="hidden" name="actif" id="selected-vehicle-active" value="">
                     <input type="hidden" name="verification_active" id="selected-vehicle-verification-active" value="">
+                    <input type="hidden" name="verification_frequency" id="selected-vehicle-verification-frequency" value="">
                 </form>
             </div>
 
@@ -176,6 +181,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 data-vehicle-indicatif="<?= htmlspecialchars((string) ($vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                 data-vehicle-active="<?= (int) $vehicle['actif'] ?>"
                                 data-vehicle-verification-active="<?= (int) ($vehicle['verification_active'] ?? 1) ?>"
+                                data-vehicle-verification-frequency="<?= htmlspecialchars((string) ($vehicle['verification_frequency'] ?? 'daily'), ENT_QUOTES, 'UTF-8') ?>"
                                 data-vehicle-zones-url="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= (int) $vehicle['id'] ?>">
                                 <td class="px-3 py-2">
                                     <input type="checkbox" data-vehicle-select class="h-4 w-4 rounded border-slate-300">
@@ -205,6 +211,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                     <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold <?= (int) ($vehicle['verification_active'] ?? 1) === 1 ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800' ?>">
                                         <?= (int) ($vehicle['verification_active'] ?? 1) === 1 ? 'Incluses' : 'Hors service' ?>
                                     </span>
+                                    <?php if ((int) ($vehicle['verification_active'] ?? 1) === 1): ?>
+                                        <span class="mt-1 block text-xs text-slate-500">
+                                            <?= ($vehicle['verification_frequency'] ?? 'daily') === 'twice_daily' ? 'Matin + soir' : '1 fois / jour' ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="px-3 py-2">
                                     <div class="flex flex-wrap gap-2">
@@ -283,6 +294,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             const selectedVehicleIndicatifInput = document.getElementById('selected-vehicle-indicatif');
             const selectedVehicleActiveInput = document.getElementById('selected-vehicle-active');
             const selectedVehicleVerificationActiveInput = document.getElementById('selected-vehicle-verification-active');
+            const selectedVehicleVerificationFrequencyInput = document.getElementById('selected-vehicle-verification-frequency');
             const selectedVehicleConfigureLink = document.getElementById('selected-vehicle-configure-link');
             const vehicleActionActivate = document.getElementById('vehicle-action-activate');
             const vehicleActionDeactivate = document.getElementById('vehicle-action-deactivate');
@@ -336,6 +348,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     if (selectedVehicleTypeInput) selectedVehicleTypeInput.value = '';
                     if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = '';
                     if (selectedVehicleVerificationActiveInput) selectedVehicleVerificationActiveInput.value = '';
+                    if (selectedVehicleVerificationFrequencyInput) selectedVehicleVerificationFrequencyInput.value = '';
                     if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = '';
                     if (selectedVehicleConfigureLink) {
                         selectedVehicleConfigureLink.setAttribute('href', '#');
@@ -363,6 +376,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 const vehicleIndicatif = selectedRow.dataset.vehicleIndicatif || '';
                 const vehicleActive = selectedRow.dataset.vehicleActive || '1';
                 const vehicleVerificationActive = selectedRow.dataset.vehicleVerificationActive || '0';
+                const vehicleVerificationFrequency = selectedRow.dataset.vehicleVerificationFrequency || 'daily';
                 const vehicleZonesUrl = selectedRow.dataset.vehicleZonesUrl || '#';
 
                 if (selectedVehicleIdInput) selectedVehicleIdInput.value = vehicleId;
@@ -371,6 +385,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 if (selectedVehicleIndicatifInput) selectedVehicleIndicatifInput.value = vehicleIndicatif;
                 if (selectedVehicleActiveInput) selectedVehicleActiveInput.value = vehicleActive;
                 if (selectedVehicleVerificationActiveInput) selectedVehicleVerificationActiveInput.value = vehicleVerificationActive;
+                if (selectedVehicleVerificationFrequencyInput) selectedVehicleVerificationFrequencyInput.value = vehicleVerificationFrequency;
                 if (selectedVehicleDeleteIdInput) selectedVehicleDeleteIdInput.value = vehicleId;
                 if (selectedVehicleConfigureLink) {
                     selectedVehicleConfigureLink.setAttribute('href', vehicleZonesUrl);

@@ -102,6 +102,7 @@ Actions:
 
 ### Journal QR vide
 - verifier que la migration `040_prepare_v14_features.sql` est appliquee.
+- verifier que la migration `041_add_verification_frequency.sql` est appliquee pour les frequences par vehicule.
 - selectionner la bonne caserne dans `Administration > Audit securite`.
 - verifier le compteur `Journal QR`, puis la colonne caserne du tableau.
 - rechercher `[VerifApp QR audit]` dans les logs du conteneur web.

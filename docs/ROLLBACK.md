@@ -74,3 +74,11 @@ Pour revenir en v1.3:
 4. verifier le healthcheck, la connexion et une verification terrain
 
 Le retour du code seul peut laisser un schema plus recent que l application. La restauration du backup base reste la procedure recommandee.
+
+## 9. Retour depuis v1.4.1
+La migration `041_add_verification_frequency.sql` ajoute uniquement `vehicules.verification_frequency`.
+
+Pour revenir au code v1.4.0:
+1. restaurer le code du tag `v1.4.0`
+2. conserver la colonne `verification_frequency`, qui est ignoree par la v1.4.0
+3. ne supprimer la colonne qu apres une sauvegarde et une validation explicite en maintenance

@@ -17,7 +17,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </section>
 <?php elseif ($error !== ''): ?>
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Impossible d enregistrer les parametres notifications.
+        <?= $error === 'invalid_reminder_interval'
+            ? 'Le rappel doit etre compris entre 2 et 100 occurrences.'
+            : 'Impossible d enregistrer les parametres notifications.' ?>
     </section>
 <?php endif; ?>
 
@@ -101,6 +103,28 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     <span class="block text-xs text-slate-500">Envoi aux destinataires cibles ayant une adresse valide. Le transport doit aussi etre actif dans Administration.</span>
                 </span>
             </label>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+            <label for="anomaly-reminder-interval" class="block text-sm font-semibold text-slate-900">
+                Rappel des anomalies deja connues
+            </label>
+            <p class="mt-1 text-xs text-slate-500">
+                La premiere occurrence est envoyee immediatement. Un rappel est ensuite envoye chaque fois que le compteur atteint un multiple de cette valeur.
+            </p>
+            <div class="mt-3 flex items-center gap-3">
+                <input
+                    id="anomaly-reminder-interval"
+                    type="number"
+                    name="anomaly_reminder_occurrence_interval"
+                    min="2"
+                    max="100"
+                    required
+                    value="<?= (int) $anomalyReminderInterval ?>"
+                    class="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+                <span class="text-sm text-slate-600">occurrences</span>
+            </div>
         </div>
 
         <h3 class="text-lg font-bold">Qui notifier par evenement</h3>
