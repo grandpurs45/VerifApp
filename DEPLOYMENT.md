@@ -2,6 +2,12 @@
 
 Ce guide vise un deploiement simple de VerifApp sur serveur PHP + MySQL/MariaDB.
 
+## Mise a niveau v1.5.0
+- Effectuer un backup avant la mise a jour.
+- Executer `bash scripts/update-production.sh`; le script applique automatiquement la migration `042_separate_qr_ip_and_pharmacy_alerts.sql`.
+- Apres deploiement, ouvrir un QR et verifier les colonnes IP client/proxy dans `Administration > Audit securite > Ouvertures QR`.
+- Verifier le ciblage des alertes warning et critique dans les parametres de notifications.
+
 ## Prerequis
 - PHP 8.2+
 - Extension PDO MySQL activee

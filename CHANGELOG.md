@@ -9,6 +9,27 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.5.0] - 2026-07-31
+
+### Added
+- Pharmacie:
+  - notifications `warning` lorsque le stock atteint un seuil surveille
+  - notifications `critique` lorsque le stock passe sous le seuil configure
+  - anti-doublon par article et niveau d alerte
+- Audit:
+  - journaux separes pour les connexions et les ouvertures QR
+  - filtres et export CSV propres au journal QR
+  - distinction entre IP client et IP du reverse proxy
+
+### Changed
+- Les connexions et les ouvertures QR utilisent le meme resolveur d IP client derriere proxy.
+- Les notifications pharmacie affichent un niveau visuel warning ou critique.
+- Les emails de seuil pharmacie utilisent un gabarit detaille avec article, stock disponible et seuil configure.
+
+### Database
+- Ajout de la migration `042_separate_qr_ip_and_pharmacy_alerts.sql`.
+- Ajout de `qr_access_logs.proxy_ip_address` et de `pharmacy_stock_alert_states`.
+
 ## [1.4.1] - 2026-07-30
 
 ### Added

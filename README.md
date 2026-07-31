@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.4.1` (voir fichier `VERSION`).
+Version courante: `v1.5.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -68,6 +68,7 @@ VerifApp permet de:
   - acquittement des sorties
   - synthese depuis la derniere commande
   - marquage `commande passee`
+  - notification au passage au seuil warning ou critique, sans doublon tant que le niveau ne change pas
 - Roles et acces configurables.
 - Groupes de notifications independants des roles.
 - Audit des ouvertures QR verification, pharmacie et inventaire.
@@ -200,9 +201,16 @@ Notifications email (optionnel):
 - L ordre des zones d un meme niveau peut etre modifie avec la poignee de glisser-deposer.
 
 ## Audit des QR Codes
-- Les ouvertures des QR verification, sortie pharmacie et inventaire sont visibles dans `Administration -> Audit securite`.
-- La trace contient l heure, le module, l engin eventuel, l identite lorsqu elle est connue, l IP et le navigateur.
+- `Administration -> Audit securite` separe le journal des connexions du journal des ouvertures QR.
+- Le journal QR dispose de filtres et d un export CSV dedies.
+- La trace contient l heure, le module, l engin eventuel, l identite lorsqu elle est connue, l IP client, l IP du reverse proxy et le navigateur.
 - Seule une empreinte du token est conservee; le token QR n est jamais stocke en clair dans le journal.
+
+## Alertes de stock pharmacie
+- `warning`: le stock est exactement au seuil et l option `Surveiller le seuil` est activee sur l article.
+- `critique`: le stock est strictement inferieur au seuil configure.
+- Une seule notification est envoyee par article et par niveau. Une nouvelle alerte est possible apres retour a la normale ou changement de niveau.
+- Le ciblage et les canaux se configurent dans `Administration > Parametres notifications` avec les evenements pharmacie correspondants.
 
 ## Vue mensuelle des verifications
 URL:
@@ -225,7 +233,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.4.1`
+  - `./scripts/release.ps1 -Version 1.5.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -274,6 +282,12 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.5.0
+- Appliquer `042_separate_qr_ip_and_pharmacy_alerts.sql` avec `php scripts/migrate.php`.
+- Cette migration separe l IP client de celle du proxy dans les nouvelles traces QR et initialise le suivi anti-doublon des alertes de stock.
+- Configurer les destinataires des evenements `Pharmacie: seuil warning atteint` et `Pharmacie: stock critique` dans `Administration > Parametres notifications`.
+- Les anciennes traces QR conservent leur IP historique; seules les nouvelles ouvertures distinguent IP client et IP proxy.
 
 ## Depannage
 ### Echec generation QR

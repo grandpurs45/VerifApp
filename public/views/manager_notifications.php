@@ -62,13 +62,32 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <?php else: ?>
         <div class="space-y-3">
             <?php foreach ($history as $item): ?>
-                <?php $isRead = (int) ($item['lu'] ?? 0) === 1; ?>
-                <article class="rounded-xl border p-4 <?= $isRead ? 'border-slate-200 bg-slate-50' : 'border-sky-200 bg-sky-50' ?>">
+                <?php
+                $isRead = (int) ($item['lu'] ?? 0) === 1;
+                $severity = (string) ($item['severity'] ?? 'info');
+                $severityLabel = match ($severity) {
+                    'critical' => 'Critique',
+                    'warning' => 'Warning',
+                    default => 'Information',
+                };
+                $unreadClass = match ($severity) {
+                    'critical' => 'border-red-300 bg-red-50',
+                    'warning' => 'border-amber-300 bg-amber-50',
+                    default => 'border-sky-200 bg-sky-50',
+                };
+                $severityClass = match ($severity) {
+                    'critical' => 'bg-red-200 text-red-800',
+                    'warning' => 'bg-amber-200 text-amber-900',
+                    default => 'bg-sky-200 text-sky-800',
+                };
+                ?>
+                <article class="rounded-xl border p-4 <?= $isRead ? 'border-slate-200 bg-slate-50' : $unreadClass ?>">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <p class="font-semibold text-slate-900"><?= htmlspecialchars((string) ($item['titre'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
-                        <span class="text-xs rounded-full px-2 py-1 <?= $isRead ? 'bg-slate-200 text-slate-700' : 'bg-sky-200 text-sky-800' ?>">
-                            <?= $isRead ? 'Lue' : 'Non lue' ?>
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-full px-2 py-1 text-xs font-semibold <?= $severityClass ?>"><?= $severityLabel ?></span>
+                            <span class="rounded-full px-2 py-1 text-xs <?= $isRead ? 'bg-slate-200 text-slate-700' : 'bg-white text-slate-700' ?>"><?= $isRead ? 'Lue' : 'Non lue' ?></span>
+                        </div>
                     </div>
                     <p class="text-sm text-slate-700 mt-1"><?= htmlspecialchars((string) ($item['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                     <p class="text-xs text-slate-500 mt-2">

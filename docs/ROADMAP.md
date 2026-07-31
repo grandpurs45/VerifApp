@@ -20,11 +20,17 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - couverture mensuelle par poste et par creneau
 - prise en compte des gardes de 24 h sur les deux creneaux
 
+### v1.5.0
+- journaux connexions et QR separes
+- filtres et export CSV dedies au journal QR
+- IP client distinguee de l IP reverse proxy
+- notifications pharmacie aux seuils warning et critique avec anti-doublon
+- emails de seuil pharmacie detailles
+
 ## Prochain cycle
 
-### v1.5
+### v1.6
 - historique de livraison des notifications email avec statut et erreur
-- filtres et export CSV dedies au journal QR
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies
 - tests automatises des parcours critiques

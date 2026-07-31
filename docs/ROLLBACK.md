@@ -82,3 +82,12 @@ Pour revenir au code v1.4.0:
 1. restaurer le code du tag `v1.4.0`
 2. conserver la colonne `verification_frequency`, qui est ignoree par la v1.4.0
 3. ne supprimer la colonne qu apres une sauvegarde et une validation explicite en maintenance
+
+## 10. Retour depuis v1.5.0
+La migration `042_separate_qr_ip_and_pharmacy_alerts.sql` ajoute `qr_access_logs.proxy_ip_address` et la table `pharmacy_stock_alert_states` sans supprimer de donnees existantes.
+
+Pour revenir au code v1.4.1:
+1. restaurer le code du tag `v1.4.1`
+2. conserver la colonne et la table ajoutees, qui sont ignorees par la v1.4.1
+3. restaurer le backup pre-upgrade si un retour complet des donnees est necessaire
+4. ne supprimer manuellement aucun objet de la migration 042 sans sauvegarde et validation de maintenance

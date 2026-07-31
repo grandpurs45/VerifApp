@@ -31,7 +31,7 @@ Ce guide cible les administrateurs plateforme et caserne.
   - parametres et groupes de notifications
   - roles et acces
   - utilisateurs
-  - audit connexions et ouvertures QR
+  - journal des connexions et journal des ouvertures QR separes
 
 ## 3. Parametres application
 Page: `Administration > Parametres application`
@@ -145,3 +145,10 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 - verifier audit connexions (echecs/verrouillages).
 - verifier le journal des ouvertures QR.
 - verifier presence d au moins 1 backup recent.
+
+## 12. Alertes de stock pharmacie
+- Configurer un seuil strictement positif sur chaque article concerne.
+- Activer `Surveiller le seuil` pour recevoir aussi le warning lorsque le stock est egal au seuil.
+- Le niveau critique est declenche lorsque le stock passe sous le seuil, meme si le warning n est pas active.
+- Configurer les destinataires de `Pharmacie: seuil warning atteint` et `Pharmacie: stock critique` dans les parametres notifications.
+- Une alerte identique n est pas repetee tant que l article reste au meme niveau.

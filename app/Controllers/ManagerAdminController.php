@@ -179,19 +179,29 @@ final class ManagerAdminController
             $scopeCaserneId = $selectedCaserneId;
         }
 
+        $journal = (string) ($_GET['journal'] ?? 'connections');
+        if (!in_array($journal, ['connections', 'qr'], true)) {
+            $journal = 'connections';
+        }
         $filters = [
             'date_from' => trim((string) ($_GET['date_from'] ?? '')),
             'date_to' => trim((string) ($_GET['date_to'] ?? '')),
             'event_type' => trim((string) ($_GET['event_type'] ?? '')),
             'identifier' => trim((string) ($_GET['identifier'] ?? '')),
+            'identity' => trim((string) ($_GET['identity'] ?? '')),
+            'module' => trim((string) ($_GET['module'] ?? '')),
             'ip_address' => trim((string) ($_GET['ip_address'] ?? '')),
         ];
 
-        $repository = new LoginEventRepository();
-        $events = $repository->findAll($filters, $scopeCaserneId, 400);
+        $events = [];
+        if ($journal === 'connections') {
+            $events = (new LoginEventRepository())->findAll($filters, $scopeCaserneId, 400);
+        }
         $qrAccessRepository = new QrAccessLogRepository();
         $qrAccessAvailable = $qrAccessRepository->isAvailable();
-        $qrAccesses = $qrAccessAvailable ? $qrAccessRepository->findRecent($scopeCaserneId, 300) : [];
+        $qrAccesses = $journal === 'qr' && $qrAccessAvailable
+            ? $qrAccessRepository->findAll($filters, $scopeCaserneId, 400)
+            : [];
         $qrAccessError = $qrAccessRepository->getLastError();
 
         $casernes = [];
@@ -231,24 +241,49 @@ final class ManagerAdminController
             }
         }
 
+        $journal = (string) ($_GET['journal'] ?? 'connections');
+        if (!in_array($journal, ['connections', 'qr'], true)) {
+            $journal = 'connections';
+        }
         $filters = [
             'date_from' => trim((string) ($_GET['date_from'] ?? '')),
             'date_to' => trim((string) ($_GET['date_to'] ?? '')),
             'event_type' => trim((string) ($_GET['event_type'] ?? '')),
             'identifier' => trim((string) ($_GET['identifier'] ?? '')),
+            'identity' => trim((string) ($_GET['identity'] ?? '')),
+            'module' => trim((string) ($_GET['module'] ?? '')),
             'ip_address' => trim((string) ($_GET['ip_address'] ?? '')),
         ];
 
-        $repository = new LoginEventRepository();
-        $events = $repository->findAll($filters, $scopeCaserneId, 2000);
-
         header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="audit_connexions.csv"');
+        header('Content-Disposition: attachment; filename="audit_' . ($journal === 'qr' ? 'qr' : 'connexions') . '.csv"');
         $output = fopen('php://output', 'wb');
         if ($output === false) {
             exit;
         }
         fwrite($output, "\xEF\xBB\xBF");
+
+        if ($journal === 'qr') {
+            $accesses = (new QrAccessLogRepository())->findAll($filters, $scopeCaserneId, 500);
+            fputcsv($output, ['date_heure', 'caserne', 'module', 'engin', 'identite', 'ip_client', 'ip_proxy', 'navigateur', 'referer'], ';');
+            foreach ($accesses as $access) {
+                fputcsv($output, [
+                    (string) ($access['opened_at'] ?? ''),
+                    (string) ($access['caserne_nom'] ?? ''),
+                    (string) ($access['module'] ?? ''),
+                    (string) ($access['vehicule_nom'] ?? ''),
+                    (string) ($access['identite'] ?? ''),
+                    (string) ($access['ip_address'] ?? ''),
+                    (string) ($access['proxy_ip_address'] ?? ''),
+                    (string) ($access['user_agent'] ?? ''),
+                    (string) ($access['referer'] ?? ''),
+                ], ';');
+            }
+            fclose($output);
+            exit;
+        }
+
+        $events = (new LoginEventRepository())->findAll($filters, $scopeCaserneId, 2000);
         fputcsv($output, ['date_heure', 'caserne', 'type', 'identifiant_saisi', 'utilisateur', 'email', 'ip', 'raison', 'user_agent'], ';');
         foreach ($events as $event) {
             fputcsv($output, [

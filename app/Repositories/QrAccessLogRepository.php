@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Core\ClientIpResolver;
 use App\Core\Database;
 use PDO;
 use Throwable;
@@ -37,13 +38,14 @@ final class QrAccessLogRepository
         }
 
         try {
+            $network = ClientIpResolver::resolve($_SERVER);
             $statement = Database::getConnection()->prepare('
                 INSERT INTO qr_access_logs (
                     caserne_id, module, vehicule_id, utilisateur_id, nom_saisi,
-                    token_fingerprint, ip_address, user_agent, referer, session_fingerprint
+                    token_fingerprint, ip_address, proxy_ip_address, user_agent, referer, session_fingerprint
                 ) VALUES (
                     :caserne_id, :module, :vehicule_id, :utilisateur_id, :nom_saisi,
-                    :token_fingerprint, :ip_address, :user_agent, :referer, :session_fingerprint
+                    :token_fingerprint, :ip_address, :proxy_ip_address, :user_agent, :referer, :session_fingerprint
                 )
             ');
             $managerUser = is_array($_SESSION['manager_user'] ?? null) ? $_SESSION['manager_user'] : [];
@@ -56,7 +58,8 @@ final class QrAccessLogRepository
                 'utilisateur_id' => $userId > 0 ? $userId : null,
                 'nom_saisi' => $name !== '' ? mb_substr($name, 0, 150) : null,
                 'token_fingerprint' => $token !== '' ? hash('sha256', $token) : null,
-                'ip_address' => mb_substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null,
+                'ip_address' => mb_substr($network['client_ip'], 0, 45),
+                'proxy_ip_address' => $network['proxy_ip'] !== null ? mb_substr($network['proxy_ip'], 0, 45) : null,
                 'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500) ?: null,
                 'referer' => mb_substr((string) ($_SERVER['HTTP_REFERER'] ?? ''), 0, 500) ?: null,
                 'session_fingerprint' => session_id() !== '' ? hash('sha256', session_id()) : null,
@@ -101,8 +104,44 @@ final class QrAccessLogRepository
 
     public function findRecent(?int $caserneId, int $limit = 200): array
     {
+        return $this->findAll([], $caserneId, $limit);
+    }
+
+    /**
+     * @param array<string, string> $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function findAll(array $filters, ?int $caserneId, int $limit = 200): array
+    {
         $limit = max(10, min(500, $limit));
         try {
+            $where = [];
+            $params = [];
+            if ($caserneId !== null) {
+                $where[] = 'q.caserne_id = :caserne_id';
+                $params['caserne_id'] = $caserneId;
+            }
+            if (($filters['date_from'] ?? '') !== '') {
+                $where[] = 'q.opened_at >= :date_from';
+                $params['date_from'] = $filters['date_from'] . ' 00:00:00';
+            }
+            if (($filters['date_to'] ?? '') !== '') {
+                $where[] = 'q.opened_at <= :date_to';
+                $params['date_to'] = $filters['date_to'] . ' 23:59:59';
+            }
+            if (($filters['module'] ?? '') !== '') {
+                $where[] = 'q.module = :module';
+                $params['module'] = $filters['module'];
+            }
+            if (($filters['identity'] ?? '') !== '') {
+                $where[] = '(u.nom LIKE :identity OR q.nom_saisi LIKE :identity)';
+                $params['identity'] = '%' . $filters['identity'] . '%';
+            }
+            if (($filters['ip_address'] ?? '') !== '') {
+                $where[] = '(q.ip_address LIKE :ip_address OR q.proxy_ip_address LIKE :ip_address)';
+                $params['ip_address'] = '%' . $filters['ip_address'] . '%';
+            }
+
             $sql = '
                 SELECT
                     q.*,
@@ -113,13 +152,13 @@ final class QrAccessLogRepository
                 INNER JOIN casernes c ON c.id = q.caserne_id
                 LEFT JOIN vehicules v ON v.id = q.vehicule_id
                 LEFT JOIN utilisateurs u ON u.id = q.utilisateur_id
-                ' . ($caserneId !== null ? 'WHERE q.caserne_id = :caserne_id' : '') . '
+                ' . ($where !== [] ? 'WHERE ' . implode(' AND ', $where) : '') . '
                 ORDER BY q.opened_at DESC, q.id DESC
                 LIMIT :limit_rows
             ';
             $statement = Database::getConnection()->prepare($sql);
-            if ($caserneId !== null) {
-                $statement->bindValue(':caserne_id', $caserneId, PDO::PARAM_INT);
+            foreach ($params as $key => $value) {
+                $statement->bindValue(':' . $key, $value, $key === 'caserne_id' ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
             $statement->bindValue(':limit_rows', $limit, PDO::PARAM_INT);
             $statement->execute();

@@ -74,6 +74,16 @@ final class NotificationRepository
                 'description' => 'Un inventaire pharmacie vient d etre saisi sur le terrain.',
                 'default_roles' => ['admin', 'resp_pharma', 'responsable_pharmacie', 'responsable_materiel'],
             ],
+            'pharmacy.stock.warning' => [
+                'label' => 'Pharmacie: seuil warning atteint',
+                'description' => 'Le stock d un article atteint son seuil warning surveille.',
+                'default_roles' => ['admin', 'resp_pharma', 'responsable_pharmacie', 'responsable_materiel'],
+            ],
+            'pharmacy.stock.critical' => [
+                'label' => 'Pharmacie: stock critique',
+                'description' => 'Le stock d un article passe sous son seuil configure.',
+                'default_roles' => ['admin', 'resp_pharma', 'responsable_pharmacie', 'responsable_materiel'],
+            ],
         ];
     }
 
@@ -172,7 +182,11 @@ final class NotificationRepository
                 $insertNotif->execute([
                     'caserne_id' => $caserneId,
                     'event_code' => $eventCode,
-                    'severity' => 'info',
+                    'severity' => match ($eventCode) {
+                        'pharmacy.stock.warning' => 'warning',
+                        'pharmacy.stock.critical' => 'critical',
+                        default => 'info',
+                    },
                     'titre' => mb_substr(trim($title), 0, 190),
                     'message' => mb_substr(trim($message), 0, 500),
                     'lien' => $link !== null && trim($link) !== '' ? mb_substr(trim($link), 0, 255) : null,
@@ -277,6 +291,7 @@ final class NotificationRepository
             SELECT
                 n.id,
                 n.event_code,
+                n.severity,
                 n.titre,
                 n.message,
                 n.lien,
@@ -325,6 +340,7 @@ final class NotificationRepository
             SELECT
                 n.id,
                 n.event_code,
+                n.severity,
                 n.titre,
                 n.message,
                 n.lien,
@@ -1157,6 +1173,10 @@ final class NotificationRepository
             return $this->buildAnomalyEmailBodies($caserneLabel, $title, $message, $href, $context);
         }
 
+        if (in_array($eventCode, ['pharmacy.stock.warning', 'pharmacy.stock.critical'], true)) {
+            return $this->buildPharmacyStockEmailBodies($caserneLabel, $title, $message, $href, $context);
+        }
+
         if ($eventCode === 'pharmacy.output.created' && isset($context['lines']) && is_array($context['lines'])) {
             $declarant = trim((string) ($context['declarant'] ?? ''));
             $textRows = [];
@@ -1247,6 +1267,82 @@ final class NotificationRepository
         return [
             'text' => $fallbackText,
             'html' => $fallbackHtml,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array{text:string,html:string}
+     */
+    private function buildPharmacyStockEmailBodies(
+        string $caserneLabel,
+        string $title,
+        string $message,
+        ?string $href,
+        array $context
+    ): array {
+        $level = ($context['alert_level'] ?? '') === 'critical' ? 'critical' : 'warning';
+        $isCritical = $level === 'critical';
+        $levelLabel = $isCritical ? 'CRITIQUE' : 'WARNING';
+        $article = trim((string) ($context['article'] ?? 'Article non renseigne'));
+        $stock = trim((string) ($context['stock_label'] ?? '-'));
+        $threshold = trim((string) ($context['threshold_label'] ?? '-'));
+        $accent = $isCritical ? '#dc2626' : '#d97706';
+        $accentLight = $isCritical ? '#fef2f2' : '#fffbeb';
+        $accentBorder = $isCritical ? '#fecaca' : '#fde68a';
+        $accentText = $isCritical ? '#991b1b' : '#92400e';
+        $intro = $isCritical
+            ? 'Le stock de cet article est passe sous le seuil configure et necessite une action.'
+            : 'Le stock de cet article a atteint le seuil warning configure.';
+
+        $textLines = [
+            trim($title),
+            '',
+            'Niveau: ' . $levelLabel,
+            'Article: ' . $article,
+            'Stock disponible: ' . $stock,
+            'Seuil configure: ' . $threshold,
+            '',
+            trim($message),
+        ];
+        if ($href !== null) {
+            $textLines[] = '';
+            $textLines[] = 'Ouvrir la pharmacie: ' . $href;
+        }
+        $textLines[] = '';
+        $textLines[] = 'Caserne: ' . $caserneLabel;
+
+        $html = '<!doctype html><html><body style="margin:0;padding:16px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f1;border-radius:8px;overflow:hidden;">'
+            . '<tr><td style="height:5px;background:' . $accent . ';font-size:0;line-height:0;">&nbsp;</td></tr>'
+            . '<tr><td style="padding:18px 20px;background:#0f172a;color:#ffffff;">'
+            . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp - Alerte stock pharmacie</div>'
+            . '<div style="font-size:21px;font-weight:700;margin-top:6px;">' . $this->escapeHtml($title) . '</div>'
+            . '</td></tr>'
+            . '<tr><td style="padding:20px;">'
+            . '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr><td style="padding:6px 10px;border-radius:4px;background:' . $accentLight . ';border:1px solid ' . $accentBorder . ';color:' . $accentText . ';font-size:12px;font-weight:700;letter-spacing:0.06em;">' . $levelLabel . '</td></tr></table>'
+            . '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;">' . $this->escapeHtml($intro) . '</p>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;border-collapse:collapse;font-size:14px;">'
+            . '<tr><td style="width:145px;padding:8px 0;color:#64748b;">Article</td><td style="padding:8px 0;font-weight:700;">' . $this->escapeHtml($article) . '</td></tr>'
+            . '</table>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;">'
+            . '<tr>'
+            . '<td width="50%" valign="top" style="padding:14px;border:1px solid ' . $accentBorder . ';background:' . $accentLight . ';">'
+            . '<div style="font-size:12px;color:' . $accentText . ';text-transform:uppercase;">Stock disponible</div>'
+            . '<div style="margin-top:6px;font-size:26px;line-height:1.2;font-weight:700;color:' . $accentText . ';">' . $this->escapeHtml($stock) . '</div>'
+            . '</td>'
+            . '<td width="50%" valign="top" style="padding:14px;border:1px solid #dbe5f1;background:#f8fafc;">'
+            . '<div style="font-size:12px;color:#64748b;text-transform:uppercase;">Seuil configure</div>'
+            . '<div style="margin-top:6px;font-size:26px;line-height:1.2;font-weight:700;color:#334155;">' . $this->escapeHtml($threshold) . '</div>'
+            . '</td>'
+            . '</tr></table>'
+            . ($href !== null ? ('<p style="margin:18px 0 0 0;"><a href="' . $this->escapeHtml($href) . '" style="display:inline-block;padding:10px 14px;border-radius:6px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700;">Ouvrir la pharmacie</a></p>') : '')
+            . '<p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">Caserne: <strong>' . $this->escapeHtml($caserneLabel) . '</strong></p>'
+            . '</td></tr></table></body></html>';
+
+        return [
+            'text' => implode("\r\n", $textLines),
+            'html' => $html,
         ];
     }
 

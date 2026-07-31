@@ -10,6 +10,7 @@ use App\Repositories\CaserneRepository;
 use App\Repositories\NotificationRepository;
 use App\Repositories\PharmacyRepository;
 use App\Repositories\QrAccessLogRepository;
+use App\Services\PharmacyStockAlertService;
 
 final class PharmacyController
 {
@@ -213,6 +214,10 @@ final class PharmacyController
                 'declarant' => $declarant,
                 'lines' => $notificationLines,
             ]
+        );
+        (new PharmacyStockAlertService())->syncCaserne(
+            $caserneId,
+            array_column($lines, 'article_id')
         );
 
         $this->redirect('/index.php?controller=pharmacy&action=form&success=1&items=' . count($lines));

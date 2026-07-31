@@ -8,6 +8,7 @@ use App\Core\Env;
 use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\PharmacyRepository;
+use App\Services\PharmacyStockAlertService;
 use Throwable;
 
 final class ManagerPharmacyController
@@ -20,6 +21,7 @@ final class ManagerPharmacyController
         }
 
         $repository = new PharmacyRepository();
+        (new PharmacyStockAlertService())->syncCaserne($caserneId);
         $articles = $repository->findAllArticles($caserneId, false, true);
         $movementGroups = $repository->findLastOutputGroups($caserneId, 10);
         $stats = $repository->getStats($caserneId);
@@ -261,6 +263,7 @@ final class ManagerPharmacyController
         $repository = new PharmacyRepository();
         $status = $repository->cancelOutputGroup($caserneId, $sortieKey, $managerName, $reason);
         if ($status === 'ok') {
+            (new PharmacyStockAlertService())->syncCaserne($caserneId);
             $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=cancel_saved');
         }
         if ($status === 'not_found') {
@@ -352,6 +355,10 @@ final class ManagerPharmacyController
             $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=receive_failed');
         }
 
+        (new PharmacyStockAlertService())->syncCaserne(
+            $caserneId,
+            array_column($lines, 'article_id')
+        );
         $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=receive_saved');
     }
 
@@ -464,6 +471,7 @@ final class ManagerPharmacyController
         $repository = new PharmacyRepository();
         $status = $repository->applyInventoryToStock($caserneId, $inventoryId, $managerName);
         if ($status === 'ok') {
+            (new PharmacyStockAlertService())->syncCaserne($caserneId);
             $this->redirect('/index.php?controller=manager_pharmacy&action=inventory_show&id=' . $inventoryId . '&success=inventory_applied');
         }
         if ($status === 'already_applied') {
@@ -537,6 +545,7 @@ final class ManagerPharmacyController
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
         }
 
+        (new PharmacyStockAlertService())->syncCaserne($caserneId, $id > 0 ? [$id] : []);
         $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_saved');
     }
 

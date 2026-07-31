@@ -85,6 +85,12 @@ Actions:
 - lancer `email test` depuis parametres.
 - verifier blocage provider SMTP.
 
+### Alerte de seuil stock non recue
+- verifier que la migration `042_separate_qr_ip_and_pharmacy_alerts.sql` est appliquee.
+- verifier le seuil, le stock actif et l option `Surveiller le seuil` pour le niveau warning.
+- verifier que les evenements `pharmacy.stock.warning` et `pharmacy.stock.critical` sont actifs et correctement cibles.
+- une alerte n est pas repetee tant que l article reste au meme niveau; faire repasser le stock a la normale pour rearmer ce niveau.
+
 ### Notification anomalie non recue
 - verifier que le canal email et l evenement `anomaly.created` sont actifs.
 - verifier le ciblage general puis le ciblage propre a l engin.
@@ -103,8 +109,9 @@ Actions:
 ### Journal QR vide
 - verifier que la migration `040_prepare_v14_features.sql` est appliquee.
 - verifier que la migration `041_add_verification_frequency.sql` est appliquee pour les frequences par vehicule.
-- selectionner la bonne caserne dans `Administration > Audit securite`.
-- verifier le compteur `Journal QR`, puis la colonne caserne du tableau.
+- verifier que la migration `042_separate_qr_ip_and_pharmacy_alerts.sql` est appliquee.
+- selectionner le journal `Ouvertures QR` et la bonne caserne dans `Administration > Audit securite`.
+- verifier les colonnes IP client et proxy sur une nouvelle ouverture; les anciennes traces ne sont pas recalculees.
 - rechercher `[VerifApp QR audit]` dans les logs du conteneur web.
 
 ## 7. Procedure rollback standard

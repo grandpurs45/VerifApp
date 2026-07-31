@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\ClientIpResolver;
 use App\Core\ManagerAccess;
 use App\Core\PasswordPolicy;
 use App\Repositories\CaserneRepository;
@@ -426,26 +427,7 @@ final class AuthController
 
     private function resolveClientIp(): string
     {
-        $candidates = [
-            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null,
-            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (!is_string($candidate) || trim($candidate) === '') {
-                continue;
-            }
-            $parts = explode(',', $candidate);
-            foreach ($parts as $part) {
-                $ip = trim($part);
-                if ($ip !== '') {
-                    return $ip;
-                }
-            }
-        }
-
-        return '0.0.0.0';
+        return ClientIpResolver::resolve($_SERVER)['client_ip'];
     }
 
     private function resolveUserAgent(): string
