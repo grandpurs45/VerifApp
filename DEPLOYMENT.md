@@ -2,6 +2,12 @@
 
 Ce guide vise un deploiement simple de VerifApp sur serveur PHP + MySQL/MariaDB.
 
+## Mise a niveau v1.6.0
+- Executer `bash scripts/update-production.sh` avec la sauvegarde habituelle.
+- Aucune nouvelle migration par rapport a v1.5.1.
+- Verifier le menu `Pharmacie > Reception` et le bouton d ajout d article sur la page Stock.
+- Les receptions incrementent le stock sans modifier la commande de reference; la synthese des sorties reste accessible dans Sorties.
+
 ## Mise a niveau v1.5.1
 - Executer `bash scripts/update-production.sh` avec la sauvegarde habituelle.
 - Aucune nouvelle migration par rapport a v1.5.0.

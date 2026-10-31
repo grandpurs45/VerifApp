@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.5.1` (voir fichier `VERSION`).
+Version courante: `v1.6.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -233,7 +233,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.5.1`
+  - `./scripts/release.ps1 -Version 1.6.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -282,6 +282,12 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.6.0
+- Aucune nouvelle migration par rapport a v1.5.1.
+- `Pharmacie > Reception` regroupe la saisie des articles recus, les quantites et le stock prevu apres reception.
+- Le recapitulatif distingue les unites. La reception ne modifie pas la commande de reference.
+- Le formulaire d ajout d article est accessible via le bouton `Ajouter un article` de la page Stock.
 
 ### Mise a niveau vers v1.5.1
 - Aucune nouvelle migration par rapport a v1.5.0.

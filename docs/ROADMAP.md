@@ -33,9 +33,16 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - verification de l enregistrement du mot de passe et conservation de l IP client
 - tests de regression du changement de mot de passe initial
 
+### v1.6.0
+- formulaire d ajout d article pharmacie en fenetre modale
+- page et menu dedies a la reception de commandes pharmacie
+- stock prevu apres reception et recapitulatif par unite
+- interface de reception adaptee au mobile
+- reception simplifiee sans note ni modification de commande de reference
+
 ## Prochain cycle
 
-### v1.6
+### v1.7
 - historique de livraison des notifications email avec statut et erreur
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies

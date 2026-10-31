@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.6.0] - 2026-10-31
+
+### Changed
+- Reception pharmacie: retrait de la note et de l option de nouvelle commande de reference du formulaire; la reception conserve la reference existante.
+- Pharmacie: page Reception de commande et entree dediee dans le menu, formulaire retire de la page Sorties.
+- Reception pharmacie: quantites et stocks previsibles alignes, recapitulatif par unite, recherche refermee apres selection et validation des quantites avant enregistrement.
+- Pharmacie: bouton Ajouter un article ouvrant un formulaire en fenetre modale, avec fermeture, annulation et ouverture automatique en cas d erreur d enregistrement.
+
 ## [1.5.1] - 2026-10-31
 
 ### Fixed

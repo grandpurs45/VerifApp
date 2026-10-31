@@ -61,6 +61,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             <strong>ouvrir le formulaire de sortie de materiel (QR pharmacie).</strong>
         </p>
         <div class="flex flex-wrap items-center gap-2">
+            <a href="/index.php?controller=manager_pharmacy&action=reception" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">Receptionner une commande</a>
             <a href="/index.php?controller=manager_pharmacy&action=outputs" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Voir sorties</a>
             <a href="/index.php?controller=manager_pharmacy&action=inventories" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Module inventaire</a>
             <a
@@ -96,29 +97,48 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </article>
 </section>
 
-<section class="rounded-2xl bg-white shadow p-4 md:p-5">
-    <h2 class="text-xl font-bold">Ajouter un article</h2>
-    <form method="post" action="/index.php?controller=manager_pharmacy&action=article_save" class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2">
+<?php $showArticleForm = in_array((string) ($_GET['error'] ?? ''), ['invalid_article', 'article_duplicate', 'article_save_failed'], true); ?>
+<dialog id="pharmacyArticleDialog" aria-labelledby="pharmacyArticleDialogTitle" data-open-on-error="<?= $showArticleForm ? '1' : '0' ?>" class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-950/60">
+    <div class="flex items-center justify-between gap-3">
+        <h2 id="pharmacyArticleDialogTitle" class="text-lg font-bold">Ajouter un article</h2>
+        <button type="button" data-close-article-dialog aria-label="Fermer le formulaire" title="Fermer" class="h-9 w-9 shrink-0 rounded-md text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+    <form method="post" action="/index.php?controller=manager_pharmacy&action=article_save" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input type="hidden" name="id" value="0">
-        <input type="text" name="nom" required placeholder="Nom article" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-3">
-        <input type="text" name="unite" required placeholder="Unite (u, boite, ml...)" value="u" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <input type="number" min="0" step="1" name="stock_actuel" required placeholder="Stock (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <input type="number" min="0" step="1" name="seuil_alerte" placeholder="Seuil alerte (entier)" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-        <select name="surveiller_seuil" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
-            <option value="0">Surveiller seuil: Non</option>
-            <option value="1">Surveiller seuil: Oui</option>
-        </select>
-        <select name="motif_sortie_obligatoire" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        <label class="text-sm font-semibold sm:col-span-2">Nom de l article
+            <input type="text" name="nom" required autofocus class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
+        </label>
+        <label class="text-sm font-semibold">Unite
+            <input type="text" name="unite" required value="u" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
+        </label>
+        <label class="text-sm font-semibold">Stock initial
+            <input type="number" min="0" step="1" name="stock_actuel" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
+        </label>
+        <label class="text-sm font-semibold">Seuil d alerte
+            <input type="number" min="0" step="1" name="seuil_alerte" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
+        </label>
+        <label class="flex items-center gap-2 text-sm sm:self-end sm:pb-2">
+            <input type="checkbox" name="surveiller_seuil" value="1" class="h-4 w-4">
+            Surveiller le seuil
+        </label>
+        <label class="text-sm font-semibold">Motif de sortie
+        <select name="motif_sortie_obligatoire" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
             <option value="0">Sortie libre</option>
             <option value="1">Motif obligatoire</option>
         </select>
-        <select name="actif" class="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2">
+        </label>
+        <label class="text-sm font-semibold">Etat
+        <select name="actif" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
             <option value="1">Actif</option>
             <option value="0">Inactif</option>
         </select>
-        <button type="submit" class="md:col-span-12 rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold">Ajouter article</button>
+        </label>
+        <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
+            <button type="button" data-close-article-dialog class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">Annuler</button>
+            <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Ajouter l article</button>
+        </div>
     </form>
-</section>
+</dialog>
 
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -140,6 +160,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 class="w-64 max-w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             >
             <p class="text-xs text-slate-500"><span id="pharmacyArticleCount"><?= count($articles) ?></span> article(s)</p>
+            <button type="button" id="pharmacyAddArticle" aria-haspopup="dialog" aria-controls="pharmacyArticleDialog" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"><span aria-hidden="true">+</span> Ajouter un article</button>
         </div>
     </div>
 
@@ -377,6 +398,18 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
 <script>
     (function () {
+        const articleDialog = document.getElementById('pharmacyArticleDialog');
+        const addArticleButton = document.getElementById('pharmacyAddArticle');
+        if (articleDialog && addArticleButton) {
+            addArticleButton.addEventListener('click', () => articleDialog.showModal());
+            articleDialog.querySelectorAll('[data-close-article-dialog]').forEach((button) => {
+                button.addEventListener('click', () => articleDialog.close());
+            });
+            if (articleDialog.dataset.openOnError === '1') {
+                articleDialog.showModal();
+            }
+        }
+
         const searchInput = document.getElementById('pharmacyArticleSearch');
         const stockFilter = document.getElementById('pharmacyStockFilter');
         const rows = Array.from(document.querySelectorAll('[data-article-row]'));

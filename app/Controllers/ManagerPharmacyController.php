@@ -93,7 +93,6 @@ final class ManagerPharmacyController
         $movementGroups = $repository->findOutputGroups($caserneId, $filters, 120);
         $lastOrder = $repository->findLastOrder($caserneId);
         $summarySinceLastOrder = $repository->findSummarySinceLastOrder($caserneId, (string) $filters['summary_scope'] === 'pending');
-        $receptionArticles = $repository->findAllArticles($caserneId, false, true);
         $summaryTotalQuantity = 0;
         $summaryTotalLines = 0;
         foreach ($summarySinceLastOrder as $line) {
@@ -106,6 +105,23 @@ final class ManagerPharmacyController
         $canCancelOutputs = $this->isPlatformAdmin();
 
         require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_outputs.php';
+    }
+
+    public function reception(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) {
+            $this->redirect('/index.php?controller=manager&action=dashboard');
+        }
+
+        $repository = new PharmacyRepository();
+        $isAvailable = $repository->isAvailable();
+        $receptionArticles = $repository->findAllArticles($caserneId, false, true);
+        $success = (string) ($_GET['success'] ?? '');
+        $error = (string) ($_GET['error'] ?? '');
+        $managerUser = $_SESSION['manager_user'] ?? null;
+
+        require dirname(__DIR__, 2) . '/public/views/manager_pharmacy_reception.php';
     }
 
     public function statistics(): void
@@ -308,7 +324,7 @@ final class ManagerPharmacyController
     public function receiveOrder(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs');
+            $this->redirect('/index.php?controller=manager_pharmacy&action=reception');
         }
 
         $caserneId = $this->resolveManagerCaserneId();
@@ -345,21 +361,21 @@ final class ManagerPharmacyController
         }
 
         if ($lines === []) {
-            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=receive_invalid');
+            $this->redirect('/index.php?controller=manager_pharmacy&action=reception&error=receive_invalid');
         }
 
         $managerName = trim((string) ($_SESSION['manager_user']['nom'] ?? 'Gestionnaire'));
         $repository = new PharmacyRepository();
         $ok = $repository->applyOrderReception($caserneId, $lines, $managerName, $note, $markOrderReference);
         if (!$ok) {
-            $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&error=receive_failed');
+            $this->redirect('/index.php?controller=manager_pharmacy&action=reception&error=receive_failed');
         }
 
         (new PharmacyStockAlertService())->syncCaserne(
             $caserneId,
             array_column($lines, 'article_id')
         );
-        $this->redirect('/index.php?controller=manager_pharmacy&action=outputs&success=receive_saved');
+        $this->redirect('/index.php?controller=manager_pharmacy&action=reception&success=receive_saved');
     }
 
     public function inventorySave(): void

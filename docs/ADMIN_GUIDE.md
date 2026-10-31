@@ -152,3 +152,11 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 - Le niveau critique est declenche lorsque le stock passe sous le seuil, meme si le warning n est pas active.
 - Configurer les destinataires de `Pharmacie: seuil warning atteint` et `Pharmacie: stock critique` dans les parametres notifications.
 - Une alerte identique n est pas repetee tant que l article reste au meme niveau.
+
+## 13. Reception de commande pharmacie
+- Ouvrir `Pharmacie > Reception` ou `Receptionner une commande` depuis la page Stock.
+- Rechercher les articles recus, les ajouter et renseigner les quantites.
+- La liste affiche le stock actuel et le stock prevu apres reception. Le recapitulatif distingue les unites et le bouton de validation est actif uniquement pour des quantites entieres positives.
+- Valider la reception. Le formulaire ne propose pas de note ni de changement de commande de reference.
+- Les quantites recues sont ajoutees aux stocks de la caserne active; les alertes de seuil sont reevaluees.
+- La page Sorties conserve l historique et la synthese de commande, sans le formulaire de reception.

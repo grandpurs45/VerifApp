@@ -301,6 +301,7 @@ $managerRoutes = [
     'manager_assets/controle_delete',
     'manager_pharmacy/index',
     'manager_pharmacy/outputs',
+    'manager_pharmacy/reception',
     'manager_pharmacy/statistics',
     'manager_pharmacy/export_order_csv',
     'manager_pharmacy/order_print',
@@ -438,6 +439,7 @@ $managerRoutePermissions = [
     'manager_assets/controle_delete' => 'assets.manage',
     'manager_pharmacy/index' => 'pharmacy.manage',
     'manager_pharmacy/outputs' => 'pharmacy.manage',
+    'manager_pharmacy/reception' => 'pharmacy.manage',
     'manager_pharmacy/statistics' => 'pharmacy.manage',
     'manager_pharmacy/export_order_csv' => 'pharmacy.manage',
     'manager_pharmacy/order_print' => 'pharmacy.manage',
@@ -862,6 +864,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'manager_pharmacy' && $action === 'outputs') {
         $controller = new ManagerPharmacyController();
         $controller->outputs();
+        return;
+    }
+
+    if ($controllerName === 'manager_pharmacy' && $action === 'reception') {
+        $controller = new ManagerPharmacyController();
+        $controller->reception();
         return;
     }
 
