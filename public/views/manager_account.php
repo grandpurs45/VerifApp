@@ -99,6 +99,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
         Mot de passe actuel invalide.
     </section>
+<?php elseif ($passwordError === 'password_save_failed'): ?>
+    <section class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+        Le nouveau mot de passe n a pas pu etre enregistre. Reessaie.
+    </section>
 <?php endif; ?>
 
 <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -285,6 +289,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <?php elseif ($passwordError === 'invalid_current_password'): ?>
             <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
                 Mot de passe actuel invalide.
+            </section>
+        <?php elseif ($passwordError === 'password_save_failed'): ?>
+            <section class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 text-sm">
+                Le nouveau mot de passe n a pas pu etre enregistre. Reessaie.
             </section>
         <?php endif; ?>
         <form method="post" action="/index.php?controller=manager_auth&action=change_password" class="mt-4 space-y-3">

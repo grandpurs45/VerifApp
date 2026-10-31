@@ -9,6 +9,13 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.5.1] - 2026-10-31
+
+### Fixed
+- Premiere connexion: repli sur le role du compte lorsque le role de caserne est vide.
+- Refus d acces gestionnaire: message explicite et trace `no_manager_access`, avec confirmation lorsque le mot de passe a bien ete change.
+- Changement de mot de passe: verification de l enregistrement et conservation de l IP client dans le journal de connexion.
+
 ## [1.5.0] - 2026-07-31
 
 ### Added

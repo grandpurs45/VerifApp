@@ -15,6 +15,9 @@ if ($error === 'missing_fields') {
     $errorMessage = 'Session expiree. Merci de vous reconnecter.';
 } elseif ($error === 'no_caserne') {
     $errorMessage = 'Aucune caserne associee a ce compte. Contacte un administrateur.';
+} elseif ($error === 'no_manager_access') {
+    $errorMessage = (($_GET['password_changed'] ?? '') === '1' ? 'Ton mot de passe a bien ete modifie. ' : '')
+        . 'Le role de ce compte ne permet pas d acceder a l espace gestionnaire. Contacte un administrateur pour verifier le droit Acces dashboard gestionnaire dans tes casernes.';
 } elseif ($error === 'too_many_attempts') {
     $retryIn = isset($_GET['retry_in']) ? (int) $_GET['retry_in'] : 0;
     $retryIn = $retryIn > 0 ? $retryIn : 60;

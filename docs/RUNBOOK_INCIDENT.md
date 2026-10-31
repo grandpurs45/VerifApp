@@ -62,11 +62,14 @@ Actions:
   - `invalid_credentials`
   - `locked`
   - `inactive_user`
+  - `no_manager_access`: authentification valide, mais aucun role de caserne n autorise `dashboard.view`
   - `caserne_selected/login_ok`
 - corriger compte:
   - activation
   - reset mot de passe
   - role/affectation caserne
+
+Si le refus suit le changement du mot de passe initial, verifier le role affecte au compte dans chaque caserne et le droit `Acces dashboard gestionnaire` dans `Administration > Roles et acces`. Le mot de passe peut deja avoir ete modifie: utiliser le nouveau mot de passe. Ne pas attribuer un role admin pour contourner ce controle.
 
 ## 5. Incident pharmacie
 ### Sorties KO

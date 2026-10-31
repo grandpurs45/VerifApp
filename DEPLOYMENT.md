@@ -2,6 +2,12 @@
 
 Ce guide vise un deploiement simple de VerifApp sur serveur PHP + MySQL/MariaDB.
 
+## Mise a niveau v1.5.1
+- Executer `bash scripts/update-production.sh` avec la sauvegarde habituelle.
+- Aucune nouvelle migration par rapport a v1.5.0.
+- Verifier une premiere connexion et le changement du mot de passe initial.
+- En cas de refus, verifier le role de caserne et le droit `Acces dashboard gestionnaire`; le journal de connexion indique `no_manager_access`.
+
 ## Mise a niveau v1.5.0
 - Effectuer un backup avant la mise a jour.
 - Executer `bash scripts/update-production.sh`; le script applique automatiquement la migration `042_separate_qr_ip_and_pharmacy_alerts.sql`.

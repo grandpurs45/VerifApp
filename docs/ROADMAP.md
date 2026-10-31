@@ -27,6 +27,12 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - notifications pharmacie aux seuils warning et critique avec anti-doublon
 - emails de seuil pharmacie detailles
 
+### v1.5.1
+- repli sur le role du compte lorsque le role de caserne est vide
+- message et journal explicites pour les refus d acces gestionnaire
+- verification de l enregistrement du mot de passe et conservation de l IP client
+- tests de regression du changement de mot de passe initial
+
 ## Prochain cycle
 
 ### v1.6

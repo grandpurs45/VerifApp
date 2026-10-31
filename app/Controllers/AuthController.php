@@ -173,7 +173,12 @@ final class AuthController
         $userRepository = new UserRepository();
         $user = $userRepository->findById($targetUserId);
 
-        if ($user === null || !password_verify($currentPassword, (string) $user['mot_de_passe'])) {
+        if ($user === null || (int) ($user['actif'] ?? 0) !== 1) {
+            unset($_SESSION['manager_password_reset_user']);
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
+        }
+
+        if (!password_verify($currentPassword, (string) $user['mot_de_passe'])) {
             $this->redirect(
                 $isForcedChange
                     ? '/index.php?controller=manager_auth&action=change_password_form&error=invalid_current_password'
@@ -182,12 +187,24 @@ final class AuthController
         }
 
         $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
-        $userRepository->updatePasswordAndClearFlag($targetUserId, $passwordHash);
+        if (!$userRepository->updatePasswordAndClearFlag($targetUserId, $passwordHash)) {
+            $this->redirect(
+                $isForcedChange
+                    ? '/index.php?controller=manager_auth&action=change_password_form&error=password_save_failed'
+                    : '/index.php?controller=manager&action=account&password_error=password_save_failed'
+            );
+        }
 
         unset($_SESSION['manager_password_reset_user']);
 
         if ($pendingUserId > 0) {
-            $this->startManagerSessionForUser($targetUserId, true);
+            $this->startManagerSessionForUser(
+                $targetUserId,
+                true,
+                (string) ($user['login'] ?? $user['email'] ?? $user['nom'] ?? ''),
+                $this->resolveClientIp(),
+                $this->resolveUserAgent()
+            );
         }
 
         $this->redirect('/index.php?controller=manager&action=account&password_changed=1');
@@ -362,7 +379,17 @@ final class AuthController
         }
 
         if ($accessibleCasernes === []) {
-            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=invalid_credentials');
+            $this->logLoginEvent(
+                (int) $casernes[0]['id'],
+                $userId,
+                $identifier !== '' ? $identifier : (string) ($user['login'] ?? $user['email'] ?? $user['nom'] ?? ''),
+                $ipAddress,
+                $userAgent,
+                'failure',
+                'no_manager_access'
+            );
+            $this->redirect('/index.php?controller=manager_auth&action=login_form&error=no_manager_access'
+                . ($afterPasswordChange ? '&password_changed=1' : ''));
         }
 
         if (count($accessibleCasernes) === 1) {
@@ -421,8 +448,14 @@ final class AuthController
 
     private function resolveRoleForCaserne(array $user, array $caserne): string
     {
-        $role = trim((string) ($caserne['resolved_role'] ?? $caserne['role_code'] ?? $user['role'] ?? ''));
-        return $role;
+        foreach ([$caserne['resolved_role'] ?? null, $caserne['role_code'] ?? null, $user['role'] ?? null] as $role) {
+            $role = trim((string) $role);
+            if ($role !== '') {
+                return $role;
+            }
+        }
+
+        return '';
     }
 
     private function resolveClientIp(): string

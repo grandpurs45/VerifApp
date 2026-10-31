@@ -29,6 +29,8 @@ if ($error === 'missing_fields') {
     $errorMessage = 'La confirmation ne correspond pas au nouveau mot de passe.';
 } elseif ($error === 'invalid_current_password') {
     $errorMessage = 'Mot de passe actuel invalide.';
+} elseif ($error === 'password_save_failed') {
+    $errorMessage = 'Le nouveau mot de passe n a pas pu etre enregistre. Reessaie.';
 }
 
 if ($success === 'updated') {
