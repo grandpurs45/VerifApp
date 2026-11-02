@@ -99,6 +99,21 @@ final class PharmacyRepository
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function setArticleActive(int $caserneId, int $articleId, bool $active): bool
+    {
+        if (!$this->hasArticlesTable()) {
+            return false;
+        }
+
+        $statement = Database::getConnection()->prepare('
+            UPDATE pharmacie_articles SET actif = :actif
+            WHERE id = :id AND caserne_id = :caserne_id
+        ');
+        $statement->execute(['actif' => $active ? 1 : 0, 'id' => $articleId, 'caserne_id' => $caserneId]);
+
+        return $statement->rowCount() === 1;
+    }
+
     public function saveArticle(
         int $caserneId,
         int $id,

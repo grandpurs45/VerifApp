@@ -21,6 +21,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
         Article enregistre.
     </section>
+<?php elseif (isset($_GET['success']) && (string) $_GET['success'] === 'article_status_saved'): ?>
+    <section role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">Statut de l'article mis a jour.</section>
 <?php elseif (isset($_GET['success']) && (string) $_GET['success'] === 'article_deleted'): ?>
     <section class="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 text-sm">
         Article supprime.
@@ -54,290 +56,149 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
     </section>
 <?php endif; ?>
 
-<section class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-slate-700">
-            Acces rapide au terrain:
-            <strong>ouvrir le formulaire de sortie de materiel (QR pharmacie).</strong>
-        </p>
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="/index.php?controller=manager_pharmacy&action=reception" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">Receptionner une commande</a>
-            <a href="/index.php?controller=manager_pharmacy&action=outputs" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Voir sorties</a>
-            <a href="/index.php?controller=manager_pharmacy&action=inventories" class="inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Module inventaire</a>
-            <a
-                href="<?= htmlspecialchars((string) ($pharmacyFormUrl ?? '/index.php?controller=pharmacy&action=access'), ENT_QUOTES, 'UTF-8') ?>"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-            >
-                Ouvrir formulaire sortie
-            </a>
+<?php
+$pharmacyEscape = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+$pharmacyQuantity = static fn (mixed $value): string => rtrim(rtrim(number_format((float) $value, 2, ',', ' '), '0'), ',');
+$pendingArticleForm = null;
+if (in_array((string) ($_GET['error'] ?? ''), ['invalid_article', 'article_duplicate', 'article_save_failed'], true)
+    && is_array($articleFormState ?? null)
+    && (int) ($articleFormState['caserne_id'] ?? 0) === (int) ($_SESSION['manager_user']['caserne_id'] ?? 0)) {
+    $pendingArticleForm = $articleFormState;
+}
+?>
+<link rel="stylesheet" href="/assets/pharmacy-stock.css">
+
+<div class="ps-quick-actions">
+    <a href="/index.php?controller=manager_pharmacy&action=reception" class="ps-button ps-primary">R&eacute;ceptionner une commande</a>
+    <a href="<?= $pharmacyEscape($pharmacyFormUrl ?? '/index.php?controller=pharmacy&action=access') ?>" target="_blank" rel="noopener noreferrer" class="ps-button">Formulaire de sortie terrain</a>
+</div>
+
+<section class="ps-metrics" aria-label="Indicateurs du stock pharmacie">
+    <button type="button" class="ps-metric" data-stock-filter="active" aria-pressed="false">
+        <span class="ps-metric-label">Articles actifs</span><strong><?= (int) ($stats['total_articles'] ?? 0) ?></strong><span>En service</span>
+    </button>
+    <button type="button" class="ps-metric ps-metric-alert" data-stock-filter="alert" aria-pressed="false">
+        <span class="ps-metric-label">Sous le seuil</span><strong><?= (int) ($stats['alert_articles'] ?? 0) ?></strong><span>&Agrave; r&eacute;approvisionner</span>
+    </button>
+    <button type="button" class="ps-metric ps-metric-warning" data-stock-filter="warning" aria-pressed="false">
+        <span class="ps-metric-label">Au seuil</span><strong><?= (int) ($stats['warning_articles'] ?? 0) ?></strong><span>&Agrave; surveiller</span>
+    </button>
+    <a href="/index.php?controller=manager_pharmacy&action=outputs" class="ps-metric">
+        <span class="ps-metric-label">Sorties sur 7 jours</span><strong><?= (int) ($stats['outputs_last_7_days'] ?? 0) ?></strong><span>Voir l'historique</span>
+    </a>
+</section>
+
+<section class="ps-stock" aria-labelledby="pharmacyStockTitle">
+    <div class="ps-toolbar">
+        <h2 id="pharmacyStockTitle">Stock pharmacie</h2>
+        <div class="ps-toolbar-controls">
+            <input id="pharmacyArticleSearch" type="search" placeholder="Rechercher un article..." aria-label="Rechercher un article" class="ps-input">
+            <select id="pharmacyStockFilter" class="ps-input" aria-label="Filtrer le stock">
+                <option value="all">Tous les articles</option>
+                <option value="active">Articles actifs</option>
+                <option value="alert">Sous le seuil</option>
+                <option value="warning">Au seuil</option>
+                <option value="attention">Sous le seuil + au seuil</option>
+                <option value="inactive">Articles inactifs</option>
+            </select>
+            <button type="button" id="pharmacyAddArticle" class="ps-button ps-primary" aria-haspopup="dialog" aria-controls="pharmacyArticleDialog"><img src="/assets/icons/plus.svg" alt="" class="ps-icon ps-icon-light">Ajouter un article</button>
+        </div>
+    </div>
+    <p class="ps-result-count" id="pharmacyArticleCount" role="status"><?= count($articles) ?> article(s)</p>
+    <div class="ps-table-scroll">
+        <table class="ps-table">
+            <caption class="ps-sr-only">Stock des articles de la caserne active</caption>
+            <thead><tr>
+                <?php foreach (['name' => 'Article', 'quantity' => 'Stock disponible', 'threshold' => 'Seuil', 'state' => 'Statut'] as $key => $label): ?>
+                    <th scope="col" aria-sort="none"><button type="button" data-sort-key="<?= $key ?>" class="ps-sort"><?= $label ?><span data-sort-indicator aria-hidden="true">&varr;</span></button></th>
+                <?php endforeach; ?>
+                <th scope="col" class="ps-actions-heading">Actions</th>
+            </tr></thead>
+            <tbody id="pharmacyArticleRows">
+            <?php foreach ($articles as $article): ?>
+                <?php
+                $active = (int) ($article['actif'] ?? 0) === 1;
+                $stock = (float) ($article['stock_actuel'] ?? 0);
+                $threshold = (float) ($article['seuil_alerte'] ?? 0);
+                $alert = $active && $threshold > 0 && $stock < $threshold;
+                $warning = $active && !$alert && $threshold > 0 && (int) ($article['surveiller_seuil'] ?? 0) === 1 && $stock === $threshold;
+                $status = !$active ? 'inactive' : ($alert ? 'alert' : ($warning ? 'warning' : 'normal'));
+                $statusLabel = !$active ? 'Inactif' : ($alert ? 'Sous le seuil' : ($warning ? 'Au seuil' : ($threshold > 0 ? 'Stock suffisant' : 'Sans seuil')));
+                $lastOutput = trim((string) ($article['derniere_sortie_le'] ?? ''));
+                $lastOutputLabel = '';
+                if ($lastOutput !== '') {
+                    try { $lastOutputLabel = (new DateTimeImmutable($lastOutput))->format('d/m/Y'); }
+                    catch (Throwable) { $lastOutputLabel = $lastOutput; }
+                }
+                $articleData = [
+                    'id' => (int) $article['id'],
+                    'nom' => (string) $article['nom'],
+                    'unite' => (string) $article['unite'],
+                    'stock_actuel' => (string) $stock,
+                    'seuil_alerte' => $threshold > 0 ? (string) $threshold : '',
+                    'surveiller_seuil' => (int) ($article['surveiller_seuil'] ?? 0),
+                    'motif_sortie_obligatoire' => (int) ($article['motif_sortie_obligatoire'] ?? 0),
+                    'actif' => $active ? 1 : 0,
+                ];
+                $encodedArticle = $pharmacyEscape(json_encode($articleData, JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
+                ?>
+                <tr data-article-row data-name="<?= $pharmacyEscape($article['nom']) ?>" data-quantity="<?= $stock ?>" data-threshold="<?= $threshold > 0 ? $threshold : -1 ?>" data-state="<?= $status ?>" data-active="<?= $active ? '1' : '0' ?>" class="<?= $active ? '' : 'ps-row-inactive' ?>">
+                    <td class="ps-article-cell">
+                        <p class="ps-article-name"><?= $pharmacyEscape($article['nom']) ?></p>
+                        <p class="ps-activity"><span><?= (int) ($article['sorties_6m'] ?? 0) ?> sorties sur 6 mois</span><?php if ($lastOutputLabel !== ''): ?> <span aria-hidden="true">&middot;</span> <time title="<?= $pharmacyEscape($lastOutput) ?>" datetime="<?= $pharmacyEscape(str_replace(' ', 'T', $lastOutput)) ?>">Derni&egrave;re : <?= $pharmacyEscape($lastOutputLabel) ?></time><?php endif; ?></p>
+                    </td>
+                    <td data-label="Stock disponible" class="ps-stock-cell"><strong class="<?= $alert ? 'ps-text-alert' : ($warning ? 'ps-text-warning' : '') ?>"><?= $pharmacyQuantity($stock) ?></strong> <span class="ps-unit"><?= $pharmacyEscape($article['unite']) ?></span></td>
+                    <td data-label="Seuil" class="ps-threshold-cell"><?= $threshold > 0 ? $pharmacyQuantity($threshold) . ' ' . $pharmacyEscape($article['unite']) : '&mdash;' ?></td>
+                    <td class="ps-status-cell"><span class="ps-badge ps-badge-<?= $status ?>"><?= $statusLabel ?></span></td>
+                    <td class="ps-actions-cell">
+                        <button type="button" data-edit-article data-article="<?= $encodedArticle ?>" class="ps-icon-button" title="Modifier cet article" aria-label="Modifier <?= $pharmacyEscape($article['nom']) ?>" aria-haspopup="dialog" aria-controls="pharmacyArticleDialog"><img src="/assets/icons/pencil.svg" class="ps-icon" alt=""></button>
+                        <button type="button" data-article-actions data-article="<?= $encodedArticle ?>" class="ps-icon-button" title="Autres actions" aria-label="Actions pour <?= $pharmacyEscape($article['nom']) ?>" aria-controls="pharmacyArticleActions" aria-expanded="false"><img src="/assets/icons/ellipsis-vertical.svg" class="ps-icon" alt=""></button>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div id="pharmacyStockEmpty" class="ps-empty" <?= count($articles) > 0 ? 'hidden' : '' ?>>
+            <p>Aucun article<?= count($articles) > 0 ? ' ne correspond aux filtres.' : ' enregistre.' ?></p>
+            <?php if (count($articles) > 0): ?><button type="button" id="pharmacyResetFilters" class="ps-button">R&eacute;initialiser les filtres</button><?php endif; ?>
         </div>
     </div>
 </section>
 
-<section class="grid grid-cols-1 md:grid-cols-4 gap-3">
-    <article class="rounded-2xl bg-white shadow p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Articles actifs</p>
-        <p class="text-3xl font-extrabold mt-1"><?= (int) ($stats['total_articles'] ?? 0) ?></p>
-    </article>
-    <article class="rounded-2xl bg-red-50 border border-red-200 shadow p-4">
-        <p class="text-xs uppercase tracking-wide text-red-700">En alerte stock</p>
-        <p class="text-3xl font-extrabold mt-1 text-red-700"><?= (int) ($stats['alert_articles'] ?? 0) ?></p>
-        <p class="mt-2 text-xs font-semibold text-red-700">Sous le seuil</p>
-    </article>
-    <article class="rounded-2xl bg-amber-50 border border-amber-200 shadow p-4">
-        <p class="text-xs uppercase tracking-wide text-amber-700">Au seuil</p>
-        <p class="text-3xl font-extrabold mt-1 text-amber-700"><?= (int) ($stats['warning_articles'] ?? 0) ?></p>
-        <p class="mt-2 text-xs font-semibold text-amber-700">A surveiller</p>
-    </article>
-    <article class="rounded-2xl bg-white shadow p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Sorties (7 jours)</p>
-        <p class="text-3xl font-extrabold mt-1"><?= (int) ($stats['outputs_last_7_days'] ?? 0) ?></p>
-    </article>
-</section>
-
-<?php $showArticleForm = in_array((string) ($_GET['error'] ?? ''), ['invalid_article', 'article_duplicate', 'article_save_failed'], true); ?>
-<dialog id="pharmacyArticleDialog" aria-labelledby="pharmacyArticleDialogTitle" data-open-on-error="<?= $showArticleForm ? '1' : '0' ?>" class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-950/60">
-    <div class="flex items-center justify-between gap-3">
-        <h2 id="pharmacyArticleDialogTitle" class="text-lg font-bold">Ajouter un article</h2>
-        <button type="button" data-close-article-dialog aria-label="Fermer le formulaire" title="Fermer" class="h-9 w-9 shrink-0 rounded-md text-xl text-slate-500 hover:bg-slate-100">&times;</button>
-    </div>
-    <form method="post" action="/index.php?controller=manager_pharmacy&action=article_save" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+<dialog id="pharmacyArticleDialog" aria-labelledby="pharmacyArticleDialogTitle" class="ps-dialog">
+    <div class="ps-dialog-heading"><h2 id="pharmacyArticleDialogTitle">Ajouter un article</h2><button type="button" data-close-article-dialog class="ps-icon-button" aria-label="Fermer le formulaire" title="Fermer"><img src="/assets/icons/x.svg" class="ps-icon" alt=""></button></div>
+    <form id="pharmacyArticleForm" method="post" action="/index.php?controller=manager_pharmacy&action=article_save">
         <input type="hidden" name="id" value="0">
-        <label class="text-sm font-semibold sm:col-span-2">Nom de l article
-            <input type="text" name="nom" required autofocus class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-        </label>
-        <label class="text-sm font-semibold">Unite
-            <input type="text" name="unite" required value="u" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-        </label>
-        <label class="text-sm font-semibold">Stock initial
-            <input type="number" min="0" step="1" name="stock_actuel" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-        </label>
-        <label class="text-sm font-semibold">Seuil d alerte
-            <input type="number" min="0" step="1" name="seuil_alerte" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-        </label>
-        <label class="flex items-center gap-2 text-sm sm:self-end sm:pb-2">
-            <input type="checkbox" name="surveiller_seuil" value="1" class="h-4 w-4">
-            Surveiller le seuil
-        </label>
-        <label class="text-sm font-semibold">Motif de sortie
-        <select name="motif_sortie_obligatoire" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-            <option value="0">Sortie libre</option>
-            <option value="1">Motif obligatoire</option>
-        </select>
-        </label>
-        <label class="text-sm font-semibold">Etat
-        <select name="actif" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal">
-            <option value="1">Actif</option>
-            <option value="0">Inactif</option>
-        </select>
-        </label>
-        <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
-            <button type="button" data-close-article-dialog class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">Annuler</button>
-            <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Ajouter l article</button>
+        <p id="pharmacyArticleFormError" role="alert" class="ps-form-error" hidden></p>
+        <div class="ps-form-grid">
+            <label class="ps-form-wide">Nom de l'article<input type="text" name="nom" required class="ps-input" autofocus></label>
+            <label>Unit&eacute;<input type="text" name="unite" value="u" required class="ps-input"></label>
+            <label><span id="pharmacyStockFieldLabel">Stock initial</span><input type="number" name="stock_actuel" min="0" step="1" required class="ps-input"></label>
+            <label>Seuil d'alerte<input type="number" name="seuil_alerte" min="0" step="1" class="ps-input"></label>
+            <label class="ps-check"><input type="checkbox" name="surveiller_seuil" value="1">Surveiller le seuil</label>
+            <label class="ps-check"><input type="checkbox" name="motif_sortie_obligatoire" value="1">Motif de sortie obligatoire</label>
+            <label class="ps-check"><input type="checkbox" name="actif" value="1" checked>Article actif</label>
         </div>
+        <div class="ps-dialog-footer"><button type="button" data-close-article-dialog class="ps-button">Annuler</button><button type="submit" id="pharmacyArticleSubmit" class="ps-button ps-primary">Ajouter l'article</button></div>
     </form>
 </dialog>
 
-<section class="rounded-2xl bg-white shadow p-4 md:p-5">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-xl font-bold">Articles existants</h2>
-        <div class="flex flex-wrap items-center gap-2">
-            <select
-                id="pharmacyStockFilter"
-                class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-            >
-                <option value="all">Tous les articles</option>
-                <option value="alert">Alertes uniquement</option>
-                <option value="warning">Warnings uniquement</option>
-                <option value="attention">Alertes + warnings</option>
-            </select>
-            <input
-                id="pharmacyArticleSearch"
-                type="search"
-                placeholder="Rechercher un article..."
-                class="w-64 max-w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            >
-            <p class="text-xs text-slate-500"><span id="pharmacyArticleCount"><?= count($articles) ?></span> article(s)</p>
-            <button type="button" id="pharmacyAddArticle" aria-haspopup="dialog" aria-controls="pharmacyArticleDialog" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"><span aria-hidden="true">+</span> Ajouter un article</button>
-        </div>
-    </div>
+<div id="pharmacyArticleActions" popover="auto" class="ps-action-menu">
+    <p id="pharmacyActionName" class="ps-menu-title"></p>
+    <form id="pharmacyArticleStateForm" method="post" action="/index.php?controller=manager_pharmacy&action=article_status">
+        <input type="hidden" name="id"><input type="hidden" name="actif">
+        <button type="submit" id="pharmacyArticleStateButton" class="ps-menu-button">D&eacute;sactiver</button>
+    </form>
+    <form id="pharmacyArticleDeleteForm" method="post" action="/index.php?controller=manager_pharmacy&action=article_delete">
+        <input type="hidden" name="id"><button type="submit" class="ps-menu-button ps-text-alert">Supprimer l'article</button>
+    </form>
+    <form id="pharmacyArticleForceDeleteForm" method="post" action="/index.php?controller=manager_pharmacy&action=article_force_delete">
+        <input type="hidden" name="id"><button type="submit" id="pharmacyArticleForceDeleteButton" class="ps-menu-button ps-text-alert">Supprimer avec l'historique</button>
+    </form>
+</div>
 
-    <div class="mt-3 overflow-x-auto">
-        <table class="min-w-full w-full table-fixed text-sm">
-            <colgroup>
-                <col style="width:25%">
-                <col style="width:8%">
-                <col style="width:10%">
-                <col style="width:10%">
-                <col style="width:11%">
-                <col style="width:11%">
-                <col style="width:9%">
-                <col style="width:16%">
-            </colgroup>
-            <thead>
-                <tr class="text-left text-slate-500 border-b border-slate-200">
-                    <th class="py-2 px-2">
-                        <button type="button" class="inline-flex items-center gap-1 font-semibold hover:text-slate-900" data-sort-key="name" data-sort-type="text">
-                            Nom <span class="text-[10px]" data-sort-indicator="name">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="unit" data-sort-type="text">
-                            Unite <span class="text-[10px]" data-sort-indicator="unit">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="quantity" data-sort-type="number">
-                            Quantite <span class="text-[10px]" data-sort-indicator="quantity">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="threshold" data-sort-type="number">
-                            Seuil <span class="text-[10px]" data-sort-indicator="threshold">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="threshold_watch" data-sort-type="text">
-                            Surv. seuil <span class="text-[10px]" data-sort-indicator="threshold_watch">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="cr" data-sort-type="text">
-                            Sortie CR <span class="text-[10px]" data-sort-indicator="cr">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">
-                        <button type="button" class="inline-flex items-center justify-center gap-1 font-semibold hover:text-slate-900" data-sort-key="state" data-sort-type="text">
-                            Etat <span class="text-[10px]" data-sort-indicator="state">↕</span>
-                        </button>
-                    </th>
-                    <th class="py-2 px-2 text-center">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($articles as $article): ?>
-                    <?php
-                    $isInactive = (int) ($article['actif'] ?? 0) !== 1;
-                    $isAlert = (int) ($article['actif'] ?? 0) === 1
-                        && $article['seuil_alerte'] !== null
-                        && (float) $article['seuil_alerte'] > 0
-                        && (float) $article['stock_actuel'] < (float) $article['seuil_alerte'];
-                    $isWarning = (int) ($article['actif'] ?? 0) === 1
-                        && !$isAlert
-                        && $article['seuil_alerte'] !== null
-                        && (int) ($article['surveiller_seuil'] ?? 0) === 1
-                        && (float) $article['seuil_alerte'] > 0
-                        && (float) $article['stock_actuel'] === (float) $article['seuil_alerte'];
-                    $formId = 'pharmacy-article-' . (int) $article['id'];
-                    ?>
-                    <tr
-                        class="align-middle border-b border-slate-100 <?= $isAlert ? 'bg-red-100/70' : '' ?> <?= $isWarning ? 'bg-amber-100/70' : '' ?> <?= $isInactive ? 'bg-slate-100/90' : '' ?>"
-                        data-article-row
-                        data-article-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
-                        data-article-alert="<?= $isAlert ? '1' : '0' ?>"
-                        data-article-warning="<?= $isWarning ? '1' : '0' ?>"
-                        data-sort-name="<?= htmlspecialchars(mb_strtolower((string) $article['nom']), ENT_QUOTES, 'UTF-8') ?>"
-                        data-sort-unit="<?= htmlspecialchars(mb_strtolower((string) $article['unite']), ENT_QUOTES, 'UTF-8') ?>"
-                        data-sort-quantity="<?= htmlspecialchars((string) (float) $article['stock_actuel'], ENT_QUOTES, 'UTF-8') ?>"
-                        data-sort-threshold="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (float) $article['seuil_alerte'] : -1), ENT_QUOTES, 'UTF-8') ?>"
-                        data-sort-threshold_watch="<?= (int) ($article['surveiller_seuil'] ?? 0) === 1 ? 'oui' : 'non' ?>"
-                        data-sort-cr="<?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? 'oui' : 'non' ?>"
-                        data-sort-state="<?= (int) ($article['actif'] ?? 0) === 1 ? 'actif' : 'inactif' ?>"
-                    >
-                        <td class="px-2 py-2">
-                            <form id="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" method="post" action="/index.php?controller=manager_pharmacy&action=article_save">
-                                <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
-                            </form>
-                            <?php if ($isAlert): ?>
-                                <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-200/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-red-800">
-                                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-red-600"></span>
-                                    Alerte stock
-                                </span>
-                            <?php elseif ($isWarning): ?>
-                                <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-200/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
-                                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                                    Au seuil
-                                </span>
-                            <?php elseif ($isInactive): ?>
-                                <span class="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-200/90 px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-700">
-                                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-slate-500"></span>
-                                    Inactif
-                                </span>
-                            <?php endif; ?>
-                            <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="text" name="nom" value="<?= htmlspecialchars((string) $article['nom'], ENT_QUOTES, 'UTF-8') ?>" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                            <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
-                                    Sorties 6m: <?= (int) ($article['sorties_6m'] ?? 0) ?>
-                                </span>
-                                <span>
-                                    Derniere sortie: <?= htmlspecialchars((string) ($article['derniere_sortie_le'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                                </span>
-                            </div>
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="text" name="unite" value="<?= htmlspecialchars((string) $article['unite'], ENT_QUOTES, 'UTF-8') ?>" required class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="number" min="0" step="1" name="stock_actuel" value="<?= htmlspecialchars((string) (int) round((float) $article['stock_actuel']), ENT_QUOTES, 'UTF-8') ?>" required class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <input form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="number" min="0" step="1" name="seuil_alerte" value="<?= htmlspecialchars((string) ($article['seuil_alerte'] !== null ? (int) round((float) $article['seuil_alerte']) : ''), ENT_QUOTES, 'UTF-8') ?>" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="surveiller_seuil" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                <option value="0" <?= (int) ($article['surveiller_seuil'] ?? 0) === 0 ? 'selected' : '' ?>>Non</option>
-                                <option value="1" <?= (int) ($article['surveiller_seuil'] ?? 0) === 1 ? 'selected' : '' ?>>Oui</option>
-                            </select>
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="motif_sortie_obligatoire" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                <option value="0" <?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 0 ? 'selected' : '' ?>>Non</option>
-                                <option value="1" <?= (int) ($article['motif_sortie_obligatoire'] ?? 0) === 1 ? 'selected' : '' ?>>Oui</option>
-                            </select>
-                        </td>
-                        <td class="px-2 py-2 text-center">
-                            <select form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" name="actif" class="mx-auto w-[92%] rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                <option value="1" <?= (int) ($article['actif'] ?? 0) === 1 ? 'selected' : '' ?>>Actif</option>
-                                <option value="0" <?= (int) ($article['actif'] ?? 0) !== 1 ? 'selected' : '' ?>>Inactif</option>
-                            </select>
-                        </td>
-                        <td class="px-2 py-2">
-                            <?php $forceMenuId = 'pharmacy-force-delete-menu-' . (int) $article['id']; ?>
-                            <div class="mx-auto flex w-full flex-col gap-1">
-                                <button form="<?= htmlspecialchars($formId, ENT_QUOTES, 'UTF-8') ?>" type="submit" class="w-full rounded-xl bg-slate-800 text-white px-2 py-2 text-xs font-semibold">Enregistrer</button>
-                                <div class="relative">
-                                    <div class="grid grid-cols-[1fr_auto] gap-1">
-                                        <form method="post" action="/index.php?controller=manager_pharmacy&action=article_delete" onsubmit="return window.confirm('Supprimer cet article ? Si deja utilise, la suppression sera refusee.');">
-                                            <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
-                                            <button type="submit" class="w-full rounded-l-xl rounded-r-md bg-red-600 text-white px-2 py-2 text-xs font-semibold hover:bg-red-700">Supprimer</button>
-                                        </form>
-                                        <button
-                                            type="button"
-                                            class="rounded-l-md rounded-r-xl bg-red-700 px-2 py-2 text-xs font-bold text-white hover:bg-red-800"
-                                            data-delete-menu-toggle="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>"
-                                            aria-expanded="false"
-                                            aria-controls="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>"
-                                        >
-                                            ▼
-                                        </button>
-                                    </div>
-                                    <div id="<?= htmlspecialchars($forceMenuId, ENT_QUOTES, 'UTF-8') ?>" class="hidden absolute right-0 z-20 mt-1 min-w-[150px] rounded-xl border border-red-200 bg-white p-2 shadow-lg" data-delete-menu>
-                                        <form method="post" action="/index.php?controller=manager_pharmacy&action=article_force_delete" onsubmit="return window.confirm('ATTENTION: suppression forcee irreversible. L article et ses sorties/inventaires lies seront supprimes. Continuer ?');">
-                                            <input type="hidden" name="id" value="<?= (int) $article['id'] ?>">
-                                            <button type="submit" class="w-full rounded-lg bg-red-50 px-3 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-100">Supprimer tout</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
+<script type="application/json" id="pharmacyPendingArticle"><?= json_encode(['article' => $pendingArticleForm, 'error' => (string) ($_GET['error'] ?? '')], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="/assets/pharmacy-stock.js" defer></script>
 
 <section class="rounded-2xl bg-white shadow p-4 md:p-5">
     <div class="mb-3 flex items-center justify-between gap-2">
@@ -395,162 +256,3 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <?php require __DIR__ . '/partials/backoffice_shell_bottom.php'; ?>
-
-<script>
-    (function () {
-        const articleDialog = document.getElementById('pharmacyArticleDialog');
-        const addArticleButton = document.getElementById('pharmacyAddArticle');
-        if (articleDialog && addArticleButton) {
-            addArticleButton.addEventListener('click', () => articleDialog.showModal());
-            articleDialog.querySelectorAll('[data-close-article-dialog]').forEach((button) => {
-                button.addEventListener('click', () => articleDialog.close());
-            });
-            if (articleDialog.dataset.openOnError === '1') {
-                articleDialog.showModal();
-            }
-        }
-
-        const searchInput = document.getElementById('pharmacyArticleSearch');
-        const stockFilter = document.getElementById('pharmacyStockFilter');
-        const rows = Array.from(document.querySelectorAll('[data-article-row]'));
-        const count = document.getElementById('pharmacyArticleCount');
-        if (!searchInput || rows.length === 0 || !count) {
-            return;
-        }
-        const sortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
-        const tableBody = rows[0].parentElement;
-        let currentSort = null;
-
-        const normalize = (value) => (value || '')
-            .toString()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
-
-        const getStockFilterMode = () => stockFilter ? stockFilter.value : 'all';
-
-        const matchesStockFilter = (row) => {
-            const mode = getStockFilterMode();
-            const isAlert = (row.getAttribute('data-article-alert') || '0') === '1';
-            const isWarning = (row.getAttribute('data-article-warning') || '0') === '1';
-
-            if (mode === 'alert') {
-                return isAlert;
-            }
-            if (mode === 'warning') {
-                return isWarning;
-            }
-            if (mode === 'attention') {
-                return isAlert || isWarning;
-            }
-
-            return true;
-        };
-
-        const compareRows = (left, right) => {
-            if (!currentSort) {
-                return 0;
-            }
-            const attribute = 'data-sort-' + currentSort.key;
-            const leftRaw = left.getAttribute(attribute) || '';
-            const rightRaw = right.getAttribute(attribute) || '';
-            let result = 0;
-
-            if (currentSort.type === 'number') {
-                result = (Number.parseFloat(leftRaw) || 0) - (Number.parseFloat(rightRaw) || 0);
-            } else {
-                result = normalize(leftRaw).localeCompare(normalize(rightRaw), 'fr', { numeric: true });
-            }
-
-            return currentSort.direction === 'asc' ? result : -result;
-        };
-
-        const updateSortIndicators = () => {
-            document.querySelectorAll('[data-sort-indicator]').forEach((indicator) => {
-                const key = indicator.getAttribute('data-sort-indicator');
-                if (!currentSort || key !== currentSort.key) {
-                    indicator.textContent = '↕';
-                    return;
-                }
-                indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
-            });
-        };
-
-        const applySort = () => {
-            if (!tableBody || !currentSort) {
-                updateSortIndicators();
-                return;
-            }
-            rows.sort(compareRows).forEach((row) => tableBody.appendChild(row));
-            updateSortIndicators();
-        };
-
-        const applyFilter = () => {
-            const needle = normalize(searchInput.value.trim());
-            let visible = 0;
-            rows.forEach((row) => {
-                const name = normalize(row.getAttribute('data-article-name') || '');
-                const matchSearch = needle === '' || name.includes(needle);
-                const match = matchSearch && matchesStockFilter(row);
-                row.classList.toggle('hidden', !match);
-                if (match) {
-                    visible += 1;
-                }
-            });
-            count.textContent = String(visible);
-        };
-
-        searchInput.addEventListener('input', applyFilter);
-        if (stockFilter) {
-            stockFilter.addEventListener('change', function () {
-                applyFilter();
-            });
-        }
-        sortButtons.forEach((button) => {
-            button.addEventListener('click', function () {
-                const key = button.getAttribute('data-sort-key') || 'name';
-                const type = button.getAttribute('data-sort-type') || 'text';
-                if (currentSort && currentSort.key === key) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort = { key, type, direction: 'asc' };
-                }
-                applySort();
-                applyFilter();
-            });
-        });
-        updateSortIndicators();
-
-        const menuToggles = Array.from(document.querySelectorAll('[data-delete-menu-toggle]'));
-        const menus = Array.from(document.querySelectorAll('[data-delete-menu]'));
-        const closeMenus = () => {
-            menus.forEach((menu) => menu.classList.add('hidden'));
-            menuToggles.forEach((toggle) => toggle.setAttribute('aria-expanded', 'false'));
-        };
-
-        menuToggles.forEach((toggle) => {
-            toggle.addEventListener('click', function (event) {
-                event.stopPropagation();
-                const targetId = toggle.getAttribute('data-delete-menu-toggle');
-                if (!targetId) return;
-                const menu = document.getElementById(targetId);
-                if (!menu) return;
-
-                const isHidden = menu.classList.contains('hidden');
-                closeMenus();
-                if (isHidden) {
-                    menu.classList.remove('hidden');
-                    toggle.setAttribute('aria-expanded', 'true');
-                }
-            });
-        });
-
-        menus.forEach((menu) => {
-            menu.addEventListener('click', (event) => {
-                event.stopPropagation();
-            });
-        });
-
-        document.addEventListener('click', closeMenus);
-    })();
-</script>

@@ -2,6 +2,13 @@
 
 Ce guide vise un deploiement simple de VerifApp sur serveur PHP + MySQL/MariaDB.
 
+## Mise a niveau v1.7.0
+- Executer `bash scripts/update-production.sh` avec la sauvegarde habituelle.
+- Aucune nouvelle migration par rapport a v1.6.0.
+- Verifier la page Stock, les filtres depuis les indicateurs et le formulaire de modification accessible par le crayon.
+- Verifier que les fichiers `/assets/pharmacy-stock.css`, `/assets/pharmacy-stock.js` et `/assets/icons/` sont servis avec la nouvelle image web.
+- Le menu d activation/desactivation met uniquement le statut a jour; les suppressions conservent leurs confirmations et protections.
+
 ## Mise a niveau v1.6.0
 - Executer `bash scripts/update-production.sh` avec la sauvegarde habituelle.
 - Aucune nouvelle migration par rapport a v1.5.1.

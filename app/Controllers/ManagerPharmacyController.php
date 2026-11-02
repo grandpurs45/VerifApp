@@ -28,6 +28,9 @@ final class ManagerPharmacyController
         $isAvailable = $repository->isAvailable();
         $inventoryAvailable = $repository->hasInventoryModule();
         $managerUser = $_SESSION['manager_user'] ?? null;
+        $articleFormState = is_array($_SESSION['pharmacy_article_form'] ?? null)
+            ? $_SESSION['pharmacy_article_form'] : null;
+        unset($_SESSION['pharmacy_article_form']);
         $appUrl = $this->resolvePublicBaseUrl();
         $pharmacyToken = $this->getScopedSettingValue('pharmacy_qr_token', 'PHARMACY_QR_TOKEN', $caserneId, '');
         $caserneParam = '&caserne_id=' . $caserneId;
@@ -515,6 +518,18 @@ final class ManagerPharmacyController
         $outputReasonRequired = isset($_POST['motif_sortie_obligatoire']) && (string) $_POST['motif_sortie_obligatoire'] === '1';
         $thresholdWarningEnabled = isset($_POST['surveiller_seuil']) && (string) $_POST['surveiller_seuil'] === '1';
 
+        $_SESSION['pharmacy_article_form'] = [
+            'caserne_id' => (int) ($_SESSION['manager_user']['caserne_id'] ?? 0),
+            'id' => $id,
+            'nom' => $name,
+            'unite' => $unit,
+            'stock_actuel' => $stockRaw,
+            'seuil_alerte' => $alertRaw,
+            'actif' => $active ? '1' : '0',
+            'motif_sortie_obligatoire' => $outputReasonRequired ? '1' : '0',
+            'surveiller_seuil' => $thresholdWarningEnabled ? '1' : '0',
+        ];
+
         $stockValue = $this->parseNonNegativeInteger($stockRaw);
         if ($name === '' || $unit === '' || $stockValue === null) {
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=invalid_article');
@@ -561,8 +576,31 @@ final class ManagerPharmacyController
             $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_save_failed');
         }
 
+        unset($_SESSION['pharmacy_article_form']);
         (new PharmacyStockAlertService())->syncCaserne($caserneId, $id > 0 ? [$id] : []);
         $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_saved');
+    }
+
+    public function articleStatus(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index');
+        }
+
+        $caserneId = $this->resolveManagerCaserneId();
+        $id = (int) ($_POST['id'] ?? 0);
+        $state = (string) ($_POST['actif'] ?? '');
+        if ($caserneId === null || $id <= 0 || !in_array($state, ['0', '1'], true)) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_status_failed');
+        }
+
+        $ok = (new PharmacyRepository())->setArticleActive($caserneId, $id, $state === '1');
+        if (!$ok) {
+            $this->redirect('/index.php?controller=manager_pharmacy&action=index&error=article_status_failed');
+        }
+
+        (new PharmacyStockAlertService())->syncCaserne($caserneId, [$id]);
+        $this->redirect('/index.php?controller=manager_pharmacy&action=index&success=article_status_saved');
     }
 
     public function articleDelete(): void

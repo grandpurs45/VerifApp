@@ -9,6 +9,16 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.7.0] - 2026-11-02
+
+### Changed
+- Pharmacie: tableau de stock en lecture, quantites mises en avant, badges compacts et modification en fenetre modale.
+- Pharmacie: filtres depuis les indicateurs, en-tete de tableau fixe, recherche et tri, actions de statut et de suppression regroupees dans un menu.
+
+### Fixed
+- Pharmacie: conservation des valeurs saisies et reouverture du bon article apres un echec d enregistrement.
+- Pharmacie: activation/desactivation limitee au statut et a la caserne active, sans reecriture du stock ou des autres reglages.
+
 ## [1.6.0] - 2026-10-31
 
 ### Changed

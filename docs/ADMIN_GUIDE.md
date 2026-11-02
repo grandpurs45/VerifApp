@@ -160,3 +160,9 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 - Valider la reception. Le formulaire ne propose pas de note ni de changement de commande de reference.
 - Les quantites recues sont ajoutees aux stocks de la caserne active; les alertes de seuil sont reevaluees.
 - La page Sorties conserve l historique et la synthese de commande, sans le formulaire de reception.
+
+## 14. Lecture et modification du stock pharmacie
+- Le tableau affiche l article, son stock disponible, le seuil et son statut. Les reglages se trouvent dans la fenetre ouverte par le crayon.
+- Les indicateurs Articles actifs, Sous le seuil et Au seuil filtrent la liste; un second clic retire le filtre. La recherche se combine avec le filtre selectionne.
+- Le menu Autres actions permet de desactiver ou reactiver un article et de le supprimer avec confirmation. La suppression avec historique reste reservee aux articles inactifs.
+- Une modification refusee reouvre le formulaire de l article concerne avec les valeurs saisies.

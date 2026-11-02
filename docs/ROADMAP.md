@@ -40,9 +40,16 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - interface de reception adaptee au mobile
 - reception simplifiee sans note ni modification de commande de reference
 
+### v1.7.0
+- stock pharmacie en lecture avec modification a la demande
+- filtres depuis les indicateurs et actions secondaires regroupees
+- interface adaptee au mobile et en-tete de tableau fixe sur desktop
+- conservation de la saisie apres un refus d enregistrement
+- changement de statut isole du stock, avec test de regression
+
 ## Prochain cycle
 
-### v1.7
+### v1.8
 - historique de livraison des notifications email avec statut et erreur
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies

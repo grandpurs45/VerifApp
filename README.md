@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.6.0` (voir fichier `VERSION`).
+Version courante: `v1.7.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -233,7 +233,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.6.0`
+  - `./scripts/release.ps1 -Version 1.7.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -282,6 +282,14 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.7.0
+- Aucune nouvelle migration par rapport a v1.6.0.
+- La liste du stock pharmacie est en lecture; le crayon ouvre la modification d un article.
+- Les indicateurs filtrent la liste; les actions secondaires sont accessibles dans le menu de chaque article.
+- Une modification refusee conserve les valeurs saisies et reouvre le bon article.
+- Activer ou desactiver un article ne modifie ni son stock ni ses autres reglages.
+- Verification du changement de statut: `php tests/pharmacy_article_status.php` (SQLite en memoire, sans acces aux donnees de l application).
 
 ### Mise a niveau vers v1.6.0
 - Aucune nouvelle migration par rapport a v1.5.1.
