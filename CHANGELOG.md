@@ -9,6 +9,12 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.8.1] - 2026-11-02
+
+### Fixed
+- Emails: modele detaille de suivi d anomalie avec engin, materiel, auteur de la mise a jour, statut, priorite, responsable et commentaire de traitement.
+- Emails: encodage quoted-printable des parties texte et HTML pour eviter les coupures de longues lignes au milieu des balises; normalisation des fins de ligne et echappement SMTP des lignes commencant par un point.
+
 ## [1.8.0] - 2026-11-02
 
 ### Added

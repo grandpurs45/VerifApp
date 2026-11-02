@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.8.0` (voir fichier `VERSION`).
+Version courante: `v1.8.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -234,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.8.0`
+  - `./scripts/release.ps1 -Version 1.8.1`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +283,13 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.8.1
+- Aucune nouvelle migration par rapport a v1.8.0.
+- Les mails de mise a jour d anomalie reprennent le modele detaille avec engin, materiel, auteur, statut, priorite, responsable et commentaire de traitement.
+- L encodage des mails protege les balises HTML des coupures de longues lignes pendant le transport.
+- Tests sans envoi reel: `php tests/notification_email_encoding.php` et `php tests/notification_email_update.php` (extension `pdo_sqlite` requise pour le second).
+- Apres deploiement, verifier la version `1.8.1` et le rendu d un nouveau signalement puis d une mise a jour d anomalie.
 
 ### Mise a niveau vers v1.8.0
 - Appliquer les migrations `043_add_slider_measure_controls.sql` et `044_add_exclusive_minimum_threshold.sql` avec le script habituel de mise a jour.

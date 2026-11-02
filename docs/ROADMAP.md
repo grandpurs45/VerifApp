@@ -55,6 +55,11 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - correction du tri des zones dans le detail et l export des verifications
 - tests de regression des mesures, de leur enregistrement et du detail historique
 
+### v1.8.1
+- mails de suivi d anomalie detailles, homogenes avec les signalements
+- encodage MIME protegeant les balises HTML pendant le transport
+- tests de restitution du contenu et de respect de la caserne active
+
 ## Prochain cycle
 
 ### v1.9

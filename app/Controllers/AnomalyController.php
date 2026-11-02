@@ -121,6 +121,7 @@ final class AnomalyController
             $actorName = is_array($managerUser) ? (string) ($managerUser['nom'] ?? '') : '';
             $statusLabel = str_replace('_', ' ', $status);
             $priorityLabel = $priority;
+            $anomaly = $anomalyRepository->findAll(['id' => $anomalyId], $caserneId)[0] ?? [];
             $notificationRepository->createForCaserneEvent(
                 $caserneId,
                 'anomaly.updated',
@@ -129,7 +130,20 @@ final class AnomalyController
                 '/index.php?controller=anomalies&action=index',
                 $actorId,
                 $actorName,
-                [],
+                [
+                    'notification_kind' => 'update',
+                    'vehicle' => $anomaly['vehicule_nom'] ?? 'Engin non renseigne',
+                    'poste' => $anomaly['poste_nom'] ?? 'Poste non renseigne',
+                    'notifier' => $actorName !== '' ? $actorName : 'Non renseigne',
+                    'status' => $statusLabel,
+                    'priority' => $priorityLabel,
+                    'assignee' => $anomaly['assigne_nom'] ?? '',
+                    'anomalies' => [[
+                        'label' => $anomaly['controle_libelle'] ?? ('Anomalie #' . $anomalyId),
+                        'zone' => $anomaly['controle_zone'] ?? '',
+                        'comment' => $comment,
+                    ]],
+                ],
                 $assigneeId !== null && $assigneeId > 0 ? [$assigneeId] : []
             );
         }

@@ -29,6 +29,11 @@ final class AnomalyRepository
         $where = [];
         $params = [];
 
+        if (isset($filters['id'])) {
+            $where[] = 'a.id = :anomaly_id';
+            $params['anomaly_id'] = (int) $filters['id'];
+        }
+
         if ($caserneId !== null) {
             $where[] = 'v.caserne_id = :caserne_id';
             $params['caserne_id'] = $caserneId;

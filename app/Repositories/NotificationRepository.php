@@ -1140,7 +1140,7 @@ final class NotificationRepository
             '',
             str_replace(["\r\n", "\r"], "\n", $multipartBody),
         ]);
-        $payload = str_replace("\n", "\r\n", $payload);
+        $payload = $this->prepareSmtpData($payload);
         fwrite($socket, $payload . "\r\n.\r\n");
         if (!$this->smtpExpect($socket, [250])) {
             $this->lastEmailError = 'SMTP: echec validation du message.';
@@ -1169,7 +1169,8 @@ final class NotificationRepository
             }
         }
 
-        if ($eventCode === 'anomaly.created') {
+        if (in_array($eventCode, ['anomaly.created', 'anomaly.updated'], true)) {
+            if ($eventCode === 'anomaly.updated') $context['notification_kind'] = 'update';
             return $this->buildAnomalyEmailBodies($caserneLabel, $title, $message, $href, $context);
         }
 
@@ -1358,6 +1359,7 @@ final class NotificationRepository
         array $context
     ): array {
         $isReminder = ($context['notification_kind'] ?? '') === 'reminder';
+        $isUpdate = ($context['notification_kind'] ?? '') === 'update';
         $vehicle = trim((string) ($context['vehicle'] ?? 'Engin non renseigne'));
         $poste = trim((string) ($context['poste'] ?? 'Poste non renseigne'));
         $notifier = trim((string) ($context['notifier'] ?? 'Non renseigne'));
@@ -1383,7 +1385,8 @@ final class NotificationRepository
             if ($comment !== '') {
                 $details[] = $comment;
             }
-            $detailText = $details !== [] ? implode(' | ', $details) : 'Non-conforme';
+            $emptyDetail = $isUpdate ? 'Aucun commentaire de traitement.' : 'Non-conforme';
+            $detailText = $details !== [] ? implode(' | ', $details) : $emptyDetail;
             $textRows[] = '- ' . $label
                 . ($zone !== '' ? ' (' . $zone . ')' : '')
                 . ' : ' . $detailText;
@@ -1393,16 +1396,27 @@ final class NotificationRepository
                 . '<td style="padding:10px;border:1px solid #dbe5f1;">'
                 . ($value !== '' ? ('<div><strong>Valeur:</strong> ' . $this->escapeHtml($value) . '</div>') : '')
                 . ($comment !== '' ? ('<div' . ($value !== '' ? ' style="margin-top:4px;"' : '') . '>' . $this->escapeHtml($comment) . '</div>') : '')
-                . ($value === '' && $comment === '' ? 'Non&#8209;conforme' : '')
+                . ($value === '' && $comment === '' ? $this->escapeHtml($emptyDetail) : '')
                 . '</td>'
                 . '</tr>';
         }
 
         if ($textRows === []) {
-            $textRows[] = '- Une non-conformite a ete signalee.';
-            $htmlRows[] = '<tr><td colspan="3" style="padding:10px;border:1px solid #dbe5f1;">Une non-conformite a ete signalee.</td></tr>';
+            $fallback = $isUpdate ? 'Consulte le suivi de l anomalie pour les details.' : 'Une non-conformite a ete signalee.';
+            $textRows[] = '- ' . $fallback;
+            $htmlRows[] = '<tr><td colspan="3" style="padding:10px;border:1px solid #dbe5f1;">' . $this->escapeHtml($fallback) . '</td></tr>';
         }
 
+        $updateTextRows = [];
+        $updateHtmlRows = [];
+        if ($isUpdate) {
+            foreach (['Statut' => $context['status'] ?? '', 'Priorite' => $context['priority'] ?? '', 'Responsable' => $context['assignee'] ?? ''] as $label => $rawValue) {
+                $value = trim((string) $rawValue);
+                if ($value === '') continue;
+                $updateTextRows[] = $label . ': ' . $value;
+                $updateHtmlRows[] = '<tr><td style="width:120px;padding:7px 0;color:#64748b;">' . $label . '</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($value) . '</td></tr>';
+            }
+        }
         $textLines = [
             trim($title),
             '',
@@ -1410,7 +1424,8 @@ final class NotificationRepository
             '',
             'Engin: ' . $vehicle,
             'Poste: ' . $poste,
-            'Signale par: ' . $notifier,
+            ($isUpdate ? 'Mis a jour par: ' : 'Signale par: ') . $notifier,
+            ...$updateTextRows,
             '',
             'Anomalies:',
             ...$textRows,
@@ -1430,7 +1445,7 @@ final class NotificationRepository
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f1;border-radius:8px;overflow:hidden;">'
             . '<tr><td style="padding:18px 20px;background:#0f172a;color:#ffffff;">'
             . '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">VerifApp - '
-            . ($isReminder ? 'Rappel anomalie terrain' : 'Anomalie terrain')
+            . ($isUpdate ? 'Suivi d anomalie' : ($isReminder ? 'Rappel anomalie terrain' : 'Anomalie terrain'))
             . '</div>'
             . '<div style="font-size:21px;font-weight:700;margin-top:6px;">' . $this->escapeHtml($title) . '</div>'
             . '</td></tr>'
@@ -1439,13 +1454,14 @@ final class NotificationRepository
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;border-collapse:collapse;font-size:14px;">'
             . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Engin</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($vehicle) . '</td></tr>'
             . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Poste</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($poste) . '</td></tr>'
-            . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">Signale par</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($notifier) . '</td></tr>'
+            . '<tr><td style="width:120px;padding:7px 0;color:#64748b;">' . ($isUpdate ? 'Mis a jour par' : 'Signale par') . '</td><td style="padding:7px 0;font-weight:700;">' . $this->escapeHtml($notifier) . '</td></tr>'
+            . implode('', $updateHtmlRows)
             . '</table>'
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">'
             . '<thead><tr>'
             . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Anomalie</th>'
             . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Emplacement</th>'
-            . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">Detail terrain</th>'
+            . '<th align="left" style="padding:9px 10px;border:1px solid #dbe5f1;background:#f8fafc;">' . ($isUpdate ? 'Commentaire de traitement' : 'Detail terrain') . '</th>'
             . '</tr></thead><tbody>' . implode('', $htmlRows) . '</tbody></table>'
             . ($globalComment !== '' ? ('<div style="margin-top:14px;padding:10px 12px;border-left:4px solid #94a3b8;background:#f8fafc;font-size:14px;"><strong>Commentaire general:</strong><br>' . nl2br($this->escapeHtml($globalComment)) . '</div>') : '')
             . ($href !== null ? ('<p style="margin:18px 0 0 0;"><a href="' . $this->escapeHtml($href) . '" style="display:inline-block;padding:10px 14px;border-radius:6px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700;">Voir les anomalies</a></p>') : '')
@@ -1460,25 +1476,32 @@ final class NotificationRepository
 
     private function buildMultipartBody(string $boundary, string $bodyText, string $bodyHtml): string
     {
-        $text = str_replace(["\r\n", "\r"], "\n", $bodyText);
-        $html = str_replace(["\r\n", "\r"], "\n", $bodyHtml);
+        $text = str_replace("\n", "\r\n", str_replace(["\r\n", "\r"], "\n", $bodyText));
+        $html = str_replace("\n", "\r\n", str_replace(["\r\n", "\r"], "\n", $bodyHtml));
 
         $lines = [
             '--' . $boundary,
             'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: 8bit',
+            'Content-Transfer-Encoding: quoted-printable',
             '',
-            $text,
+            quoted_printable_encode($text),
             '--' . $boundary,
             'Content-Type: text/html; charset=UTF-8',
-            'Content-Transfer-Encoding: 8bit',
+            'Content-Transfer-Encoding: quoted-printable',
             '',
-            $html,
+            quoted_printable_encode($html),
             '--' . $boundary . '--',
             '',
         ];
 
         return implode("\r\n", $lines);
+    }
+
+    private function prepareSmtpData(string $payload): string
+    {
+        $payload = str_replace(["\r\n", "\r"], "\n", $payload);
+        $payload = preg_replace('/^\./m', '..', $payload);
+        return str_replace("\n", "\r\n", $payload);
     }
 
     private function formatQuantity(float $value): string
