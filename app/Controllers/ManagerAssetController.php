@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Database;
 use App\Core\Env;
+use App\Core\SliderMeasure;
 use App\Core\UrlHelper;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
@@ -837,8 +838,9 @@ final class ManagerAssetController
         $expectedValueRaw = trim((string) ($_POST['valeur_attendue'] ?? ''));
         $minThresholdRaw = trim((string) ($_POST['seuil_min'] ?? ''));
         $maxThresholdRaw = trim((string) ($_POST['seuil_max'] ?? ''));
+        $exclusiveMinimum = ($_POST['seuil_min_exclusif'] ?? '') === '1';
 
-        $allowedInputTypes = ['statut', 'quantite', 'mesure'];
+        $allowedInputTypes = ['statut', 'quantite', 'mesure', 'curseur'];
         if (!in_array($inputType, $allowedInputTypes, true)) {
             $inputType = 'statut';
         }
@@ -847,6 +849,11 @@ final class ManagerAssetController
         $minThreshold = $this->parseDecimalOrNull($minThresholdRaw);
         $maxThreshold = $this->parseDecimalOrNull($maxThresholdRaw);
         $unit = $unitRaw === '' ? null : $unitRaw;
+        $slider = $inputType === 'curseur' ? SliderMeasure::configuration(
+            $_POST['curseur_min'] ?? '',
+            $_POST['curseur_max'] ?? '',
+            $_POST['curseur_pas'] ?? ''
+        ) : null;
         $targetVehicleId = $returnVehicleId > 0 ? $returnVehicleId : $vehicleId;
 
         if ($label === '' || $posteId <= 0 || $order < 0) {
@@ -872,7 +879,7 @@ final class ManagerAssetController
             $minThreshold = null;
             $maxThreshold = null;
             $unit = null;
-        } elseif ($inputType === 'mesure') {
+        } elseif (in_array($inputType, ['mesure', 'curseur'], true)) {
             $expectedValue = null;
             if ($unit === null
                 || ($minThreshold === null && $maxThreshold === null)
@@ -883,6 +890,14 @@ final class ManagerAssetController
         }
 
         $controleRepository = new ControleRepository();
+        $exclusiveMinimum = $exclusiveMinimum && in_array($inputType, ['mesure', 'curseur'], true) && $minThreshold !== null;
+        if ($exclusiveMinimum && (!$controleRepository->hasExclusiveMinimumSchema()
+            || ($maxThreshold !== null && $minThreshold >= $maxThreshold))) {
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
+        }
+        if ($inputType === 'curseur' && ($slider === null || !$controleRepository->hasSliderSchema())) {
+            $this->redirect($this->vehicleRedirectPath($targetVehicleId, 'invalid_controle'));
+        }
         $zoneRepository = new ZoneRepository();
         $caserneId = $this->resolveManagerCaserneId();
         if ($caserneId === null) {
@@ -923,7 +938,9 @@ final class ManagerAssetController
                     $expectedValue,
                     $unit,
                     $minThreshold,
-                    $maxThreshold
+                    $maxThreshold,
+                    $slider,
+                    $exclusiveMinimum
                 );
                 $this->redirect($this->vehicleRedirectPath($targetVehicleId, '', 'controle_updated'));
             }
@@ -941,7 +958,9 @@ final class ManagerAssetController
                 $expectedValue,
                 $unit,
                 $minThreshold,
-                $maxThreshold
+                $maxThreshold,
+                $slider,
+                $exclusiveMinimum
             );
             $this->redirect($this->vehicleRedirectPath($targetVehicleId, '', 'controle_created'));
         } catch (Throwable $throwable) {
@@ -1071,6 +1090,10 @@ final class ManagerAssetController
                 isset($controle['unite']) ? (string) $controle['unite'] : null,
                 isset($controle['seuil_min']) ? (float) $controle['seuil_min'] : null,
                 isset($controle['seuil_max']) ? (float) $controle['seuil_max'] : null,
+                ($controle['type_saisie'] ?? '') === 'curseur' ? SliderMeasure::configuration(
+                    $controle['curseur_min'] ?? '', $controle['curseur_max'] ?? '', $controle['curseur_pas'] ?? ''
+                ) : null,
+                !empty($controle['seuil_min_exclusif']),
             );
 
             if (!$created) {

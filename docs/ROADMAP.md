@@ -47,9 +47,17 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - conservation de la saisie apres un refus d enregistrement
 - changement de statut isole du stock, avec test de regression
 
+### v1.8.0
+- mesures terrain par curseur tactile avec valeur en lecture seule
+- echelle et pas par materiel, independants des seuils de conformite
+- option de non-conformite a egalite avec le seuil minimum
+- conservation de la configuration lors des duplications et reprise des brouillons
+- correction du tri des zones dans le detail et l export des verifications
+- tests de regression des mesures, de leur enregistrement et du detail historique
+
 ## Prochain cycle
 
-### v1.8
+### v1.9
 - historique de livraison des notifications email avec statut et erreur
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies

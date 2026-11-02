@@ -104,7 +104,7 @@ declare(strict_types=1);
                                 <td><?= htmlspecialchars($line['libelle'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= strtoupper(htmlspecialchars((string) $line['resultat'], ENT_QUOTES, 'UTF-8')) ?></td>
                                 <td>
-                                    <?php if (($line['type_saisie'] ?? 'statut') === 'mesure'): ?>
+                                    <?php if (in_array(($line['type_saisie'] ?? 'statut'), ['mesure', 'curseur'], true)): ?>
                                         <?= htmlspecialchars((string) ($line['valeur_saisie'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
                                         <?php if (($line['unite'] ?? '') !== ''): ?>
                                             <?= htmlspecialchars((string) $line['unite'], ENT_QUOTES, 'UTF-8') ?>

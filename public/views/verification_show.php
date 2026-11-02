@@ -100,7 +100,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                             </span>
                         </div>
 
-                        <?php if (($line['type_saisie'] ?? 'statut') === 'mesure'): ?>
+                        <?php if (in_array(($line['type_saisie'] ?? 'statut'), ['mesure', 'curseur'], true)): ?>
                             <p class="text-sm text-slate-600 mt-2">
                                 Valeur relevee :
                                 <strong><?= htmlspecialchars((string) ($line['valeur_saisie'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></strong>

@@ -378,6 +378,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <option value="statut">Fonctionnel / non fonctionnel</option>
                         <option value="quantite">Present / manquant avec quantite</option>
                         <option value="mesure">Valeur mesuree avec seuils</option>
+                        <option value="curseur">Valeur mesuree avec curseur</option>
                     </select>
                 </label>
                 <div class="hidden md:col-span-8" data-wrap="quantity-fields">
@@ -399,9 +400,14 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil maximum</span>
                         <input type="number" step="any" name="seuil_max" placeholder="Optionnel" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
                     </label>
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700 md:col-span-3">
+                        <input type="checkbox" name="seuil_min_exclusif" value="1" class="h-4 w-4 rounded border-slate-300">
+                        Non conforme si la valeur est inferieure ou egale au minimum (&le;)
+                    </label>
                 </div>
             </div>
 
+            <?php $sliderControl = null; require __DIR__ . '/partials/control_slider_fields.php'; ?>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700">
                     <input type="checkbox" id="vehicle-control-remember" class="h-4 w-4 rounded border-slate-300">
@@ -455,9 +461,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                         $controlZoneId = (int) ($controle['zone_id'] ?? 0);
                         $zonePath = $zonesById[$controlZoneId] ?? (string) ($controle['zone'] ?? '');
                         $posteName = (string) ($postesById[(int) ($controle['poste_id'] ?? 0)] ?? '');
-                        $typeLabel = $controlType === 'mesure'
+                        $typeLabel = $controlType === 'curseur' ? 'Valeur mesuree avec curseur' : ($controlType === 'mesure'
                             ? 'Valeur mesuree'
-                            : ($controlType === 'quantite' ? 'Presence et quantite' : 'Etat fonctionnel');
+                            : ($controlType === 'quantite' ? 'Presence et quantite' : 'Etat fonctionnel'));
                         $expectedQuantity = $controlType === 'quantite' && is_numeric($controle['valeur_attendue'] ?? null)
                             ? max(0, (int) round((float) $controle['valeur_attendue']))
                             : null;
@@ -550,6 +556,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             <option value="statut" <?= $controlType === 'statut' ? 'selected' : '' ?>>Fonctionnel / non fonctionnel</option>
                                             <option value="quantite" <?= $controlType === 'quantite' ? 'selected' : '' ?>>Present / manquant avec quantite</option>
                                             <option value="mesure" <?= $controlType === 'mesure' ? 'selected' : '' ?>>Valeur mesuree avec seuils</option>
+                                            <option value="curseur" <?= $controlType === 'curseur' ? 'selected' : '' ?>>Valeur mesuree avec curseur</option>
                                         </select>
                                     </label>
                                     <div class="<?= $controlType === 'quantite' ? '' : 'hidden' ?> md:col-span-8" data-wrap="quantity-fields">
@@ -558,7 +565,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             <input type="number" step="1" min="1" name="valeur_attendue" value="<?= htmlspecialchars((string) ($controle['valeur_attendue'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="expected">
                                         </label>
                                     </div>
-                                    <div class="grid grid-cols-1 gap-3 md:col-span-8 md:grid-cols-3 <?= $controlType === 'mesure' ? '' : 'hidden' ?>" data-wrap="measure-fields">
+                                    <div class="grid grid-cols-1 gap-3 md:col-span-8 md:grid-cols-3 <?= in_array($controlType, ['mesure', 'curseur'], true) ? '' : 'hidden' ?>" data-wrap="measure-fields">
                                         <label>
                                             <span class="mb-1 block text-xs font-semibold text-slate-700">Unite *</span>
                                             <input type="text" name="unite" value="<?= htmlspecialchars((string) ($controle['unite'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="unit">
@@ -571,7 +578,12 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                             <span class="mb-1 block text-xs font-semibold text-slate-700">Seuil maximum</span>
                                             <input type="number" step="any" name="seuil_max" value="<?= htmlspecialchars((string) ($controle['seuil_max'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-field="max">
                                         </label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-slate-700 md:col-span-3">
+                                            <input type="checkbox" name="seuil_min_exclusif" value="1" <?= !empty($controle['seuil_min_exclusif']) ? 'checked' : '' ?> class="h-4 w-4 rounded border-slate-300">
+                                            Non conforme si la valeur est inferieure ou egale au minimum (&le;)
+                                        </label>
                                     </div>
+                                    <?php $sliderControl = $controle; require __DIR__ . '/partials/control_slider_fields.php'; ?>
                                     <label class="md:col-span-4">
                                         <span class="mb-1 block text-xs font-semibold text-slate-700">Etat</span>
                                         <select name="actif" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -671,8 +683,36 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             if (!inputType || !measureWrap) {
                 return;
             }
-            const isMeasure = inputType.value === 'mesure';
+            const isSlider = inputType.value === 'curseur';
+            const isMeasure = inputType.value === 'mesure' || isSlider;
+            const sliderWrap = form.querySelector('[data-wrap="slider-fields"]');
+            if (sliderWrap) {
+                sliderWrap.classList.toggle('hidden', !isSlider);
+                const sliderInputs = Array.from(sliderWrap.querySelectorAll('input'));
+                sliderInputs.forEach(function (input) {
+                    input.disabled = !isSlider;
+                    input.required = isSlider;
+                    input.setCustomValidity('');
+                });
+                if (isSlider) {
+                    const start = form.elements.namedItem('curseur_min');
+                    const end = form.elements.namedItem('curseur_max');
+                    const step = form.elements.namedItem('curseur_pas');
+                    const values = [Number(start.value), Number(end.value), Number(step.value)];
+                    if (!values.every(Number.isInteger) || values.some(v => Math.abs(v) > 99999999)) {
+                        start.setCustomValidity('Utilise des nombres entiers entre -99999999 et 99999999.');
+                    } else if (values[0] >= values[1]) {
+                        end.setCustomValidity('Le maximum de l echelle doit depasser le minimum.');
+                    } else if (values[2] <= 0 || (values[1] - values[0]) % values[2] !== 0) {
+                        step.setCustomValidity('Le pas doit etre positif et permettre d atteindre les deux extremites.');
+                    }
+                }
+            }
             const isQuantity = inputType.value === 'quantite';
+            const exclusiveMinimumInput = form.elements.namedItem('seuil_min_exclusif');
+            if (exclusiveMinimumInput) {
+                exclusiveMinimumInput.disabled = !isMeasure || !minInput || minInput.value.trim() === '';
+            }
             measureWrap.classList.toggle('hidden', !isMeasure);
             if (quantityWrap) {
                 quantityWrap.classList.toggle('hidden', !isQuantity);
@@ -696,6 +736,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     minInput.setCustomValidity('Renseigne au moins un seuil.');
                 } else if (minValue !== '' && maxValue !== '' && Number(minValue) > Number(maxValue)) {
                     maxInput.setCustomValidity('Le seuil maximum doit etre superieur ou egal au seuil minimum.');
+                } else if (minValue !== '' && maxValue !== '' && exclusiveMinimumInput && exclusiveMinimumInput.checked && Number(minValue) === Number(maxValue)) {
+                    maxInput.setCustomValidity('Avec un minimum exclu, le maximum doit etre strictement superieur au minimum.');
                 }
             }
         }
@@ -846,12 +888,13 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                 if (!sourceForm) {
                     return;
                 }
-                ['libelle', 'poste_id', 'zone_id', 'type_saisie', 'valeur_attendue', 'unite', 'seuil_min', 'seuil_max'].forEach(function (name) {
+                ['libelle', 'poste_id', 'zone_id', 'type_saisie', 'valeur_attendue', 'unite', 'seuil_min', 'seuil_max', 'curseur_min', 'curseur_max', 'curseur_pas'].forEach(function (name) {
                     const sourceField = sourceForm.elements.namedItem(name);
                     if (sourceField && 'value' in sourceField) {
                         setCreateFormValue(name, sourceField.value);
                     }
                 });
+                controlCreateForm.elements.namedItem('seuil_min_exclusif').checked = sourceForm.elements.namedItem('seuil_min_exclusif').checked;
                 syncControlForm(controlCreateForm);
                 focusCreateForm();
                 const labelInput = controlCreateForm.querySelector('input[name="libelle"]');

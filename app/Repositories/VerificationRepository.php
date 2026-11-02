@@ -309,9 +309,6 @@ final class VerificationRepository
                 ? 'LEFT JOIN anomaly_occurrences ao ON ao.verification_ligne_id = vl.id LEFT JOIN anomalies a ON a.id = ao.anomalie_id'
                 : 'LEFT JOIN anomalies a ON a.verification_ligne_id = vl.id')
             : '';
-        $zoneOrderJoin = $this->hasZoneOrderColumn() ? 'LEFT JOIN zones zsort ON zsort.id = c.zone_id' : '';
-        $zoneOrderSql = $this->hasZoneOrderColumn() ? 'COALESCE(zsort.ordre, 0) ASC,' : '';
-
         $agentSelect = $withUser ? 'COALESCE(u.nom, v.agent) AS agent' : 'v.agent AS agent';
         $userJoin = $withUser ? 'LEFT JOIN utilisateurs u ON u.id = v.utilisateur_id' : '';
         $guardDurationSelect = $this->hasGuardDurationColumn()
@@ -724,6 +721,9 @@ final class VerificationRepository
     {
         $connection = Database::getConnection();
         $hasAnomalies = $this->hasAnomaliesTable();
+        $hasZoneOrder = $this->hasZoneOrderColumn();
+        $zoneOrderJoin = $hasZoneOrder ? 'LEFT JOIN zones zsort ON zsort.id = c.zone_id' : '';
+        $zoneOrderSql = $hasZoneOrder ? 'COALESCE(zsort.ordre, 0) ASC,' : '';
 
         $anomalySelect = $hasAnomalies
             ? '

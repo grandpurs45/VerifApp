@@ -1,4 +1,4 @@
-# Guide Utilisateur VerifApp (v1.4)
+# Guide Utilisateur VerifApp (v1.8)
 
 Ce guide couvre l usage quotidien terrain et backoffice non admin.
 
@@ -26,6 +26,10 @@ Types de reponses possibles:
 - Presence: `Present` / `Manquant`
 - Choix: `Fonctionnel` / `Non fonctionnel`
 - Valeur mesuree: valeur numerique avec seuil min/max
+- Valeur mesuree avec curseur: deplacer le curseur au doigt pour renseigner la mesure; la valeur et le resultat Conforme / Non conforme sont affiches directement.
+
+Le curseur ne valide aucune valeur par defaut, meme si sa poignee est visible. Une action est necessaire pour repondre au controle.
+Les bornes et le pas sont definis par le gestionnaire. Selon le reglage du materiel, une valeur exactement egale au minimum peut etre non conforme.
 
 Comportements utiles:
 - brouillon local auto (si active) sur le meme creneau.

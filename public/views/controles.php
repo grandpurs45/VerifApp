@@ -37,6 +37,8 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controles - VerifApp</title>
+    <link rel="stylesheet" href="/assets/measure-slider.css?v=<?= hash_file('sha256', __DIR__ . '/../assets/measure-slider.css') ?>">
+    <script src="/assets/measure-slider.js?v=<?= hash_file('sha256', __DIR__ . '/../assets/measure-slider.js') ?>" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,7 +194,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                                 <?php
                                 $controleId = (int) $controle['id'];
                                 $inputType = strtolower((string) ($controle['type_saisie'] ?? 'statut'));
-                                if (!in_array($inputType, ['statut', 'quantite', 'mesure'], true)) {
+                                if (!in_array($inputType, ['statut', 'quantite', 'mesure', 'curseur'], true)) {
                                     $inputType = 'statut';
                                 }
                                 $unit = isset($controle['unite']) ? trim((string) $controle['unite']) : '';
@@ -263,6 +265,9 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                                             ></textarea>
                                         </div>
                                     <?php else: ?>
+                                        <?php if ($inputType === 'curseur'): ?>
+                                            <?php require __DIR__ . '/partials/measure_slider.php'; ?>
+                                        <?php else: ?>
                                         <div class="rounded-xl border border-slate-600 bg-slate-900 p-3 space-y-2">
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 <div>
@@ -285,6 +290,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                                                 </div>
                                             </div>
                                         </div>
+                                        <?php endif; ?>
 
                                         <div class="mt-3" data-comment-wrap="<?= $controleId ?>">
                                             <label for="commentaire_<?= $controleId ?>" class="text-xs font-semibold text-slate-300">
@@ -340,6 +346,11 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
             const cards = Array.from(document.querySelectorAll('[data-control-card]'));
             const radios = Array.from(document.querySelectorAll('.control-radio'));
             const numericInputs = Array.from(document.querySelectorAll('input[data-control-value]'));
+            function isNumericValueValid(input) {
+                if (!input || input.value.trim() === '' || !input.validity.valid) return false;
+                const slider = input.closest('[data-measure-slider]');
+                return !slider || slider.dataset.answered === 'true';
+            }
             const progressText = document.getElementById('progressText');
             const progressBottom = document.getElementById('progressBottom');
             const progressBar = document.getElementById('progressBar');
@@ -371,7 +382,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     const type = card.dataset.controlType || 'statut';
                     const controlId = card.dataset.controlId || '';
 
-                    if (type !== 'mesure') {
+                    if (!['mesure', 'curseur'].includes(type)) {
                         const checked = card.querySelector('input.control-radio:checked');
                         if (checked) {
                             answered += 1;
@@ -380,7 +391,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     }
 
                     const input = card.querySelector('input[data-control-value="' + controlId + '"]');
-                    if (input && input.value.trim() !== '') {
+                    if (isNumericValueValid(input)) {
                         answered += 1;
                     }
                 });
@@ -530,9 +541,9 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     const controlId = card.dataset.controlId || '';
                     let answered = false;
 
-                    if (type === 'mesure') {
+                    if (['mesure', 'curseur'].includes(type)) {
                         const input = card.querySelector('input[data-control-value="' + controlId + '"]');
-                        answered = !!(input && input.value.trim() !== '');
+                        answered = isNumericValueValid(input);
                     } else {
                         answered = !!card.querySelector('input.control-radio:checked');
                     }
@@ -596,7 +607,6 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                 if (!isDraftEnabled) return;
                 const draftKey = getDraftStorageKey();
                 if (!draftKey) return;
-                restoreAttempted = true;
 
                 let raw = null;
                 try {
@@ -618,6 +628,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
 
                 const ageMs = Date.now() - parsed.updatedAt;
                 if (ageMs > draftTtlHours * 60 * 60 * 1000) return;
+                restoreAttempted = true;
                 draftExpiryTimestamp = parsed.updatedAt + (draftTtlHours * 60 * 60 * 1000);
 
                 const data = parsed.data || {};
@@ -638,6 +649,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                         input.value = values[input.name];
                     }
                 });
+                document.dispatchEvent(new Event('measure-sliders:sync'));
 
                 guardDurationInputs.forEach((input) => {
                     input.checked = input.value === guardDuration;
@@ -667,9 +679,9 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     const controlId = card.dataset.controlId || '';
                     let missing = false;
 
-                    if (type === 'mesure') {
+                    if (['mesure', 'curseur'].includes(type)) {
                         const input = card.querySelector('input[data-control-value="' + controlId + '"]');
-                        missing = !(input && input.value.trim() !== '');
+                        missing = !isNumericValueValid(input);
                     } else {
                         const checked = card.querySelector('input.control-radio:checked');
                         if (!checked) {
@@ -717,6 +729,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
             numericInputs.forEach((input) => {
                 input.addEventListener('input', () => {
                     updateProgress();
+                    refreshAnsweredState();
                     saveDraft();
                 });
             });
@@ -739,7 +752,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                         if (!restoreAttempted) {
                             restoreDraftIfValid();
                         }
-                    });
+                    }, true);
                 }
 
                 form.addEventListener('submit', (event) => {

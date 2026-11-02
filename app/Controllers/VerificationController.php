@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Env;
+use App\Core\SliderMeasure;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
 use App\Repositories\NotificationRepository;
@@ -76,7 +77,7 @@ final class VerificationController
         foreach ($controles as $controle) {
             $controleId = (int) $controle['id'];
             $inputType = strtolower((string) ($controle['type_saisie'] ?? 'statut'));
-            if (!in_array($inputType, ['statut', 'quantite', 'mesure'], true)) {
+            if (!in_array($inputType, ['statut', 'quantite', 'mesure', 'curseur'], true)) {
                 $inputType = 'statut';
             }
 
@@ -103,6 +104,16 @@ final class VerificationController
                 }
 
                 $valueInput = (float) ((int) $valueString);
+
+                if ($inputType === 'curseur') {
+                    $slider = SliderMeasure::configuration(
+                        $controle['curseur_min'] ?? '', $controle['curseur_max'] ?? '', $controle['curseur_pas'] ?? ''
+                    );
+                    if ($slider === null || !SliderMeasure::accepts($slider, (int) $valueString)) {
+                        $this->redirect('/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId
+                            . '&poste_id=' . $posteId . '&error=incomplete' . $contextSuffix);
+                    }
+                }
 
                 $result = $this->computeResultForNumericControl($controle, $valueInput);
             }
@@ -562,11 +573,11 @@ final class VerificationController
             return $value >= $expected ? 'ok' : 'nok';
         }
 
-        if ($inputType === 'mesure') {
+        if (in_array($inputType, ['mesure', 'curseur'], true)) {
             $min = $controle['seuil_min'] !== null ? (float) $controle['seuil_min'] : null;
             $max = $controle['seuil_max'] !== null ? (float) $controle['seuil_max'] : null;
 
-            if ($min !== null && $value < $min) {
+            if ($min !== null && ($value < $min || (!empty($controle['seuil_min_exclusif']) && $value === $min))) {
                 return 'nok';
             }
 

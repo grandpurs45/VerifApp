@@ -1,4 +1,4 @@
-# Guide Admin VerifApp (v1.4)
+# Guide Admin VerifApp (v1.8)
 
 Ce guide cible les administrateurs plateforme et caserne.
 
@@ -32,6 +32,20 @@ Ce guide cible les administrateurs plateforme et caserne.
   - roles et acces
   - utilisateurs
   - journal des connexions et journal des ouvertures QR separes
+
+### Mesures avec curseur
+
+Dans `Parc & materiel > Fiche vehicule`, choisir `Valeur mesuree avec curseur` pour le materiel concerne.
+Renseigner l unite et au moins un seuil de conformite, puis les bornes et le pas du curseur.
+Exemple pour une bouteille: unite `bars`, echelle `0` a `300`, pas `10`, conformite de `50` a `200`.
+Le pas est un entier positif qui doit diviser exactement l amplitude de l echelle.
+Une valeur de `30` est alors enregistrable mais genere une non-conformite.
+Pour rendre aussi `50` non conforme, cocher `Non conforme si la valeur est inferieure ou egale au minimum`.
+Sans cette option, une valeur exactement egale au minimum reste conforme. L option est disponible egalement pour les mesures classiques et necessite la migration `044_add_exclusive_minimum_threshold.sql`.
+
+Sur le terrain, la valeur reste vide jusqu a une action explicite sur le curseur tactile. La valeur selectionnee est affichee au-dessus du curseur, sans champ modifiable; le pas configure est respecte automatiquement.
+Les mesures classiques existantes ne sont pas converties automatiquement.
+La migration `043_add_slider_measure_controls.sql` doit etre appliquee avant de configurer ce type.
 
 ## 3. Parametres application
 Page: `Administration > Parametres application`

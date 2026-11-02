@@ -10,6 +10,8 @@ use PDOException;
 
 final class ControleRepository
 {
+    private ?bool $sliderSchema = null;
+    private ?bool $exclusiveMinimumSchema = null;
     private ?bool $isHierarchicalSchema = null;
     private ?bool $hasInputSchema = null;
 
@@ -27,6 +29,7 @@ final class ControleRepository
                 ' . ($this->hasInputSchema() ? 'unite,' : 'NULL AS unite,') . '
                 ' . ($this->hasInputSchema() ? 'seuil_min,' : 'NULL AS seuil_min,') . '
                 ' . ($this->hasInputSchema() ? 'seuil_max,' : 'NULL AS seuil_max,') . '
+                ' . $this->sliderSelectFields('') . '
                 zone,
                 ordre
             FROM controles
@@ -65,6 +68,7 @@ final class ControleRepository
                 ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
                 ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
                 ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
+                ' . $this->sliderSelectFields('c.') . '
                 z.nom AS zone,
                 c.ordre
             FROM controles c
@@ -106,6 +110,7 @@ final class ControleRepository
                     ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
                     ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
                     ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
+                ' . $this->sliderSelectFields('c.') . '
                     c.poste_id,
                     c.vehicule_id,
                     c.zone_id,
@@ -132,6 +137,7 @@ final class ControleRepository
                     ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
                     ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
                     ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
+                ' . $this->sliderSelectFields('c.') . '
                     c.poste_id,
                     NULL AS vehicule_id,
                     NULL AS zone_id,
@@ -170,6 +176,7 @@ final class ControleRepository
                 ' . ($this->hasInputSchema() ? 'c.unite,' : 'NULL AS unite,') . '
                 ' . ($this->hasInputSchema() ? 'c.seuil_min,' : 'NULL AS seuil_min,') . '
                 ' . ($this->hasInputSchema() ? 'c.seuil_max,' : 'NULL AS seuil_max,') . '
+                ' . $this->sliderSelectFields('c.') . '
                 c.poste_id,
                 c.vehicule_id,
                 c.zone_id,
@@ -205,16 +212,30 @@ final class ControleRepository
         ?float $expectedValue = null,
         ?string $unit = null,
         ?float $minThreshold = null,
-        ?float $maxThreshold = null
+        ?float $maxThreshold = null,
+        ?array $slider = null,
+        bool $exclusiveMinimum = false
     ): bool {
         $connection = Database::getConnection();
         $hasInputSchema = $this->hasInputSchema();
+        $hasSliderSchema = $this->hasSliderSchema();
+        if ($inputType === 'curseur' && (!$hasSliderSchema || $slider === null)) {
+            return false;
+        }
+        $sliderColumns = $hasSliderSchema ? ', curseur_min, curseur_max, curseur_pas' : '';
+        $sliderValues = $hasSliderSchema ? ', :curseur_min, :curseur_max, :curseur_pas' : '';
+        $hasExclusiveMinimumSchema = $this->hasExclusiveMinimumSchema();
+        if ($exclusiveMinimum && !$hasExclusiveMinimumSchema) return false;
+        if ($hasExclusiveMinimumSchema) {
+            $sliderColumns .= ', seuil_min_exclusif';
+            $sliderValues .= ', :seuil_min_exclusif';
+        }
 
         if ($this->hasHierarchicalSchema() && $vehicleId !== null && $zoneId !== null) {
             if ($hasInputSchema) {
                 $sql = '
-                    INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, vehicule_id, zone_id, zone, ordre, actif)
-                    VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
+                    INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max' . $sliderColumns . ', poste_id, vehicule_id, zone_id, zone, ordre, actif)
+                    VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max' . $sliderValues . ', :poste_id, :vehicule_id, :zone_id, :zone, :ordre, :actif)
                 ';
             } else {
                 $sql = '
@@ -242,6 +263,12 @@ final class ControleRepository
                 $params['unite'] = $unit;
                 $params['seuil_min'] = $minThreshold;
                 $params['seuil_max'] = $maxThreshold;
+                if ($hasExclusiveMinimumSchema) $params['seuil_min_exclusif'] = (int) $exclusiveMinimum;
+                if ($hasSliderSchema) {
+                    $params['curseur_min'] = $slider['min'] ?? null;
+                    $params['curseur_max'] = $slider['max'] ?? null;
+                    $params['curseur_pas'] = $slider['step'] ?? null;
+                }
             }
 
             return $statement->execute($params);
@@ -249,8 +276,8 @@ final class ControleRepository
 
         if ($hasInputSchema) {
             $sql = '
-                INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max, poste_id, zone, ordre, actif)
-                VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max, :poste_id, :zone, :ordre, :actif)
+                INSERT INTO controles (caserne_id, libelle, type_saisie, valeur_attendue, unite, seuil_min, seuil_max' . $sliderColumns . ', poste_id, zone, ordre, actif)
+                VALUES (:caserne_id, :libelle, :type_saisie, :valeur_attendue, :unite, :seuil_min, :seuil_max' . $sliderValues . ', :poste_id, :zone, :ordre, :actif)
             ';
         } else {
             $sql = '
@@ -276,6 +303,12 @@ final class ControleRepository
             $params['unite'] = $unit;
             $params['seuil_min'] = $minThreshold;
             $params['seuil_max'] = $maxThreshold;
+            if ($hasExclusiveMinimumSchema) $params['seuil_min_exclusif'] = (int) $exclusiveMinimum;
+            if ($hasSliderSchema) {
+                $params['curseur_min'] = $slider['min'] ?? null;
+                $params['curseur_max'] = $slider['max'] ?? null;
+                $params['curseur_pas'] = $slider['step'] ?? null;
+            }
         }
 
         return $statement->execute($params);
@@ -295,10 +328,20 @@ final class ControleRepository
         ?float $expectedValue = null,
         ?string $unit = null,
         ?float $minThreshold = null,
-        ?float $maxThreshold = null
+        ?float $maxThreshold = null,
+        ?array $slider = null,
+        bool $exclusiveMinimum = false
     ): bool {
         $connection = Database::getConnection();
         $hasInputSchema = $this->hasInputSchema();
+        $hasSliderSchema = $this->hasSliderSchema();
+        if ($inputType === 'curseur' && (!$hasSliderSchema || $slider === null)) {
+            return false;
+        }
+        $sliderSet = $hasSliderSchema ? 'curseur_min = :curseur_min, curseur_max = :curseur_max, curseur_pas = :curseur_pas,' : '';
+        $hasExclusiveMinimumSchema = $this->hasExclusiveMinimumSchema();
+        if ($exclusiveMinimum && !$hasExclusiveMinimumSchema) return false;
+        if ($hasExclusiveMinimumSchema) $sliderSet .= ' seuil_min_exclusif = :seuil_min_exclusif,';
 
         if ($this->hasHierarchicalSchema() && $vehicleId !== null && $zoneId !== null) {
             if ($hasInputSchema) {
@@ -310,6 +353,7 @@ final class ControleRepository
                         unite = :unite,
                         seuil_min = :seuil_min,
                         seuil_max = :seuil_max,
+                        ' . $sliderSet . '
                         poste_id = :poste_id,
                         vehicule_id = :vehicule_id,
                         zone_id = :zone_id,
@@ -354,6 +398,12 @@ final class ControleRepository
                 $params['unite'] = $unit;
                 $params['seuil_min'] = $minThreshold;
                 $params['seuil_max'] = $maxThreshold;
+                if ($hasExclusiveMinimumSchema) $params['seuil_min_exclusif'] = (int) $exclusiveMinimum;
+                if ($hasSliderSchema) {
+                    $params['curseur_min'] = $slider['min'] ?? null;
+                    $params['curseur_max'] = $slider['max'] ?? null;
+                    $params['curseur_pas'] = $slider['step'] ?? null;
+                }
             }
 
             return $statement->execute($params);
@@ -368,6 +418,7 @@ final class ControleRepository
                     unite = :unite,
                     seuil_min = :seuil_min,
                     seuil_max = :seuil_max,
+                        ' . $sliderSet . '
                     poste_id = :poste_id,
                     zone = :zone,
                     ordre = :ordre,
@@ -406,6 +457,12 @@ final class ControleRepository
             $params['unite'] = $unit;
             $params['seuil_min'] = $minThreshold;
             $params['seuil_max'] = $maxThreshold;
+            if ($hasExclusiveMinimumSchema) $params['seuil_min_exclusif'] = (int) $exclusiveMinimum;
+            if ($hasSliderSchema) {
+                $params['curseur_min'] = $slider['min'] ?? null;
+                $params['curseur_max'] = $slider['max'] ?? null;
+                $params['curseur_pas'] = $slider['step'] ?? null;
+            }
         }
 
         return $statement->execute($params);
@@ -417,6 +474,40 @@ final class ControleRepository
         $statement = $connection->prepare('DELETE FROM controles WHERE id = :id AND caserne_id = :caserne_id');
 
         return $statement->execute(['id' => $id, 'caserne_id' => $caserneId]);
+    }
+
+    public function hasSliderSchema(): bool
+    {
+        if ($this->sliderSchema !== null) {
+            return $this->sliderSchema;
+        }
+        try {
+            $statement = Database::getConnection()->query("SHOW COLUMNS FROM controles LIKE 'curseur_%'");
+            $columns = $statement !== false ? $statement->fetchAll(PDO::FETCH_COLUMN) : [];
+            return $this->sliderSchema = count(array_intersect(['curseur_min', 'curseur_max', 'curseur_pas'], $columns)) === 3;
+        } catch (\Throwable) {
+            return $this->sliderSchema = false;
+        }
+    }
+
+    private function sliderSelectFields(string $alias): string
+    {
+        $fields = $this->hasSliderSchema()
+            ? $alias . 'curseur_min, ' . $alias . 'curseur_max, ' . $alias . 'curseur_pas,'
+            : 'NULL AS curseur_min, NULL AS curseur_max, NULL AS curseur_pas,';
+        return $fields . ($this->hasExclusiveMinimumSchema()
+            ? ' ' . $alias . 'seuil_min_exclusif,' : ' 0 AS seuil_min_exclusif,');
+    }
+
+    public function hasExclusiveMinimumSchema(): bool
+    {
+        if ($this->exclusiveMinimumSchema !== null) return $this->exclusiveMinimumSchema;
+        try {
+            $statement = Database::getConnection()->query("SHOW COLUMNS FROM controles LIKE 'seuil_min_exclusif'");
+            return $this->exclusiveMinimumSchema = $statement !== false && $statement->fetchColumn() !== false;
+        } catch (\Throwable) {
+            return $this->exclusiveMinimumSchema = false;
+        }
     }
 
     public function hasHierarchicalSchema(): bool

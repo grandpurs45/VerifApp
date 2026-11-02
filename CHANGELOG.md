@@ -9,6 +9,18 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.8.0] - 2026-11-02
+
+### Added
+- Verifications: option par materiel pour rendre non conforme une valeur inferieure ou egale au seuil minimum (mesure classique ou curseur), sans changer les regles existantes par defaut; migration 044.
+- Verifications: nouveau type Valeur mesuree avec curseur, utilisable au doigt avec valeur affichee en lecture seule, echelle et pas configurables independamment des seuils de conformite.
+- Migration 043: configuration des echelles de curseur par materiel.
+
+### Fixed
+- Historique: correction des variables de tri des zones non initialisees lors de l ouverture du detail ou de l export d une verification.
+- Verifications: versionnement des fichiers du curseur pour eviter l affichage NaN avec un ancien script conserve en cache apres le retrait du champ editable.
+- Verifications: restauration du brouillon avant sa sauvegarde lors de la saisie du nom; synchronisation du curseur, de la valeur et de la progression apres restauration.
+
 ## [1.7.0] - 2026-11-02
 
 ### Changed

@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.7.0` (voir fichier `VERSION`).
+Version courante: `v1.8.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -37,6 +37,7 @@ VerifApp permet de:
     - choix `fonctionnel / non fonctionnel`
     - check `present / absent`
     - valeur mesuree avec seuils min/max
+    - valeur mesuree avec curseur tactile, echelle et pas configurables, seuils de conformite independants
 - Anomalies:
   - creation automatique en cas de `nok`
   - regroupement des remontees identiques en occurrences
@@ -233,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.7.0`
+  - `./scripts/release.ps1 -Version 1.8.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -282,6 +283,15 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.8.0
+- Appliquer les migrations `043_add_slider_measure_controls.sql` et `044_add_exclusive_minimum_threshold.sql` avec le script habituel de mise a jour.
+- Dans la fiche engin, choisir `Valeur mesuree avec curseur` pour les materiels concernes; aucune conversion automatique des mesures existantes.
+- Exemple bouteille: unite `bars`, echelle `0` a `300`, pas `10`, conformite de `50` a `200`.
+- L option `Non conforme si la valeur est inferieure ou egale au minimum` rend `50` non conforme; elle est decochee par defaut et disponible aussi pour les mesures classiques.
+- Le terrain affiche la valeur du curseur sans champ editable. Une action explicite est obligatoire avant validation; les brouillons conservent les valeurs.
+- Verifier apres deploiement: version `1.8.0`, configuration et duplication du materiel, curseur mobile, egalite au seuil, detail et export d une verification.
+- Tests CLI sans acces aux donnees de l application: `php tests/slider_measure.php`, `php tests/slider_verification_submission.php`, `php tests/verification_lines.php` (extension `pdo_sqlite` requise pour les tests de repositories).
 
 ### Mise a niveau vers v1.7.0
 - Aucune nouvelle migration par rapport a v1.6.0.
