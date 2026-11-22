@@ -246,6 +246,36 @@ final class AnomalyRepository
         return $statement->execute($params);
     }
 
+    public function getPublicStatistics(int $caserneId, string $start, string $end, ?int $vehicleId = null): array
+    {
+        if ($caserneId <= 0) throw new \InvalidArgumentException('Caserne obligatoire.');
+        $empty = ['new'=>0,'resolved'=>0,'waiting'=>0,'in_progress'=>0,'urgent'=>0,'reports'=>0];
+        if (!$this->hasTable()) return $empty;
+        $db = Database::getConnection();
+        $vehicleFilter = $vehicleId !== null && $vehicleId > 0 ? ' AND v.vehicule_id = :vehicle_id' : '';
+        $params = ['caserne'=>$caserneId,'start_new'=>$start,'end_new'=>$end,'start_resolved'=>$start,'end_resolved'=>$end];
+        if ($vehicleFilter !== '') $params['vehicle_id'] = $vehicleId;
+        $statement = $db->prepare("SELECT
+            SUM(CASE WHEN a.date_creation >= :start_new AND a.date_creation < :end_new THEN 1 ELSE 0 END) AS new_count,
+            SUM(CASE WHEN a.statut IN ('resolue','cloturee') AND a.date_resolution >= :start_resolved AND a.date_resolution < :end_resolved THEN 1 ELSE 0 END) AS resolved_count,
+            SUM(CASE WHEN a.statut = 'ouverte' THEN 1 ELSE 0 END) AS waiting_count,
+            SUM(CASE WHEN a.statut = 'en_cours' THEN 1 ELSE 0 END) AS progress_count,
+            SUM(CASE WHEN a.statut IN ('ouverte','en_cours') AND a.priorite IN ('haute','critique') THEN 1 ELSE 0 END) AS urgent_count
+            FROM anomalies a
+            INNER JOIN verification_lignes vl ON vl.id = a.verification_ligne_id
+            INNER JOIN verifications v ON v.id = vl.verification_id
+            WHERE v.caserne_id = :caserne".$vehicleFilter);
+        $statement->execute($params); $row = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
+        $reports = $db->prepare("SELECT COUNT(*) FROM verification_lignes vl INNER JOIN verifications v ON v.id = vl.verification_id
+            WHERE v.caserne_id = :caserne AND v.date_heure >= :start_date AND v.date_heure < :end_date AND vl.resultat = 'nok'".$vehicleFilter);
+        $params = ['caserne'=>$caserneId,'start_date'=>$start,'end_date'=>$end];
+        if ($vehicleFilter !== '') $params['vehicle_id'] = $vehicleId;
+        $reports->execute($params);
+        return ['new'=>(int)($row['new_count'] ?? 0),'resolved'=>(int)($row['resolved_count'] ?? 0),
+            'waiting'=>(int)($row['waiting_count'] ?? 0),'in_progress'=>(int)($row['progress_count'] ?? 0),
+            'urgent'=>(int)($row['urgent_count'] ?? 0),'reports'=>(int)$reports->fetchColumn()];
+    }
+
     public function getStatusStats(?int $caserneId = null): array
     {
         if (!$this->hasTable()) {

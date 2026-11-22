@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Env;
 use App\Core\SliderMeasure;
+use App\Core\VerificationCoverage;
 use App\Repositories\AppSettingRepository;
 use App\Repositories\ControleRepository;
 use App\Repositories\NotificationRepository;
@@ -322,8 +323,6 @@ final class VerificationController
     {
         $verificationRepository = new VerificationRepository();
         $vehicleRepository = new VehicleRepository();
-        $posteRepository = new PosteRepository();
-        $controleRepository = new ControleRepository();
         $caserneId = $this->resolveManagerCaserneId();
 
         $monthInput = isset($_GET['month']) ? trim((string) $_GET['month']) : '';
@@ -355,39 +354,8 @@ final class VerificationController
         $coverageVehicles = $selectedVehicleId > 0
             ? [$vehiclesById[$selectedVehicleId]]
             : $vehicles;
-        $expectedPostes = [];
-        $expectedChecks = [];
-        foreach ($coverageVehicles as $vehicle) {
-            $vehicleId = (int) ($vehicle['id'] ?? 0);
-            if ($vehicleId <= 0) {
-                continue;
-            }
-            foreach ($posteRepository->findByVehicleId($vehicleId, $caserneId) as $poste) {
-                $posteId = (int) ($poste['id'] ?? 0);
-                if ($posteId <= 0) {
-                    continue;
-                }
-                if ($controleRepository->findByVehicleAndPosteId($vehicleId, $posteId, $caserneId) === []) {
-                    continue;
-                }
-                $frequency = (string) ($vehicle['verification_frequency'] ?? 'daily');
-                $posteKey = $vehicleId . '|' . $posteId;
-                $expectedPostes[$posteKey] = [
-                    'vehicule_id' => $vehicleId,
-                    'vehicule_nom' => (string) ($vehicle['nom'] ?? ''),
-                    'poste_id' => $posteId,
-                    'poste_nom' => (string) ($poste['nom'] ?? ''),
-                    'verification_frequency' => $frequency,
-                ];
-                if ($frequency === 'twice_daily') {
-                    $expectedChecks[$posteKey . '|matin'] = true;
-                    $expectedChecks[$posteKey . '|soir'] = true;
-                } else {
-                    $expectedChecks[$posteKey . '|jour'] = true;
-                }
-            }
-        }
-        $expectedPostesPerDay = count($expectedChecks);
+        $expectedPostes = $this->expectedPostesForVehicles($coverageVehicles, $caserneId);
+        $expectedPostesPerDay = array_sum(array_map(static fn(array $poste): int => ($poste['verification_frequency'] ?? 'daily') === 'twice_daily' ? 2 : 1, $expectedPostes));
         $verificationEveningHour = (int) $this->getScopedSettingValue(
             'verification_evening_hour',
             'VERIFICATION_EVENING_HOUR',
@@ -406,111 +374,12 @@ final class VerificationController
             $verificationEveningHour
         );
 
-        $daysInMonth = (int) (new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
-        $dailyCoverage = [];
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-            $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            $dailyCoverage[$date] = [
-                'postes_verifies' => [],
-                'postes_verifies_count' => 0,
-                'matin_couverts' => 0,
-                'soir_couverts' => 0,
-                'jour_couverts' => 0,
-                'postes_attendus' => $expectedPostesPerDay,
-                'pourcentage' => 0,
-                'complet' => false,
-                'eligible' => false,
-                'total_verifs' => 0,
-                'conformes' => 0,
-                'non_conformes' => 0,
-            ];
-        }
-
-        $totals = [
-            'total_verifs' => 0,
-            'conformes' => 0,
-            'non_conformes' => 0,
-            'postes_couverts' => 0,
-            'jours_complets' => 0,
-        ];
-
-        foreach ($statsRows as $row) {
-            $date = (string) ($row['jour'] ?? '');
-            if (!isset($dailyCoverage[$date])) {
-                continue;
-            }
-
-            $total = (int) ($row['total_verifs'] ?? 0);
-            $conformes = (int) ($row['conformes'] ?? 0);
-            $nonConformes = (int) ($row['non_conformes'] ?? 0);
-            $posteKey = (int) ($row['vehicule_id'] ?? 0) . '|' . (int) ($row['poste_id'] ?? 0);
-
-            $dailyCoverage[$date]['total_verifs'] += $total;
-            $dailyCoverage[$date]['conformes'] += $conformes;
-            $dailyCoverage[$date]['non_conformes'] += $nonConformes;
-            if (isset($expectedPostes[$posteKey])) {
-                $frequency = (string) ($expectedPostes[$posteKey]['verification_frequency'] ?? 'daily');
-                if ($frequency === 'twice_daily') {
-                    if ((int) ($row['morning_covered'] ?? 0) === 1) {
-                        $dailyCoverage[$date]['postes_verifies'][$posteKey . '|matin'] = true;
-                    }
-                    if ((int) ($row['evening_covered'] ?? 0) === 1) {
-                        $dailyCoverage[$date]['postes_verifies'][$posteKey . '|soir'] = true;
-                    }
-                } else {
-                    $dailyCoverage[$date]['postes_verifies'][$posteKey . '|jour'] = true;
-                }
-            }
-            $totals['total_verifs'] += $total;
-            $totals['conformes'] += $conformes;
-            $totals['non_conformes'] += $nonConformes;
-        }
-
-        $monthStart = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
-        $currentMonthStart = $today->modify('first day of this month');
-        if ($monthStart > $currentMonthStart) {
-            $eligibleDays = 0;
-        } elseif ($monthStart->format('Y-m') === $today->format('Y-m')) {
-            $eligibleDays = (int) $today->format('j');
-        } else {
-            $eligibleDays = $daysInMonth;
-        }
-
-        foreach ($dailyCoverage as $date => &$dayCoverage) {
-            $dayNumber = (int) substr($date, 8, 2);
-            $verifiedCount = count($dayCoverage['postes_verifies']);
-            $dayCoverage['postes_verifies_count'] = $verifiedCount;
-            foreach (array_keys($dayCoverage['postes_verifies']) as $coverageKey) {
-                if (str_ends_with($coverageKey, '|matin')) {
-                    $dayCoverage['matin_couverts']++;
-                } elseif (str_ends_with($coverageKey, '|soir')) {
-                    $dayCoverage['soir_couverts']++;
-                } else {
-                    $dayCoverage['jour_couverts']++;
-                }
-            }
-            $dayCoverage['eligible'] = $dayNumber <= $eligibleDays;
-            $dayCoverage['pourcentage'] = $expectedPostesPerDay > 0
-                ? min(100, (int) round(($verifiedCount / $expectedPostesPerDay) * 100))
-                : 0;
-            $dayCoverage['complet'] = $dayCoverage['eligible']
-                && $expectedPostesPerDay > 0
-                && $verifiedCount >= $expectedPostesPerDay;
-            unset($dayCoverage['postes_verifies']);
-
-            if ($dayCoverage['eligible']) {
-                $totals['postes_couverts'] += $verifiedCount;
-                if ($dayCoverage['complet']) {
-                    $totals['jours_complets']++;
-                }
-            }
-        }
-        unset($dayCoverage);
-
-        $expectedPosteChecks = $expectedPostesPerDay * $eligibleDays;
-        $conformityRate = $expectedPosteChecks > 0
-            ? min(100, (int) round(($totals['postes_couverts'] / $expectedPosteChecks) * 100))
-            : 0;
+        $coverage = VerificationCoverage::month($year, $month, $expectedPostes, $statsRows, $today);
+        $dailyCoverage = $coverage['dailyCoverage'];
+        $totals = $coverage['totals'];
+        $daysInMonth = $coverage['daysInMonth'];
+        $eligibleDays = $coverage['eligibleDays'];
+        $conformityRate = $coverage['rate'];
         $monthValue = sprintf('%04d-%02d', $year, $month);
         $monthNames = [
             1 => 'janvier',
@@ -529,6 +398,54 @@ final class VerificationController
         $monthLabel = ($monthNames[$month] ?? (string) $month) . ' ' . $year;
 
         require dirname(__DIR__, 2) . '/public/views/verifications_monthly.php';
+    }
+
+    public function yearly(): void
+    {
+        $caserneId = $this->resolveManagerCaserneId();
+        if ($caserneId === null) $this->redirect('/index.php?controller=manager&action=dashboard');
+        $today = new \DateTimeImmutable('today');
+        $selectedYear = filter_var($_GET['year'] ?? '', FILTER_VALIDATE_INT);
+        if ($selectedYear === false || $selectedYear < 2000 || $selectedYear > 2100) $selectedYear = (int)$today->format('Y');
+        $selectedVehicleId = max(0,(int)($_GET['vehicule_id'] ?? 0));
+        $vehicles = (new VehicleRepository())->findAllVerificationEnabled($caserneId);
+        $vehiclesById = [];
+        foreach ($vehicles as $vehicle) $vehiclesById[(int)$vehicle['id']] = $vehicle;
+        if ($selectedVehicleId > 0 && !isset($vehiclesById[$selectedVehicleId])) $selectedVehicleId = 0;
+        $coverageVehicles = $selectedVehicleId > 0 ? [$vehiclesById[$selectedVehicleId]] : $vehicles;
+        $expectedPostes = $this->expectedPostesForVehicles($coverageVehicles,$caserneId);
+        $repository = new VerificationRepository();
+        $availableYears = $repository->findAvailableCoverageYears($caserneId,$selectedVehicleId ?: null);
+        $comparisonYear = filter_var($_GET['compare_year'] ?? '', FILTER_VALIDATE_INT);
+        if ($comparisonYear === false || $comparisonYear === $selectedYear || !in_array($comparisonYear,$availableYears,true)) $comparisonYear = 0;
+        $yearOptions = array_values(array_unique(array_merge($availableYears,[$selectedYear,(int)$today->format('Y')])));
+        rsort($yearOptions);
+        $eveningHour = (int)$this->getScopedSettingValue('verification_evening_hour','VERIFICATION_EVENING_HOUR',$caserneId,'18');
+        if ($eveningHour < 0 || $eveningHour > 23) $eveningHour = 18;
+        $yearSummaries = [];
+        foreach (array_filter([$selectedYear,$comparisonYear]) as $year) {
+            $rows = $repository->findAnnualDailyPosteStats($year,$caserneId,$selectedVehicleId ?: null,$eveningHour);
+            $yearSummaries[$year] = VerificationCoverage::year($year,$expectedPostes,$rows,$today);
+        }
+        $primarySummary = $yearSummaries[$selectedYear];
+        $monthLabels = ['Jan','Fev','Mar','Avr','Mai','Juin','Juil','Aout','Sep','Oct','Nov','Dec'];
+        $monthNames = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+        $chartDatasets = [];
+        foreach ($yearSummaries as $year => $summary) {
+            $links = [];
+            foreach ($summary['months'] as $month => $data) {
+                $links[] = '/index.php?' . http_build_query(['controller'=>'verifications','action'=>'monthly','month'=>sprintf('%04d-%02d',$year,$month),'vehicule_id'=>$selectedVehicleId]);
+            }
+            $chartDatasets[] = ['label'=>(string)$year,'data'=>array_column($summary['months'],'rate'),'months'=>array_values($summary['months']),'links'=>$links];
+        }
+        $chartData = ['labels'=>$monthLabels,'datasets'=>$chartDatasets];
+        $monthlyUrl = '/index.php?' . http_build_query(['controller'=>'verifications','action'=>'monthly','month'=>sprintf('%04d-%02d',$selectedYear,$selectedYear === (int)$today->format('Y') ? (int)$today->format('m') : 1),'vehicule_id'=>$selectedVehicleId]);
+        require dirname(__DIR__,2) . '/public/views/verifications_yearly.php';
+    }
+
+    private function expectedPostesForVehicles(array $coverageVehicles, ?int $caserneId): array
+    {
+        return $caserneId === null ? [] : (new \App\Core\VerificationCoverageProvider())->expectedPostesForVehicles($coverageVehicles,$caserneId);
     }
 
     public function show(int $verificationId): void

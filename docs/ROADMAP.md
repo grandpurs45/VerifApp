@@ -91,9 +91,16 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - calendrier et detail journalier lisibles sur mobile sans chevauchement
 - tests des libelles et du cas trois formulaires / six creneaux, sans modification du calcul
 
+### v1.10.0
+- vue annuelle du taux de couverture mensuel et comparaison de deux annees
+- calcul partage avec le planning mensuel et liens vers les details du mois
+- lien de suivi public propre a chaque caserne, genere volontairement, regenerable et revocable
+- planning journalier, couverture et compteurs agreges d anomalies sans donnees individuelles
+- assets servis localement et tests d isolation caserne/vehicule et de gestion des liens
+
 ## Prochain cycle
 
-### v1.10
+### v1.11 (previsionnel)
 - historique de livraison des notifications email avec statut et erreur
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies

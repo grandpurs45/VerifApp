@@ -12,6 +12,10 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
 
 <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <a href="/index.php?controller=statistics_share&action=manage" class="rounded-lg border border-slate-200 bg-white p-5 hover:bg-slate-50">
+        <p class="text-lg font-bold">Lien public de suivi</p>
+        <p class="mt-1 text-sm text-slate-600">Statistiques des verifications de la caserne active, partage et revocation du lien.</p>
+    </a>
     <a href="/index.php?controller=manager_admin&action=settings" class="rounded-2xl bg-white shadow p-5 hover:bg-slate-50">
         <p class="text-lg font-bold">Parametres application</p>
         <p class="text-sm text-slate-600 mt-1">Configurer les options globales de securite et de fonctionnement.</p>

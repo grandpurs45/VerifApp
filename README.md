@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.9.4` (voir fichier `VERSION`).
+Version courante: `v1.10.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -74,6 +74,7 @@ VerifApp permet de:
 - Groupes de notifications independants des roles.
 - Audit des ouvertures QR verification, pharmacie et inventaire.
 - Multi-caserne dans une seule instance.
+- Suivi public par caserne (activation volontaire): planning des verifications, couverture mensuelle, graphique annuel et compteurs d anomalies; lien partageable, regenerable et desactivable, sans donnees individuelles. Voir le [guide administrateur](docs/ADMIN_GUIDE.md#15-partage-public-des-statistiques).
 
 ## Architecture technique
 - Stack: PHP (MVC leger), MySQL/MariaDB, Apache.
@@ -213,6 +214,14 @@ Notifications email (optionnel):
 - Une seule notification est envoyee par article et par niveau. Une nouvelle alerte est possible apres retour a la normale ou changement de niveau.
 - Le ciblage et les canaux se configurent dans `Administration > Parametres notifications` avec les evenements pharmacie correspondants.
 
+## Couverture annuelle
+- Depuis la vue mensuelle, ouvrir `Vue annuelle` pour visualiser janvier a decembre.
+- Choisir l annee et le vehicule, puis eventuellement une autre annee disponible dans `Comparer avec`.
+- Les points du graphique et les taux du tableau ouvrent le detail mensuel en conservant le vehicule.
+- Le taux annuel est calcule sur les creneaux couverts / attendus, et non par moyenne simple des pourcentages des mois.
+- Le mois en cours est limite aux jours ecoules; les mois futurs sont exclus. Les objectifs utilisent la configuration actuelle des vehicules, comme la vue mensuelle.
+- Les donnees du tableau restent accessibles si le graphique ne se charge pas. Chart.js 4.5.1 est servi localement avec sa licence MIT.
+
 ## Vue mensuelle des verifications
 URL:
 - `/index.php?controller=verifications&action=monthly`
@@ -237,7 +246,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.9.4`
+  - `./scripts/release.ps1 -Version 1.10.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -286,6 +295,15 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.10.0
+- Aucune nouvelle migration par rapport a v1.9.4; utiliser le script de mise a jour habituel pour appliquer les migrations precedentes si necessaire.
+- Depuis Historique, ouvrir `Vue annuelle` pour consulter la couverture par mois et comparer deux annees disponibles.
+- Le suivi public reste desactive par defaut. Depuis `Administration > Lien public de suivi`, generer volontairement le lien de la caserne active (droit `users.manage`).
+- Toute personne disposant du lien peut consulter les statistiques agregees sans connexion; aucun nom d agent ni commentaire terrain n est expose. Utiliser HTTPS et regenerer ou desactiver le lien si sa diffusion n est plus souhaitee.
+- Verifier apres deploiement: version `1.10.0`, vues mensuelle/annuelle, generation du lien, consultation en navigation privee et refus de l ancien lien apres regeneration/desactivation.
+- Les assets du graphique et le CSS public sont inclus dans la release; aucun build npm n est requis sur le serveur.
+- Tests: `php tests/verification_coverage_calculator.php`, `php tests/verification_yearly_view.php`, `php tests/statistics_share_security.php`, `php tests/public_anomaly_statistics.php`.
 
 ### Mise a niveau vers v1.9.4
 - Aucune nouvelle migration par rapport a v1.9.3; la migration 045 reste requise si la mise a jour part d une version anterieure.

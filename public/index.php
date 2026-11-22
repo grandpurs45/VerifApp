@@ -20,6 +20,7 @@ use App\Controllers\PharmacyController;
 use App\Controllers\PosteController;
 use App\Controllers\VehicleController;
 use App\Controllers\VerificationController;
+use App\Controllers\StatisticsShareController;
 use App\Core\Autoloader;
 use App\Core\Database;
 use App\Core\Env;
@@ -274,6 +275,9 @@ $managerRoutes = [
     'manager_admin/security_audit_export_csv',
     'verifications/history',
     'verifications/monthly',
+    'verifications/yearly',
+    'statistics_share/manage',
+    'statistics_share/save',
     'verifications/show',
     'verifications/export',
     'verifications/delete',
@@ -414,6 +418,9 @@ $managerRoutePermissions = [
     'manager_admin/security_audit_export_csv' => 'users.manage',
     'verifications/history' => 'verifications.history',
     'verifications/monthly' => 'verifications.history',
+    'verifications/yearly' => 'verifications.history',
+    'statistics_share/manage' => 'users.manage',
+    'statistics_share/save' => 'users.manage',
     'verifications/show' => 'verifications.history',
     'verifications/export' => 'verifications.history',
     'verifications/delete' => 'verifications.history',
@@ -491,6 +498,18 @@ if (in_array($routeKey, $pharmacyRoutes, true) && !$hasPharmacyAccess) {
 }
 
 if ($controllerName !== null) {
+    if ($controllerName === 'statistics_share' && $action === 'view') {
+        (new StatisticsShareController())->view();
+        return;
+    }
+    if ($controllerName === 'statistics_share' && $action === 'manage') {
+        (new StatisticsShareController())->manage();
+        return;
+    }
+    if ($controllerName === 'statistics_share' && $action === 'save') {
+        (new StatisticsShareController())->save();
+        return;
+    }
     if ($controllerName === 'manager_auth' && $action === 'login_form') {
         $controller = new AuthController();
         $controller->loginForm();
@@ -1144,6 +1163,12 @@ if ($controllerName !== null) {
     if ($controllerName === 'verifications' && $action === 'monthly') {
         $controller = new VerificationController();
         $controller->monthly();
+        return;
+    }
+
+    if ($controllerName === 'verifications' && $action === 'yearly') {
+        $controller = new VerificationController();
+        $controller->yearly();
         return;
     }
 

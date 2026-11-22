@@ -16,6 +16,7 @@ $check = static function (bool $ok, string $message): void {
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 // PDO binds execute-array parameters as strings; use padded hours for SQLite comparisons.
 $db->sqliteCreateFunction('HOUR', static fn(string $date): string => substr($date, 11, 2), 1);
+$db->sqliteCreateFunction('YEAR', static fn(string $date): int => (int)substr($date,0,4), 1);
 $db->exec('CREATE TABLE type_vehicules (id INT, caserne_id INT, nom TEXT)');
 $db->exec('CREATE TABLE vehicules (id INT, caserne_id INT, nom TEXT, type_vehicule_id INT)');
 $db->exec('CREATE TABLE postes (id INTEGER PRIMARY KEY AUTOINCREMENT, caserne_id INT, nom TEXT, code TEXT, type_vehicule_id INT)');
@@ -93,6 +94,12 @@ try {
     $check(count($foreign)===1 && (int)$foreign[0]['poste_id']===999,'Foreign vehicle/station material used for coverage');
     $check($stats->findMonthlyDailyPosteStats(2026,11,20,1)===[],'Station scope bypassed');
     $check($stats->findMonthlyDailyPosteStats(2026,12,10,1)===[],'Month filter ignored');
+    $check($stats->findAnnualDailyPosteStats(2026,10,1)===$read(),'Annual SQL differs from the same monthly records');
+    $db->exec("INSERT INTO verifications VALUES (900,2,10,1,'2025-06-01 08:00:00','conforme',24),(901,3,20,7,'2024-06-01 08:00:00','conforme',24)");
+    $check($stats->findAvailableCoverageYears(10)===[2026,2025],'Available years missing');
+    $check($stats->findAvailableCoverageYears(10,1)===[2026],'Vehicle filter ignored for years');
+    $check($stats->findAvailableCoverageYears(20)===[2026,2024],'Available years leak another station');
+    $check($stats->findAnnualDailyPosteStats(2025,10,1)===[],'Annual scope leaked another vehicle');
     echo "OK: monthly coverage preserved across type changes and legacy repair, 12h/24h, deduplication, raw totals, history and caserne scope\n";
 } finally {
     $property->setValue(null,$previous);

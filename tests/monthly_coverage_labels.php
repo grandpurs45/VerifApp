@@ -10,6 +10,7 @@ namespace {
     if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
     require dirname(__DIR__) . '/app/Core/Autoloader.php';
     \App\Core\Autoloader::register();
+    set_error_handler(static function(int $severity,string $message,string $file,int $line): never { throw new \ErrorException($message,0,$severity,$file,$line); });
     $renderMonthlyView = static function (bool $twiceDaily = true): string {
         $_GET=['controller'=>'verifications','action'=>'monthly'];
         $_SESSION=['manager_user'=>['role'=>'admin','nom'=>'QA','caserne_nom'=>'INGRE']];
@@ -53,4 +54,5 @@ namespace {
         $check(!str_contains($html,'>Conformite<') && !str_contains($html,'Verifs attendues / jour'),'Ambiguous old label remains');
     }
     echo "OK: monthly labels distinguish recorded forms, daily expected slots and coverage; 3 forms / 6 slots and daily mode preserved\n";
+    restore_error_handler();
 }

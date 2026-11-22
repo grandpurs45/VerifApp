@@ -719,13 +719,35 @@ final class VerificationRepository
         int $eveningStartHour = 18
     ): array
     {
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        return $this->findDailyPosteStats($start, date('Y-m-d', strtotime($start . ' +1 month')), $caserneId, $vehicleId, $eveningStartHour);
+    }
+
+    public function findAnnualDailyPosteStats(int $year, int $caserneId, ?int $vehicleId = null, int $eveningStartHour = 18): array
+    {
+        return $this->findDailyPosteStats(sprintf('%04d-01-01', $year), sprintf('%04d-01-01', $year + 1), $caserneId, $vehicleId, $eveningStartHour);
+    }
+
+    public function findAvailableCoverageYears(int $caserneId, ?int $vehicleId = null): array
+    {
+        $sql = 'SELECT DISTINCT YEAR(date_heure) AS annee FROM verifications WHERE caserne_id = :caserne_id';
+        $params = ['caserne_id'=>$caserneId];
+        if ($vehicleId !== null && $vehicleId > 0) {
+            $sql .= ' AND vehicule_id = :vehicle_id';
+            $params['vehicle_id'] = $vehicleId;
+        }
+        $statement = Database::getConnection()->prepare($sql . ' ORDER BY annee DESC');
+        $statement->execute($params);
+        return array_values(array_filter(array_map('intval',$statement->fetchAll(PDO::FETCH_COLUMN)),static fn(int $year): bool => $year >= 2000 && $year <= 2100));
+    }
+
+    private function findDailyPosteStats(string $start, string $end, ?int $caserneId, ?int $vehicleId, int $eveningStartHour): array
+    {
         $connection = Database::getConnection();
         if ($eveningStartHour < 0 || $eveningStartHour > 23) {
             $eveningStartHour = 18;
         }
 
-        $start = sprintf('%04d-%02d-01', $year, $month);
-        $end = date('Y-m-d', strtotime($start . ' +1 month'));
         $where = [
             'v.date_heure >= :start_date',
             'v.date_heure < :end_date',

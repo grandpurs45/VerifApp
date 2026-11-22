@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.10.0] - 2026-11-22
+
+### Added
+- Verifications: vue annuelle du taux de couverture mensuel, filtre vehicule, comparaison de deux annees disponibles et liens vers le detail mensuel; graphique servi localement et tableau accessible sans JavaScript.
+- Calcul de couverture partage entre vues mensuelle et annuelle, avec taux annuel pondere par les creneaux attendus et exclusion des mois futurs.
+- Suivi public des verifications par caserne: lien aleatoire genere volontairement, copiable, regenerable et revocable depuis Administration ou les statistiques (droit users.manage). Page sans connexion avec planning journalier, graphique annuel/comparaison, couverture, journees completes et compteurs agreges d anomalies, sans noms d agents ni commentaires.
+- Tests de partage public: isolation caserne/vehicule, refus des liens invalides ou desactives, rotation du lien, droits de gestion et absence de donnees individuelles. Assets publics servis localement, sans dependance CDN.
+
 ## [1.9.4] - 2026-11-22
 
 ### Changed

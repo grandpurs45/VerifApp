@@ -148,6 +148,13 @@ Permissions critiques:
 - Le `Taux de couverture` est distinct de la conformite du materiel: une verification non conforme couvre tout de meme son creneau.
 - Reordonner les zones d un meme niveau avec la poignee de glisser-deposer.
 
+### Graphique annuel de couverture
+
+Depuis `Historique > Vue mensuelle`, ouvrir `Vue annuelle`, choisir l annee et le vehicule, puis appliquer le filtre.
+`Comparer avec` superpose une autre annee disposant de verifications dans le perimetre selectionne; le champ reste desactive lorsqu une seule annee est disponible.
+Les mois futurs n ont pas de point. Le mois courant est calcule sur les jours ecoules; les mois passes utilisent le mois complet. Le taux annuel est pondere par les creneaux attendus et reprend les objectifs de la configuration actuelle, comme la vue mensuelle.
+Les taux du tableau et les points du graphique ouvrent les details du mois concerne. L annee comparee a sa propre courbe et ses propres liens.
+
 ## 9. Securite operationnelle
 - garder `Mode debug` desactive en prod.
 - forcer des mots de passe robustes.
@@ -197,3 +204,28 @@ php scripts/restore.php --from=backups/verifapp_backup_xxx.zip --force --restore
 - Les indicateurs Articles actifs, Sous le seuil et Au seuil filtrent la liste; un second clic retire le filtre. La recherche se combine avec le filtre selectionne.
 - Le menu Autres actions permet de desactiver ou reactiver un article et de le supprimer avec confirmation. La suppression avec historique reste reservee aux articles inactifs.
 - Une modification refusee reouvre le formulaire de l article concerne avec les valeurs saisies.
+
+## 15. Partage public des statistiques
+
+### Generer et partager
+- Selectionner la caserne active dans le backoffice.
+- Ouvrir `Administration > Lien public de suivi` ou `Partager le suivi de la caserne` depuis les vues mensuelle et annuelle des verifications. Le droit `users.manage` est requis pour gerer ce lien.
+- Cliquer sur `Generer le lien`, puis `Copier le lien`. Aucun acces public n est active automatiquement lors de la mise a jour.
+- Le lien ne demande pas de connexion. Il donne un acces en lecture seule aux statistiques de cette caserne, avec filtres mois, vehicule, annee et comparaison annuelle.
+- `Regenerer le lien` invalide immediatement l ancien et fournit une nouvelle adresse a redistribuer. `Desactiver` retire l acces public jusqu a une nouvelle generation.
+
+### Indicateurs disponibles
+- Planning journalier identique a la vue mensuelle et taux de couverture du mois.
+- Journees a 100 %, creneaux couverts/attendus, formulaires enregistres et verifications comportant au moins une non-conformite.
+- Graphique annuel des taux mensuels, comparaison optionnelle et tableau detaille. Les mois futurs sont exclus, le mois courant porte sur les jours ecoules. Les objectifs reposent sur la configuration actuelle des vehicules, comme dans le backoffice.
+- Anomalies: signalements terrain (chaque controle NOK, y compris une nouvelle occurrence), nouvelles anomalies ouvertes pendant le mois, anomalies actuellement resolues/cloturees dont la date de resolution est dans le mois.
+- Etat actuel, toutes dates confondues: anomalies a traiter, en cours et actives de priorite haute/critique. Ce stock n est pas un historique mensuel des changements de statut.
+- Le filtre vehicule s applique aux verifications et aux anomalies. Les vehicules exclus des verifications ne sont pas proposes; sans filtre, les compteurs d anomalies concernent la caserne entiere.
+
+### Confidentialite et exploitation
+- Toute personne possedant le lien peut le consulter et le transmettre. Utiliser HTTPS et regenerer ou desactiver le lien en cas de diffusion non souhaitee.
+- Seuls les agregats et les libelles de caserne/vehicules sont publics: aucun nom d agent, commentaire terrain, responsable assigne ou fiche individuelle n est expose.
+- La page demande aux moteurs de ne pas l indexer et interdit sa mise en cache; cela ne remplace pas la confidentialite du lien. Les assets sont locaux pour ne pas transmettre le lien a un fournisseur tiers.
+- Le jeton figure dans l URL: ne pas publier les journaux de requetes du serveur ou du reverse proxy. Une regeneration ne retire pas les captures deja realisees par les destinataires.
+- Aucune migration supplementaire: les liens sont conserves dans la table `app_settings` existante, un par caserne.
+- Pour les contributeurs uniquement, apres modification des classes des vues publiques, reconstruire le CSS versionne avec `powershell -File scripts/build-public-statistics-css.ps1` (Node/npm requis pour ce build uniquement). Aucun build npm n est necessaire en production.
