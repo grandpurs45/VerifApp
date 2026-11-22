@@ -207,6 +207,57 @@ final class VehicleRepository
         ]);
     }
 
+    public function updateIdentity(int $id, string $name, int $typeId, int $caserneId): bool
+    {
+        $db = Database::getConnection();
+        $db->beginTransaction();
+        try {
+            $lock = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $statement = $db->prepare('SELECT type_vehicule_id FROM vehicules WHERE id = :id AND caserne_id = :caserne' . $lock);
+            $statement->execute(['id' => $id, 'caserne' => $caserneId]);
+            $oldType = $statement->fetchColumn();
+            $type = $db->prepare('SELECT id FROM type_vehicules WHERE id = :id AND caserne_id = :caserne');
+            $type->execute(['id' => $typeId, 'caserne' => $caserneId]);
+            if ($oldType === false || $type->fetchColumn() === false || trim($name) === '' || $this->existsByTypeAndName($typeId, $name, $caserneId, $id)) {
+                $db->rollBack();
+                return false;
+            }
+            if ((int) $oldType !== $typeId) {
+                $source = $db->prepare('SELECT DISTINCT p.id, p.nom FROM controles c INNER JOIN postes p ON p.id = c.poste_id WHERE c.vehicule_id = :vehicle AND c.caserne_id = :caserne AND p.caserne_id = :poste_caserne');
+                $source->execute(['vehicle' => $id, 'caserne' => $caserneId, 'poste_caserne' => $caserneId]);
+                foreach ($source->fetchAll(PDO::FETCH_ASSOC) as $poste) {
+                    $target = $db->prepare('SELECT id FROM postes WHERE type_vehicule_id = :type AND caserne_id = :caserne AND nom = :nom ORDER BY id ASC');
+                    $target->execute(['type' => $typeId, 'caserne' => $caserneId, 'nom' => $poste['nom']]);
+                    $targetId = $target->fetchColumn();
+                    if ($targetId === false) {
+                        $baseCode = 'P' . $typeId . '_' . $poste['id'];
+                        $code = $baseCode;
+                        $suffix = 0;
+                        $codeCheck = $db->prepare('SELECT id FROM postes WHERE caserne_id = :caserne AND code = :code');
+                        do {
+                            $codeCheck->execute(['caserne' => $caserneId, 'code' => $code]);
+                            $exists = $codeCheck->fetchColumn() !== false;
+                            if ($exists) $code = $baseCode . '_' . ++$suffix;
+                        } while ($exists);
+                        $insert = $db->prepare('INSERT INTO postes (caserne_id, nom, code, type_vehicule_id) VALUES (:caserne, :nom, :code, :type)');
+                        $insert->execute(['caserne' => $caserneId, 'nom' => $poste['nom'], 'code' => $code, 'type' => $typeId]);
+                        $targetId = (int) $db->lastInsertId();
+                    }
+                    // Keep historical postes unchanged; move only this vehicle's controls.
+                    $move = $db->prepare('UPDATE controles SET poste_id = :target WHERE vehicule_id = :vehicle AND caserne_id = :caserne AND poste_id = :source');
+                    $move->execute(['target' => $targetId, 'vehicle' => $id, 'caserne' => $caserneId, 'source' => $poste['id']]);
+                }
+            }
+            $update = $db->prepare('UPDATE vehicules SET nom = :nom, type_vehicule_id = :type WHERE id = :id AND caserne_id = :caserne');
+            $update->execute(['nom' => $name, 'type' => $typeId, 'id' => $id, 'caserne' => $caserneId]);
+            $db->commit();
+            return true;
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
+        }
+    }
+
     public function delete(int $id, int $caserneId): bool
     {
         $connection = Database::getConnection();

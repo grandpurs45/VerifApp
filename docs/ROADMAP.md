@@ -60,9 +60,17 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - encodage MIME protegeant les balises HTML pendant le transport
 - tests de restitution du contenu et de respect de la caserne active
 
+### v1.9.0
+- rubrique Configuration dediee aux verifications avec Types & postes et Vehicules & materiel
+- navigation adaptee au desktop et au mobile sans menu horizontal en doublon sur desktop
+- changement du type et de l indicatif sans duplication du vehicule
+- rattachement transactionnel du materiel aux postes du type cible
+- conservation des QR codes, de l historique et des reglages de verification
+- tests de regression du renommage, du changement de type et des droits de navigation
+
 ## Prochain cycle
 
-### v1.9
+### v1.10
 - historique de livraison des notifications email avec statut et erreur
 - recherche et filtres avances dans les anomalies
 - actions groupees sur les anomalies

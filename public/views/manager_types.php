@@ -26,18 +26,13 @@ $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 
 $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une erreur est survenue.') : null;
 
 $pageTitle = 'Configuration types - VerifApp';
-$pageHeading = 'Configuration - Types d engins';
-$pageSubtitle = 'Chaque type porte ses postes standards (mode caserne scalable).';
+$pageHeading = 'Types & postes';
+$pageSubtitle = '';
 $pageBackUrl = '/index.php?controller=manager&action=dashboard';
 $pageBackLabel = 'Retour dashboard';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
-
-<nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
-    <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Types & postes</a>
-    <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
-</nav>
 
 <?php if ($successMessage !== null || $errorMessage !== null): ?>
     <section id="manager-toast" class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border p-4 text-sm shadow-lg <?= $errorMessage !== null ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">

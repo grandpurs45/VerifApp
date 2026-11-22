@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.8.1` (voir fichier `VERSION`).
+Version courante: `v1.9.0` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -138,7 +138,7 @@ Genere depuis:
 
 ### QR engin (verification ciblee)
 Genere depuis:
-- `Parc & materiel -> Fiche vehicule`
+- `Verifications -> Configuration -> Vehicules & materiel -> Fiche vehicule`
 - Actions disponibles:
   - generer / regenerer
   - supprimer
@@ -234,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.8.1`
+  - `./scripts/release.ps1 -Version 1.9.0`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +283,14 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.9.0
+- Aucune nouvelle migration par rapport a v1.8.1.
+- Ouvrir `Verifications > Configuration > Types & postes` ou `Vehicules & materiel`. Sur desktop, ces entrees se trouvent dans le menu lateral; sur mobile, elles restent accessibles depuis les pages de configuration.
+- `Modifier le type et l indicatif` est accessible depuis la liste des vehicules et `Configurer engin`. Le meme vehicule est conserve, sans duplication ni modification des reglages de verification.
+- En cas de changement de type, les postes de meme nom sont reutilises dans le type cible, et les postes manquants sont crees. Les verifications passees conservent leurs postes d origine.
+- Tester apres mise a jour: version `1.9.0`, navigation types/vehicules, changement d indicatif, formulaire mobile et historique. Les QR existants continuent de pointer vers le meme vehicule.
+- Tests sans donnees reelles: `php tests/vehicle_identity.php` et `php tests/configuration_navigation.php`.
 
 ### Mise a niveau vers v1.8.1
 - Aucune nouvelle migration par rapport a v1.8.0.

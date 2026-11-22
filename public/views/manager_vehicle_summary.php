@@ -6,10 +6,14 @@ $successMap = [
     'vehicle_qr_saved' => 'QR vehicule genere / regenere.',
     'vehicle_qr_deleted' => 'QR vehicule supprime.',
     'anomaly_routing_saved' => 'Destinataires des anomalies enregistres.',
+    'vehicle_identity_updated' => 'Type et indicatif du vehicule modifies.',
 ];
 
 $errorMap = [
     'invalid_vehicle' => 'Vehicule invalide.',
+    'invalid_vehicle_identity' => 'Selectionne un type et renseigne un indicatif valide (nom complet limite a 100 caracteres).',
+    'vehicle_duplicate' => 'Un vehicule porte deja ce type et cet indicatif dans cette caserne.',
+    'vehicle_identity_failed' => 'Modification impossible. Le vehicule et son materiel sont restes inchanges.',
     'vehicle_qr_store_failed' => 'Impossible de mettre a jour le QR vehicule.',
     'anomaly_routing_empty' => 'Selectionnez au moins un groupe ou une personne pour le ciblage personnalise.',
     'anomaly_routing_save_failed' => 'Impossible d enregistrer les destinataires des anomalies.',
@@ -87,6 +91,29 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </span>
         <a href="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= $vehicleId ?>" class="ml-2 inline-flex rounded-xl border border-slate-300 bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold">Configurer zones & materiel</a>
     </div>
+    <details id="vehicle-identity-editor" class="mt-4 border-t border-slate-200 pt-4" <?= is_array($identityDraft ?? null) || ($_GET['edit_identity'] ?? '') === '1' ? 'open' : '' ?>>
+        <summary class="w-fit cursor-pointer rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900">Modifier le type et l indicatif</summary>
+        <form method="post" action="/index.php?controller=manager_assets&action=vehicle_identity_save" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input type="hidden" name="id" value="<?= $vehicleId ?>">
+            <label class="block text-sm text-slate-700">
+                <span class="mb-1 block font-semibold">Type *</span>
+                <select name="type_vehicule_id" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                    <option value="">Selectionner un type</option>
+                    <?php foreach (($vehicleTypes ?? []) as $type): ?>
+                        <option value="<?= (int) $type['id'] ?>" <?= (int) ($identityDraft['type_vehicule_id'] ?? $vehicle['type_vehicule_id'] ?? 0) === (int) $type['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $type['nom'], ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="block text-sm text-slate-700">
+                <span class="mb-1 block font-semibold">Indicatif / numero *</span>
+                <input name="indicatif" type="text" required maxlength="100" value="<?= htmlspecialchars((string) ($identityDraft['indicatif'] ?? $vehicle['indicatif'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            </label>
+            <div class="flex flex-wrap justify-end gap-2 sm:col-span-2">
+                <button type="button" data-cancel-vehicle-identity class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Annuler</button>
+                <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Enregistrer les modifications</button>
+            </div>
+        </form>
+    </details>
     <form method="post" action="/index.php?controller=manager_assets&action=vehicle_save" class="mt-4 flex flex-col gap-3 rounded-xl border <?= $verificationEnabled ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50' ?> p-4 lg:flex-row lg:items-end lg:justify-between">
         <input type="hidden" name="id" value="<?= $vehicleId ?>">
         <input type="hidden" name="type_vehicule_id" value="<?= (int) ($vehicle['type_vehicule_id'] ?? 0) ?>">
@@ -329,6 +356,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         });
 
         const toast = document.getElementById('manager-toast');
+        const identityEditor = document.getElementById('vehicle-identity-editor');
+        document.querySelector('[data-cancel-vehicle-identity]')?.addEventListener('click', function () {
+            identityEditor.open = false;
+            identityEditor.querySelector('form').reset();
+        });
         if (toast) {
             setTimeout(function () {
                 toast.style.transition = 'opacity 240ms ease';

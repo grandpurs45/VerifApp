@@ -153,6 +153,9 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 <?php endif; ?>
 
 <section class="bg-white rounded-2xl shadow p-4 md:p-6">
+    <div class="mb-3 flex justify-end">
+        <a href="/index.php?controller=manager_assets&action=vehicle_detail&id=<?= $vehicleId ?>&edit_identity=1#vehicle-identity-editor" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900">Modifier le type et l indicatif</a>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <article class="rounded-xl border border-slate-200 p-3">
             <p class="text-xs uppercase tracking-wide text-slate-500">Engin</p>

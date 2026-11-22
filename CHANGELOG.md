@@ -9,6 +9,16 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.9.0] - 2026-11-22
+
+### Added
+- Navigation: rubrique Configuration dans Verifications, avec acces directs Types & postes et Vehicules & materiel; navigation laterale sur desktop et acces compacts sur mobile, sans menu horizontal en doublon sur desktop.
+- Parc: modification du type et de l indicatif depuis la fiche vehicule, sans duplication; conservation du materiel, des zones, des QR codes et de l historique. Lors d un changement de type, les postes necessaires sont repris dans le type cible.
+
+### Changed
+- Parc: acces Modifier le type et l indicatif depuis la liste des vehicules, la selection et la configuration de l engin; conservation de la saisie et reouverture du formulaire en cas d erreur.
+- Configuration: titres et navigation harmonises entre les types, les postes et les fiches vehicule; droits existants conserves.
+
 ## [1.8.1] - 2026-11-02
 
 ### Fixed

@@ -46,6 +46,11 @@ if ($managerSessionTimeoutMinutes <= 0) {
 }
 $managerSessionTimeoutSeconds = max(60, $managerSessionTimeoutMinutes * 60);
 
+$configurationTypesActive = in_array((string) ($_GET['action'] ?? ''), ['types', 'type_detail', 'type_save', 'type_delete', 'poste_save', 'poste_delete'], true);
+$configurationLinks = [
+    ['label' => 'Types & postes', 'route' => '/index.php?controller=manager_assets&action=types', 'active' => $configurationTypesActive],
+    ['label' => 'Vehicules & materiel', 'route' => '/index.php?controller=manager_assets&action=vehicles', 'active' => !$configurationTypesActive],
+];
 $allModules = [
     [
         'label' => 'Dashboard',
@@ -68,11 +73,12 @@ $allModules = [
         'group' => 'verifications',
     ],
     [
-        'label' => 'Parc & materiel',
+        'label' => 'Configuration',
         'route' => '/index.php?controller=manager_assets&action=vehicles',
         'route_key' => 'manager_assets/vehicles',
         'permission' => 'assets.manage',
         'group' => 'verifications',
+        'configuration_links' => $configurationLinks,
     ],
     [
         'label' => 'Pharmacie',
@@ -177,7 +183,7 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                         </select>
                     </form>
                 <?php endif; ?>
-                <nav class="mt-5 space-y-2">
+                <nav aria-label="Navigation principale" class="mt-5 min-h-0 overflow-y-auto space-y-2">
                     <?php foreach ($sidebarModules as $module): ?>
                         <?php
                         $active = $currentRoute === $module['route_key'];
@@ -214,12 +220,24 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                                             $verificationActive = true;
                                         }
                                         ?>
+                                        <?php if (isset($verificationModule['configuration_links'])): ?>
+                                            <div class="pt-1" data-verification-configuration>
+                                                <p class="px-2 py-1.5 text-xs font-semibold <?= $verificationActive ? 'text-white' : 'text-slate-300' ?>">Configuration</p>
+                                                <div class="ml-2 space-y-1 border-l border-white/20 pl-2">
+                                                    <?php foreach ($verificationModule['configuration_links'] as $configurationLink): ?>
+                                                        <?php $configurationActive = str_starts_with($currentRoute, 'manager_assets/') && $configurationLink['active']; ?>
+                                                        <a href="<?= htmlspecialchars($configurationLink['route'], ENT_QUOTES, 'UTF-8') ?>" <?= $configurationActive ? 'aria-current="page"' : '' ?> class="block rounded-lg px-2 py-1.5 text-xs font-semibold <?= $configurationActive ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10' ?>"><?= htmlspecialchars($configurationLink['label'], ENT_QUOTES, 'UTF-8') ?></a>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php else: ?>
                                         <a
                                             href="<?= htmlspecialchars((string) $verificationModule['route'], ENT_QUOTES, 'UTF-8') ?>"
                                             class="block rounded-lg px-2 py-1.5 text-xs font-semibold <?= $verificationActive ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10' ?>"
                                         >
                                             <?= htmlspecialchars((string) $verificationModule['label'], ENT_QUOTES, 'UTF-8') ?>
                                         </a>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                         <?php endif; ?>
@@ -574,3 +592,11 @@ $pageBackLabel = isset($pageBackLabel) && is_string($pageBackLabel) && $pageBack
                 </script>
 
                 <section class="mt-4 space-y-4">
+                    <?php if (str_starts_with($currentRoute, 'manager_assets/') && \App\Core\ManagerAccess::hasPermission($managerRole, 'assets.manage')): ?>
+                        <nav aria-label="Configuration des verifications" class="flex flex-wrap items-center gap-2 border-b border-slate-300 pb-3 lg:hidden">
+                            <span class="mr-1 text-sm font-semibold text-slate-600">Configuration</span>
+                            <?php foreach ($configurationLinks as $configurationLink): ?>
+                                <a href="<?= htmlspecialchars($configurationLink['route'], ENT_QUOTES, 'UTF-8') ?>" <?= $configurationLink['active'] ? 'aria-current="page"' : '' ?> class="rounded-lg px-3 py-2 text-sm font-semibold <?= $configurationLink['active'] ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-200' ?>"><?= htmlspecialchars($configurationLink['label'], ENT_QUOTES, 'UTF-8') ?></a>
+                            <?php endforeach; ?>
+                        </nav>
+                    <?php endif; ?>

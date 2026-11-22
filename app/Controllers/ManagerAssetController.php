@@ -201,6 +201,9 @@ final class ManagerAssetController
         }
 
         $vehicleZonesCount = count($zones);
+        $vehicleTypes = (new TypeVehiculeRepository())->findAll($caserneId);
+        $identityDraft = $_SESSION['vehicle_identity_draft'][$vehicleId] ?? null;
+        unset($_SESSION['vehicle_identity_draft'][$vehicleId]);
         $vehicleControlesCount = count($controles);
         $notificationRepository = new NotificationRepository();
         $vehicleAnomalyRouting = $notificationRepository->readVehicleAnomalyRouting($caserneId, $vehicleId);
@@ -529,6 +532,38 @@ final class ManagerAssetController
         } catch (Throwable $throwable) {
             $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=vehicle_save_failed');
         }
+    }
+
+    public function vehicleIdentitySave(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles');
+        }
+        $caserneId = $this->resolveManagerCaserneId();
+        $repo = new VehicleRepository();
+        if ($caserneId === null || $repo->findById($id, $caserneId) === null) {
+            $this->redirect('/index.php?controller=manager_assets&action=vehicles&error=invalid_vehicle');
+        }
+        $typeId = (int) ($_POST['type_vehicule_id'] ?? 0);
+        $indicatif = $this->normalizeVehicleIndicatif((string) ($_POST['indicatif'] ?? ''));
+        $_SESSION['vehicle_identity_draft'][$id] = ['type_vehicule_id' => $typeId, 'indicatif' => $indicatif];
+        $name = $this->composeVehicleName(new TypeVehiculeRepository(), $typeId, $indicatif, $caserneId);
+        if ($name === null || mb_strlen($name) > 100) {
+            $this->redirect($this->vehicleRedirectPath($id, 'invalid_vehicle_identity'));
+        }
+        if ($repo->existsByTypeAndName($typeId, $name, $caserneId, $id)) {
+            $this->redirect($this->vehicleRedirectPath($id, 'vehicle_duplicate'));
+        }
+        try {
+            if (!$repo->updateIdentity($id, $name, $typeId, $caserneId)) {
+                $this->redirect($this->vehicleRedirectPath($id, 'vehicle_identity_failed'));
+            }
+        } catch (Throwable) {
+            $this->redirect($this->vehicleRedirectPath($id, 'vehicle_identity_failed'));
+        }
+        unset($_SESSION['vehicle_identity_draft'][$id]);
+        $this->redirect($this->vehicleRedirectPath($id, '', 'vehicle_identity_updated'));
     }
 
     public function vehicleDelete(): void

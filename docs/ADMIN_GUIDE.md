@@ -1,4 +1,4 @@
-# Guide Admin VerifApp (v1.8)
+# Guide Admin VerifApp (v1.9)
 
 Ce guide cible les administrateurs plateforme et caserne.
 
@@ -17,10 +17,8 @@ Ce guide cible les administrateurs plateforme et caserne.
 - Dashboard: indicateurs par module selon permissions.
 - Anomalies: suivi, assignation, priorites.
 - Historique: verifications detaillees, exports.
-- Parc & materiel:
-  - types et postes
-  - vehicules, zones/sous-zones, materiel
-  - QR vehicule
+- Verifications > Configuration > Types & postes: types d engins et postes de verification.
+- Verifications > Configuration > Vehicules & materiel: indicatifs, zones/sous-zones, materiel, frequence, QR et destinataires des anomalies.
 - Pharmacie:
   - stock articles
   - sorties
@@ -33,9 +31,17 @@ Ce guide cible les administrateurs plateforme et caserne.
   - utilisateurs
   - journal des connexions et journal des ouvertures QR separes
 
+### Modifier l identite d un vehicule
+
+Depuis `Verifications > Configuration > Vehicules & materiel > Fiche vehicule`, ouvrir `Modifier le type et l indicatif`, choisir le type et saisir l indicatif, puis enregistrer.
+Le meme bouton est accessible depuis les actions de la liste des vehicules et depuis `Configurer engin`; il ouvre directement le formulaire de la fiche.
+Le vehicule conserve son identifiant, ses zones, ses materiels, ses QR codes, ses destinataires et son historique. Les reglages de verification ne changent pas.
+Si le type change, les materiels sont rattaches aux postes de meme nom du type cible. Les postes manquants sont crees dans ce type, sans modifier les anciens postes ni les verifications passees.
+Le nom doit rester unique pour ce type dans la caserne. En cas de refus, les champs saisis sont conserves.
+
 ### Mesures avec curseur
 
-Dans `Parc & materiel > Fiche vehicule`, choisir `Valeur mesuree avec curseur` pour le materiel concerne.
+Dans `Verifications > Configuration > Vehicules & materiel > Fiche vehicule`, choisir `Valeur mesuree avec curseur` pour le materiel concerne.
 Renseigner l unite et au moins un seuil de conformite, puis les bornes et le pas du curseur.
 Exemple pour une bouteille: unite `bars`, echelle `0` a `300`, pas `10`, conformite de `50` a `200`.
 Le pas est un entier positif qui doit diviser exactement l amplitude de l echelle.

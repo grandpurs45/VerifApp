@@ -40,18 +40,13 @@ $successMessage = $flash['success'] !== '' ? ($successMap[$flash['success']] ?? 
 $errorMessage = $flash['error'] !== '' ? ($errorMap[$flash['error']] ?? 'Une erreur est survenue.') : null;
         
 $pageTitle = 'Configuration vehicules - VerifApp';
-$pageHeading = 'Configuration - Vehicules';
-$pageSubtitle = 'Creer, dupliquer et ouvrir un vehicule pour gerer ses zones.';
+$pageHeading = 'Vehicules & materiel';
+$pageSubtitle = '';
 $pageBackUrl = '/index.php?controller=manager&action=dashboard';
 $pageBackLabel = 'Retour dashboard';
 
 require __DIR__ . '/partials/backoffice_shell_top.php';
 ?>
-
-<nav class="bg-white rounded-2xl shadow p-2 flex flex-wrap gap-2">
-    <a href="/index.php?controller=manager_assets&action=types" class="rounded-xl bg-slate-200 text-slate-800 px-4 py-2 text-sm font-semibold">Types & postes</a>
-    <a href="/index.php?controller=manager_assets&action=vehicles" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold">Vehicules & zones</a>
-</nav>
 
 <?php if ($successMessage !== null || $errorMessage !== null): ?>
     <section id="manager-toast" class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
@@ -118,6 +113,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                     </p>
                     <div class="flex flex-wrap gap-2">
                         <a id="selected-vehicle-configure-link" href="#" class="rounded-lg border border-slate-300 bg-white text-slate-400 px-3 py-2 text-sm font-semibold pointer-events-none">Configurer engin</a>
+                        <a id="selected-vehicle-edit-link" href="#" aria-disabled="true" tabindex="-1" class="rounded-lg border border-slate-300 bg-white text-slate-400 px-3 py-2 text-sm font-semibold pointer-events-none">Modifier le type et l indicatif</a>
                         <button type="button" id="vehicle-action-activate" class="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                             Activer
                         </button>
@@ -220,6 +216,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
                                 <td class="px-3 py-2">
                                     <div class="flex flex-wrap gap-2">
                                         <a href="/index.php?controller=manager_assets&action=vehicle_zones&id=<?= (int) $vehicle['id'] ?>" class="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-1.5 text-xs font-semibold">Configurer engin</a>
+                                        <a href="/index.php?controller=manager_assets&action=vehicle_detail&id=<?= (int) $vehicle['id'] ?>&edit_identity=1#vehicle-identity-editor" class="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-1.5 text-xs font-semibold">Modifier le type et l indicatif</a>
                                         <form method="post" action="/index.php?controller=manager_assets&action=vehicle_delete" class="relative flex items-center">
                                             <input type="hidden" name="id" value="<?= (int) $vehicle['id'] ?>">
                                             <input type="hidden" name="delete_mode" value="safe" data-delete-mode-input>
@@ -296,6 +293,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             const selectedVehicleVerificationActiveInput = document.getElementById('selected-vehicle-verification-active');
             const selectedVehicleVerificationFrequencyInput = document.getElementById('selected-vehicle-verification-frequency');
             const selectedVehicleConfigureLink = document.getElementById('selected-vehicle-configure-link');
+            const selectedVehicleEditLink = document.getElementById('selected-vehicle-edit-link');
             const vehicleActionActivate = document.getElementById('vehicle-action-activate');
             const vehicleActionDeactivate = document.getElementById('vehicle-action-deactivate');
             const vehicleActionDuplicate = document.getElementById('vehicle-action-duplicate');
@@ -340,6 +338,15 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 
             function syncSelectedVehicleActions() {
                 const selectedRow = getSelectedVehicleRow();
+                if (selectedVehicleEditLink) {
+                    const selectedId = selectedRow ? selectedRow.dataset.vehicleId : '';
+                    selectedVehicleEditLink.href = selectedId ? '/index.php?controller=manager_assets&action=vehicle_detail&id=' + encodeURIComponent(selectedId) + '&edit_identity=1#vehicle-identity-editor' : '#';
+                    selectedVehicleEditLink.setAttribute('aria-disabled', selectedId ? 'false' : 'true');
+                    selectedVehicleEditLink.tabIndex = selectedId ? 0 : -1;
+                    selectedVehicleEditLink.classList.toggle('pointer-events-none', !selectedId);
+                    selectedVehicleEditLink.classList.toggle('text-slate-400', !selectedId);
+                    selectedVehicleEditLink.classList.toggle('text-slate-900', !!selectedId);
+                }
 
                 if (!selectedRow) {
                     if (selectedVehicleIdInput) selectedVehicleIdInput.value = '';
