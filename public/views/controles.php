@@ -16,6 +16,10 @@ if ($errorCode === 'agent_required') {
     $errorMessage = 'Nom du verificateur obligatoire.';
 } elseif ($errorCode === 'incomplete') {
     $errorMessage = 'Tous les controles doivent etre renseignes.';
+} elseif ($errorCode === 'reload_required') {
+    $errorMessage = 'Le formulaire a ete actualise pour securiser l enregistrement. Verifie les reponses avant de renvoyer.';
+} elseif ($errorCode === 'submission_conflict') {
+    $errorMessage = 'Ce formulaire a deja ete enregistre avec d autres reponses. Consulte l historique avant de saisir une nouvelle verification.';
 }
 
 $fieldUser = $_SESSION['field_user'] ?? null;
@@ -140,6 +144,7 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
 
             <form method="post" action="/index.php?controller=verifications&action=store" class="<?= $densityClass ?>" id="checklistForm">
                 <input type="hidden" name="vehicle_id" value="<?= (int) $vehicle['id'] ?>">
+                <input type="hidden" name="_submission_key" value="<?= bin2hex(random_bytes(32)) ?>">
                 <input type="hidden" name="poste_id" value="<?= (int) $poste['id'] ?>">
                 <?php if (!empty($fromVehicleQr)): ?>
                     <input type="hidden" name="from_vehicle_qr" value="1">
@@ -755,11 +760,32 @@ $cardPaddingClass = $terrainMobileDensity === 'compact' ? 'p-3' : 'p-4';
                     }, true);
                 }
 
+                let submissionPending = false;
+                const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
+                const submitLabels = submitButtons.map(button => button.textContent);
+                window.addEventListener('pageshow', () => {
+                    submissionPending = false;
+                    form.removeAttribute('aria-busy');
+                    submitButtons.forEach((button, index) => {
+                        button.disabled = false;
+                        button.textContent = submitLabels[index];
+                    });
+                });
                 form.addEventListener('submit', (event) => {
+                    if (submissionPending) {
+                        event.preventDefault();
+                        return;
+                    }
                     if (!validateBeforeSubmit()) {
                         event.preventDefault();
                         return;
                     }
+                    submissionPending = true;
+                    form.setAttribute('aria-busy', 'true');
+                    submitButtons.forEach(button => {
+                        button.disabled = true;
+                        button.textContent = 'Enregistrement...';
+                    });
                     try {
                         const draftKey = getDraftStorageKey();
                         if (draftKey) {

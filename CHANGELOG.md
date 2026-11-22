@@ -9,6 +9,11 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.9.3] - 2026-11-22
+
+### Fixed
+- Verifications: verrouillage du bouton a l envoi et cle unique de soumission en base (migration 045); une repetition du meme formulaire renvoie la verification existante sans nouvelle ligne, anomalie, occurrence ou notification. Aucune suppression automatique des doublons historiques.
+
 ## [1.9.2] - 2026-11-22
 
 ### Fixed

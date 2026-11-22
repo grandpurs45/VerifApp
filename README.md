@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.9.2` (voir fichier `VERSION`).
+Version courante: `v1.9.3` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -234,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.9.2`
+  - `./scripts/release.ps1 -Version 1.9.3`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +283,14 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.9.3
+- La migration `045_add_verification_submission_keys.sql` est obligatoire; le script de mise a jour habituel l applique automatiquement.
+- Chaque formulaire terrain porte une cle unique. Le bouton est bloque pendant l envoi et une repetition du meme formulaire retrouve la verification existante sans nouvelle anomalie, occurrence ou notification.
+- Un nouveau formulaire permet une nouvelle verification legitime. Des reponses differentes avec une cle deja enregistree sont refusees.
+- Apres deploiement, verifier la version `1.9.3` et recharger les formulaires terrain ouverts avant la mise a jour.
+- Aucun doublon historique n est supprime automatiquement. Les doublons suspects doivent etre verifies avant toute correction.
+- Tests sans envoi reel: `php tests/verification_submission_idempotency.php` (SQLite en memoire) et `php tests/verification_replay_controller.php`.
 
 ### Mise a niveau vers v1.9.2
 - Aucune nouvelle migration par rapport a v1.9.1.

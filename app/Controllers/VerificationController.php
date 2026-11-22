@@ -66,6 +66,11 @@ final class VerificationController
             );
         }
 
+        $submissionKey = is_string($_POST['_submission_key'] ?? null) ? $_POST['_submission_key'] : '';
+        if (preg_match('/^[a-f0-9]{64}$/D', $submissionKey) !== 1) {
+            $this->redirect('/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=reload_required' . $contextSuffix);
+        }
+
         $controles = $controleRepository->findByVehicleAndPosteId($vehicleId, $posteId, $caserneId);
         $resultats = is_array($_POST['resultats'] ?? null) ? $_POST['resultats'] : [];
         $values = is_array($_POST['valeurs'] ?? null) ? $_POST['valeurs'] : [];
@@ -141,16 +146,24 @@ final class VerificationController
             }
         }
 
-        $verificationId = $verificationRepository->createWithLines(
-            $caserneId,
-            $vehicleId,
-            $posteId,
-            $utilisateurId,
-            $agent,
-            $guardDurationHours,
-            $globalComment === '' ? null : $globalComment,
-            $lines
-        );
+        try {
+            $verificationId = $verificationRepository->createWithLines(
+                $caserneId,
+                $vehicleId,
+                $posteId,
+                $utilisateurId,
+                $agent,
+                $guardDurationHours,
+                $globalComment === '' ? null : $globalComment,
+                $lines,
+                $submissionKey
+            );
+        } catch (\DomainException) {
+            $this->redirect('/index.php?controller=controles&action=list&vehicle_id=' . $vehicleId . '&poste_id=' . $posteId . '&error=submission_conflict' . $contextSuffix);
+        }
+        if ($verificationRepository->wasSubmissionReplayed()) {
+            $this->redirect('/index.php?controller=verifications&action=saved&id=' . $verificationId);
+        }
         (new QrAccessLogRepository())->attachIdentity('verifications', $agent, $utilisateurId);
 
         $anomalyReports = $verificationRepository->getLastAnomalyReports();

@@ -19,6 +19,13 @@ final class VerificationRepository
     private ?bool $guardDurationColumnExists = null;
     private ?bool $anomalyOccurrencesTableExists = null;
     private array $lastAnomalyReports = [];
+    private ?bool $submissionSchema = null;
+    private bool $submissionReplayed = false;
+
+    public function wasSubmissionReplayed(): bool
+    {
+        return $this->submissionReplayed;
+    }
 
     /**
      * @return array<int, array{anomaly_id:int,controle_id:int,is_new:bool,occurrence_count:int,first_report_at:string}>
@@ -36,11 +43,21 @@ final class VerificationRepository
         string $agent,
         int $guardDurationHours,
         ?string $globalComment,
-        array $lines
+        array $lines,
+        ?string $submissionKey = null
     ): int {
         $connection = Database::getConnection();
         $hasNok = false;
         $this->lastAnomalyReports = [];
+        $this->submissionReplayed = false;
+        $submissionHash = null;
+        if ($submissionKey !== null) {
+            if (preg_match('/^[a-f0-9]{64}$/D', $submissionKey) !== 1) throw new \InvalidArgumentException('Cle de soumission invalide.');
+            if (!$this->hasSubmissionSchema()) throw new \RuntimeException('Migration 045 requise pour enregistrer les verifications.');
+            $sortedLines = $lines;
+            usort($sortedLines, static fn(array $a, array $b): int => (int)$a['controle_id'] <=> (int)$b['controle_id']);
+            $submissionHash = hash('sha256', json_encode([$caserneId, $vehicleId, $posteId, $utilisateurId, $agent, $guardDurationHours === 24 ? 24 : 12, $globalComment, $sortedLines], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
+        }
 
         foreach ($lines as $line) {
             if (($line['resultat'] ?? '') === 'nok') {
@@ -54,6 +71,14 @@ final class VerificationRepository
 
         try {
             $connection->beginTransaction();
+            if ($submissionKey !== null) {
+                $existing = $this->findSubmission($submissionKey, (string)$submissionHash);
+                if ($existing !== null) {
+                    $connection->commit();
+                    $this->submissionReplayed = true;
+                    return $existing;
+                }
+            }
 
             if ($this->hasUtilisateurColumn()) {
                 $columns = 'caserne_id, vehicule_id, poste_id, utilisateur_id, agent';
@@ -88,10 +113,14 @@ final class VerificationRepository
 
             $verificationStatement = $connection->prepare(
                 '
-                INSERT INTO verifications (' . $columns . ', date_heure, statut_global, commentaire_global)
-                VALUES (' . $values . ', NOW(), :statut_global, :commentaire_global)
+                INSERT INTO verifications (' . $columns . ', date_heure, statut_global, commentaire_global' . ($submissionKey !== null ? ', submission_key, submission_hash' : '') . ')
+                VALUES (' . $values . ', NOW(), :statut_global, :commentaire_global' . ($submissionKey !== null ? ', :submission_key, :submission_hash' : '') . ')
                 '
             );
+            if ($submissionKey !== null) {
+                $params['submission_key'] = $submissionKey;
+                $params['submission_hash'] = $submissionHash;
+            }
             $verificationStatement->execute($params);
 
             $verificationId = (int) $connection->lastInsertId();
@@ -234,8 +263,40 @@ final class VerificationRepository
                 $connection->rollBack();
             }
 
+            // A concurrent retry may have won the unique-key insert while this request waited.
+            if ($submissionKey !== null && $throwable instanceof PDOException && (string)$throwable->getCode() === '23000') {
+                $existing = $this->findSubmission($submissionKey, (string)$submissionHash);
+                if ($existing !== null) {
+                    $this->lastAnomalyReports = [];
+                    $this->submissionReplayed = true;
+                    return $existing;
+                }
+            }
+
             throw $throwable;
         }
+    }
+
+    private function hasSubmissionSchema(): bool
+    {
+        if ($this->submissionSchema !== null) return $this->submissionSchema;
+        try {
+            $statement = Database::getConnection()->query("SHOW COLUMNS FROM verifications LIKE 'submission_%'");
+            $columns = $statement !== false ? $statement->fetchAll(PDO::FETCH_COLUMN) : [];
+            return $this->submissionSchema = count(array_intersect(['submission_key', 'submission_hash'], $columns)) === 2;
+        } catch (PDOException) {
+            return $this->submissionSchema = false;
+        }
+    }
+
+    private function findSubmission(string $key, string $hash): ?int
+    {
+        $statement = Database::getConnection()->prepare('SELECT id, submission_hash FROM verifications WHERE submission_key = :submission_key');
+        $statement->execute(['submission_key' => $key]);
+        $existing = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) return null;
+        if (!hash_equals((string)$existing['submission_hash'], $hash)) throw new \DomainException('Cette soumission est deja enregistree avec des donnees differentes.');
+        return (int)$existing['id'];
     }
 
     public function findHistory(array $filters, ?int $caserneId = null): array

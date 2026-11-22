@@ -55,6 +55,13 @@ Sur le terrain, la valeur reste vide jusqu a une action explicite sur le curseur
 Les mesures classiques existantes ne sont pas converties automatiquement.
 La migration `043_add_slider_measure_controls.sql` doit etre appliquee avant de configurer ce type.
 
+### Protection contre les envois multiples
+
+Chaque formulaire terrain porte une cle unique de soumission. Pendant l envoi, le bouton est desactive. Si le meme formulaire est retransmis, la verification deja enregistree est reutilisee sans nouvelle anomalie, occurrence ni notification.
+Une nouvelle ouverture du formulaire permet une nouvelle verification legitime. Les reponses modifiees avec une cle deja enregistree sont refusees pour eviter un enregistrement ambigu.
+La migration `045_add_verification_submission_keys.sql` est requise. Les formulaires ouverts avant la mise a jour doivent etre recharges.
+Les doublons historiques ne sont pas supprimes automatiquement: leur traitement necessite une verification au cas par cas.
+
 ## 3. Parametres application
 Page: `Administration > Parametres application`
 

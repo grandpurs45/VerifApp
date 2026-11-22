@@ -79,6 +79,12 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - regroupement des anciens et nouveaux postes via le materiel conserve, sans reecriture de l historique
 - tests des gardes 12 h / 24 h, des doublons, des conversions successives et de l isolation des casernes
 
+### v1.9.3
+- verrouillage du bouton pendant l envoi des verifications
+- cle unique de soumission en base et reutilisation de la verification en cas de repetition
+- protection des anomalies, occurrences et notifications contre la repetition du meme formulaire
+- tests des repetitions, des conflits de contenu, des erreurs transactionnelles et des controles d isolation
+
 ## Prochain cycle
 
 ### v1.10

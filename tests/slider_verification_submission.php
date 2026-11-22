@@ -41,7 +41,7 @@ namespace {
     if (!array_key_exists($name,$cases)) exit(1);
     $_SESSION=['field_caserne_id'=>1];
     $_SERVER['REQUEST_METHOD']='POST';
-    $_POST=['vehicle_id'=>1,'poste_id'=>1,'agent'=>'QA','valeurs'=>$cases[$name]===null?[]:['1'=>$cases[$name]]];
+    $_POST=['vehicle_id'=>1,'poste_id'=>1,'agent'=>'QA','_submission_key'=>str_repeat('a',64),'valeurs'=>$cases[$name]===null?[]:['1'=>$cases[$name]]];
     $captured=null;
     register_shutdown_function(static function () use (&$captured,$name,$cases): void {
         $valid=in_array($name,['zero','low','limit','valid','high','limit_exclusive','above_exclusive'],true);
