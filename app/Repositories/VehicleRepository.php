@@ -216,19 +216,31 @@ final class VehicleRepository
             $statement = $db->prepare('SELECT type_vehicule_id FROM vehicules WHERE id = :id AND caserne_id = :caserne' . $lock);
             $statement->execute(['id' => $id, 'caserne' => $caserneId]);
             $oldType = $statement->fetchColumn();
-            $type = $db->prepare('SELECT id FROM type_vehicules WHERE id = :id AND caserne_id = :caserne');
+            $type = $db->prepare('SELECT nom FROM type_vehicules WHERE id = :id AND caserne_id = :caserne');
             $type->execute(['id' => $typeId, 'caserne' => $caserneId]);
-            if ($oldType === false || $type->fetchColumn() === false || trim($name) === '' || $this->existsByTypeAndName($typeId, $name, $caserneId, $id)) {
+            $targetTypeName = $type->fetchColumn();
+            if ($oldType === false || $targetTypeName === false || trim($name) === '' || $this->existsByTypeAndName($typeId, $name, $caserneId, $id)) {
                 $db->rollBack();
                 return false;
             }
-            if ((int) $oldType !== $typeId) {
-                $source = $db->prepare('SELECT DISTINCT p.id, p.nom FROM controles c INNER JOIN postes p ON p.id = c.poste_id WHERE c.vehicule_id = :vehicle AND c.caserne_id = :caserne AND p.caserne_id = :poste_caserne');
-                $source->execute(['vehicle' => $id, 'caserne' => $caserneId, 'poste_caserne' => $caserneId]);
-                foreach ($source->fetchAll(PDO::FETCH_ASSOC) as $poste) {
+            $source = $db->prepare('SELECT DISTINCT p.id, p.nom, p.code, p.type_vehicule_id, tv.nom AS type_nom FROM controles c INNER JOIN postes p ON p.id = c.poste_id INNER JOIN type_vehicules tv ON tv.id = p.type_vehicule_id AND tv.caserne_id = p.caserne_id WHERE c.vehicule_id = :vehicle AND c.caserne_id = :caserne AND p.caserne_id = :poste_caserne');
+            $source->execute(['vehicle' => $id, 'caserne' => $caserneId, 'poste_caserne' => $caserneId]);
+            $sourcePostes = $source->fetchAll(PDO::FETCH_ASSOC);
+            if ($sourcePostes !== []) {
+                foreach ($sourcePostes as $poste) {
+                    $targetName = $this->posteNameForType($db, $poste, (string) $targetTypeName, $caserneId);
+                    if ((int) $poste['type_vehicule_id'] === $typeId && $targetName === $poste['nom']) continue;
                     $target = $db->prepare('SELECT id FROM postes WHERE type_vehicule_id = :type AND caserne_id = :caserne AND nom = :nom ORDER BY id ASC');
-                    $target->execute(['type' => $typeId, 'caserne' => $caserneId, 'nom' => $poste['nom']]);
+                    $target->execute(['type' => $typeId, 'caserne' => $caserneId, 'nom' => $targetName]);
                     $targetId = $target->fetchColumn();
+                    if ($targetId === false) {
+                        $candidates = $db->prepare('SELECT id, nom FROM postes WHERE type_vehicule_id = :type AND caserne_id = :caserne');
+                        $candidates->execute(['type' => $typeId, 'caserne' => $caserneId]);
+                        $role = $this->posteRoleName($targetName, (string) $targetTypeName);
+                        $matches = array_values(array_filter($candidates->fetchAll(PDO::FETCH_ASSOC), fn (array $candidate): bool => $this->posteRoleName($candidate['nom'], (string) $targetTypeName) === $role));
+                        if (count($matches) > 1) throw new \RuntimeException('Plusieurs postes correspondent au meme role dans le type cible.');
+                        if (count($matches) === 1) $targetId = $matches[0]['id'];
+                    }
                     if ($targetId === false) {
                         $baseCode = 'P' . $typeId . '_' . $poste['id'];
                         $code = $baseCode;
@@ -240,7 +252,7 @@ final class VehicleRepository
                             if ($exists) $code = $baseCode . '_' . ++$suffix;
                         } while ($exists);
                         $insert = $db->prepare('INSERT INTO postes (caserne_id, nom, code, type_vehicule_id) VALUES (:caserne, :nom, :code, :type)');
-                        $insert->execute(['caserne' => $caserneId, 'nom' => $poste['nom'], 'code' => $code, 'type' => $typeId]);
+                        $insert->execute(['caserne' => $caserneId, 'nom' => $targetName, 'code' => $code, 'type' => $typeId]);
                         $targetId = (int) $db->lastInsertId();
                     }
                     // Keep historical postes unchanged; move only this vehicle's controls.
@@ -256,6 +268,30 @@ final class VehicleRepository
             if ($db->inTransaction()) $db->rollBack();
             throw $error;
         }
+    }
+
+    private function posteNameForType(PDO $db, array $poste, string $targetType, int $caserneId): string
+    {
+        $origin = $poste;
+        $visited = [];
+        // Older automatic copies kept their source label; trace only those exact copies.
+        while (!isset($visited[(int) $origin['id']]) && preg_match('/^P' . (int) $origin['type_vehicule_id'] . '_(\d+)(?:_\d+)?$/', (string) $origin['code'], $match)) {
+            $visited[(int) $origin['id']] = true;
+            $query = $db->prepare('SELECT p.id, p.nom, p.code, p.type_vehicule_id, tv.nom AS type_nom FROM postes p INNER JOIN type_vehicules tv ON tv.id = p.type_vehicule_id AND tv.caserne_id = p.caserne_id WHERE p.id = :id AND p.caserne_id = :caserne');
+            $query->execute(['id' => (int) $match[1], 'caserne' => $caserneId]);
+            $parent = $query->fetch(PDO::FETCH_ASSOC);
+            if (!$parent || $parent['nom'] !== $origin['nom']) break;
+            $origin = $parent;
+        }
+        $pattern = '/\s+' . preg_quote((string) $origin['type_nom'], '/') . '$/iu';
+        $label = preg_replace($pattern, ' ' . $targetType, (string) $origin['nom']);
+        if ($label === null || mb_strlen($label) > 100) throw new \RuntimeException('Libelle du poste cible invalide.');
+        return $label;
+    }
+
+    private function posteRoleName(string $name, string $type): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+' . preg_quote($type, '/') . '$/iu', '', $name) ?? $name), 'UTF-8');
     }
 
     public function delete(int $id, int $caserneId): bool

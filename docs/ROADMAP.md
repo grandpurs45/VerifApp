@@ -68,6 +68,12 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - conservation des QR codes, de l historique et des reglages de verification
 - tests de regression du renommage, du changement de type et des droits de navigation
 
+### v1.9.1
+- correspondance des postes selon leur role lors du changement de type
+- remplacement du suffixe de l ancien type dans les nouveaux libelles
+- reparation des anciens rattachements automatiques en reenregistrant l identite du vehicule
+- conservation des postes historiques et partages; reparation idempotente et limitee au vehicule concerne
+
 ## Prochain cycle
 
 ### v1.10

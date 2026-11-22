@@ -72,7 +72,25 @@ try {
     $posteCount = count($after['postes']);
     $check($repo->updateIdentity(1,'FPT 80',2,10),'Indicatif-only update failed');
     $check(count($snapshot()['postes']) === $posteCount,'Indicatif-only update created postes');
-    echo "OK: rename, type change, poste reuse/copy, inactive material, caserne scope, duplicate rejection, rollback, history and QR preservation\n";
+    $db->exec("INSERT INTO type_vehicules VALUES (4,10,'VSSUAP')");
+    $db->exec("INSERT INTO vehicules VALUES (10,10,'VSAV 007',1,1,1,'daily'),(20,10,'VSSUAP 008',4,1,1,'daily'),(21,10,'VSSUAP 009',4,1,1,'daily')");
+    $db->exec("INSERT INTO postes VALUES (10,10,'Chef d agres VSAV','CHEF_VSAV',1),(11,10,'Conducteur VSAV','CONDUCTEUR_VSAV',1),(12,10,'Equipier VSAV','EQUIPIER_VSAV',1),(13,10,'Chef d agres VSSUAP','CHEF_VSSUAP',4),(14,10,'Conducteur VSSUAP','CONDUCTEUR_VSSUAP',4),(20,10,'Conducteur VSAV','P4_11',4)");
+    $db->exec("INSERT INTO controles VALUES (100,10,10,10,1,1,'statut',NULL),(101,10,10,11,1,1,'statut',NULL),(102,10,10,12,1,1,'statut',NULL),(200,10,20,20,1,1,'statut',NULL),(201,10,21,20,1,1,'statut',NULL)");
+    $db->exec('INSERT INTO verifications VALUES (100,10,10),(200,20,20)');
+    $check($repo->updateIdentity(10,'VSSUAP 007',4,10),'Typed-role change failed');
+    $roles=$db->query('SELECT c.id,p.id AS poste_id,p.nom FROM controles c JOIN postes p ON p.id=c.poste_id WHERE c.vehicule_id=10 ORDER BY c.id')->fetchAll(PDO::FETCH_ASSOC);
+    $check((int)$roles[0]['poste_id']===13 && (int)$roles[1]['poste_id']===14,'Existing VSSUAP roles were not reused');
+    $check($roles[2]['nom']==='Equipier VSSUAP','Copied poste retained the VSAV suffix');
+    $check($db->query('SELECT poste_id FROM verifications WHERE id=100')->fetchColumn()==10,'Historical role was rewritten');
+    $check($repo->updateIdentity(20,'VSSUAP 008',4,10),'Already-converted vehicle repair failed');
+    $check($db->query('SELECT poste_id FROM controles WHERE id=200')->fetchColumn()==14,'Legacy copied role was not repaired');
+    $check($db->query('SELECT poste_id FROM controles WHERE id=201')->fetchColumn()==20,'Repair modified another vehicle');
+    $check($db->query('SELECT poste_id FROM verifications WHERE id=200')->fetchColumn()==20,'Repair changed historical verifications');
+    $check($db->query('SELECT nom FROM postes WHERE id=20')->fetchColumn()==='Conducteur VSAV','Repair renamed a shared or historical poste');
+    $count=(int)$db->query('SELECT COUNT(*) FROM postes')->fetchColumn();
+    $check($repo->updateIdentity(20,'VSSUAP 008',4,10),'Repair was not idempotent');
+    $check((int)$db->query('SELECT COUNT(*) FROM postes')->fetchColumn()===$count,'Repeated repair created duplicate postes');
+    echo "OK: rename, type-aware poste matching/copy, legacy repair, idempotence, caserne scope, rollback, history and QR preservation\n";
 } finally {
     $property->setValue(null, $previous);
 }

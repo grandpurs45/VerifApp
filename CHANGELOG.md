@@ -9,6 +9,11 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.9.1] - 2026-11-22
+
+### Fixed
+- Parc: correspondance des postes lors d un changement de type sans conserver l ancien suffixe (ex: Conducteur VSAV vers Conducteur VSSUAP); reutilisation des postes equivalents du type cible. Reenregistrer l identite repare aussi les anciens postes copies automatiquement, sans modifier les verifications passees ni les autres vehicules.
+
 ## [1.9.0] - 2026-11-22
 
 ### Added

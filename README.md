@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.9.0` (voir fichier `VERSION`).
+Version courante: `v1.9.1` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -234,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.9.0`
+  - `./scripts/release.ps1 -Version 1.9.1`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +283,13 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.9.1
+- Aucune nouvelle migration par rapport a v1.9.0.
+- Lors du changement de type, les postes equivalents du type cible sont reutilises et les nouveaux libelles reprennent le bon suffixe (exemple: Conducteur VSAV vers Conducteur VSSUAP).
+- Pour un vehicule deja converti avec des postes copies automatiquement portant l ancien suffixe, ouvrir `Modifier le type et l indicatif` et reenregistrer le meme type et le meme indicatif apres mise a jour. Aucun aller-retour vers l ancien type n est necessaire.
+- La reparation concerne les rattachements du materiel de ce vehicule uniquement; les postes partages, les autres vehicules et les verifications passees ne sont pas renommes.
+- Verifier la version `1.9.1`, les postes du formulaire mobile et la conservation du materiel. Test de regression: `php tests/vehicle_identity.php` (SQLite en memoire).
 
 ### Mise a niveau vers v1.9.0
 - Aucune nouvelle migration par rapport a v1.8.1.
