@@ -51,11 +51,11 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="mt-2 text-lg font-extrabold text-slate-900"><?= htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8') ?></p>
     </article>
     <article class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total verifs</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Verifications enregistrees</p>
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $totals['total_verifs'] ?></p>
     </article>
     <article class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">Verifs attendues / jour</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">Creneaux attendus / jour</p>
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $expectedPostesPerDay ?></p>
     </article>
     <article class="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
@@ -63,20 +63,20 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $totals['jours_complets'] ?> / <?= (int) $eligibleDays ?></p>
     </article>
     <article class="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm col-span-2 md:col-span-1">
-        <p class="text-xs font-semibold uppercase tracking-wide text-rose-700">Conformite</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-rose-700">Taux de couverture</p>
         <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= (int) $conformityRate ?>%</p>
     </article>
 </section>
 
 <section class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
     <p>
-        Regle appliquee selon chaque vehicule: une verification par poste et par jour, ou une verification par poste le matin et le soir.
-        Une garde de 24 h couvre les deux creneaux. Une garde de 12 h couvre uniquement le creneau correspondant a l heure de saisie
-        (soir a partir de <?= (int) $verificationEveningHour ?> h).
+        L objectif est exprime en creneaux par poste: journee, ou matin et soir selon le vehicule.
+        En mode matin et soir, une verification en garde de 24 h couvre 2 creneaux; une garde de 12 h en couvre 1
+        (soir a partir de <?= (int) $verificationEveningHour ?> h). Chaque formulaire compte pour une seule verification enregistree.
     </p>
     <details class="mt-2">
         <summary class="cursor-pointer font-semibold text-slate-900">
-            Voir les <?= (int) $expectedPostesPerDay ?> verification(s) attendue(s) par jour
+            Voir les <?= (int) $expectedPostesPerDay ?> creneau(x) attendu(s) par jour
         </summary>
         <?php if ($expectedPostes === []): ?>
             <p class="mt-2 text-slate-500">Aucun poste verifiable dans ce perimetre.</p>
@@ -98,7 +98,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
 </section>
 
 <section class="rounded-2xl bg-white p-4 shadow md:p-6">
-    <div class="mb-3 flex items-center justify-between">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-lg font-bold text-slate-900">Couverture quotidienne</h2>
         <div class="flex flex-wrap items-center gap-2 text-xs">
             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> 100%</span>
@@ -107,7 +107,8 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
         </div>
     </div>
 
-    <div class="grid grid-cols-7 gap-2">
+    <div class="overflow-x-auto" role="region" aria-label="Calendrier de couverture" tabindex="0">
+    <div class="grid min-w-[560px] grid-cols-7 gap-2">
         <?php foreach ($weekdayLabels as $label): ?>
             <div class="rounded-lg bg-slate-100 px-2 py-1 text-center text-xs font-bold uppercase tracking-wide text-slate-600"><?= $label ?></div>
         <?php endforeach; ?>
@@ -138,7 +139,7 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             ?>
             <article
                 class="min-h-[104px] rounded-xl border p-2 <?= $dayClass ?>"
-                title="<?= $dayEligible ? $verifiedPostes . ' poste(s) verifie(s) sur ' . $expectedPostes : 'Journee a venir' ?>"
+                title="<?= $dayEligible ? $verifiedPostes . ' creneau(x) couvert(s) sur ' . $expectedPostes : 'Journee a venir' ?>"
             >
                 <div class="flex items-center justify-between gap-1">
                     <p class="text-sm font-extrabold <?= $dayEligible ? 'text-slate-900' : 'text-slate-400' ?>"><?= $day ?></p>
@@ -172,21 +173,22 @@ require __DIR__ . '/partials/backoffice_shell_top.php';
             </article>
         <?php endfor; ?>
     </div>
+    </div>
 </section>
 
 <section class="rounded-2xl bg-white p-4 shadow md:p-6">
     <h2 class="text-lg font-bold text-slate-900">Detail journalier</h2>
     <div class="mt-3 overflow-x-auto">
-        <table class="min-w-full text-sm">
+        <table class="min-w-[1000px] w-full whitespace-nowrap text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="px-3 py-2 text-left">Jour</th>
-                    <th class="px-3 py-2 text-left">Couvertures realisees</th>
-                    <th class="px-3 py-2 text-left">Couvertures attendues</th>
+                    <th class="px-3 py-2 text-left">Creneaux couverts</th>
+                    <th class="px-3 py-2 text-left">Creneaux attendus</th>
                     <th class="px-3 py-2 text-left">Matin / soir / jour</th>
-                    <th class="px-3 py-2 text-left">Conformite</th>
-                    <th class="px-3 py-2 text-left">Verifications</th>
-                    <th class="px-3 py-2 text-left">Non conformes</th>
+                    <th class="px-3 py-2 text-left">Couverture</th>
+                    <th class="px-3 py-2 text-left">Verifications enregistrees</th>
+                    <th class="px-3 py-2 text-left">Verifications non conformes</th>
                     <th class="px-3 py-2 text-left">Etat</th>
                 </tr>
             </thead>

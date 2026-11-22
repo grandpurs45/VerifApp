@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.9.3` (voir fichier `VERSION`).
+Version courante: `v1.9.4` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -221,6 +221,9 @@ Comportement:
 - `matin` = avant l heure de bascule configuree
 - `soir` = a partir de l heure de bascule configuree
 - valeur par defaut: `18h00`
+- `Verifications enregistrees` compte les formulaires, pas les creneaux.
+- En mode matin et soir, chaque poste attend 2 creneaux par jour; une garde 24 h couvre les deux tout en comptant pour 1 verification enregistree.
+- `Taux de couverture` mesure les creneaux couverts / attendus, independamment du resultat conforme ou non conforme du materiel.
 
 ## Scripts utiles
 - Migrations:
@@ -234,7 +237,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.9.3`
+  - `./scripts/release.ps1 -Version 1.9.4`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +286,13 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.9.4
+- Aucune nouvelle migration par rapport a v1.9.3; la migration 045 reste requise si la mise a jour part d une version anterieure.
+- La vue mensuelle distingue `Verifications enregistrees`, `Creneaux attendus / jour` et `Taux de couverture`. Le calcul reste inchange.
+- En mode matin et soir, trois gardes de 24 h representent trois formulaires et six creneaux couverts sur six.
+- Le calendrier et le detail journalier peuvent defiler horizontalement sur petit ecran, sans comprimer leurs valeurs.
+- Apres deploiement, verifier la version `1.9.4` et recharger la vue mensuelle. Test: `php tests/monthly_coverage_labels.php`.
 
 ### Mise a niveau vers v1.9.3
 - La migration `045_add_verification_submission_keys.sql` est obligatoire; le script de mise a jour habituel l applique automatiquement.

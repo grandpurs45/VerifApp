@@ -9,6 +9,14 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.9.4] - 2026-11-22
+
+### Changed
+- Vue mensuelle: libelles distinguant les verifications enregistrees des creneaux couverts/attendus; Conformite renommee Taux de couverture. Le calcul reste inchange: en mode matin et soir, une garde 24 h couvre deux creneaux mais reste un seul formulaire.
+
+### Fixed
+- Vue mensuelle mobile: calendrier et detail journalier defilables horizontalement pour eviter les chevauchements et conserver des valeurs lisibles.
+
 ## [1.9.3] - 2026-11-22
 
 ### Fixed

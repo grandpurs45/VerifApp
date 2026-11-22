@@ -85,6 +85,12 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - protection des anomalies, occurrences et notifications contre la repetition du meme formulaire
 - tests des repetitions, des conflits de contenu, des erreurs transactionnelles et des controles d isolation
 
+### v1.9.4
+- distinction des formulaires enregistres et des creneaux de couverture dans la vue mensuelle
+- indicateur Taux de couverture distinct de la conformite du materiel
+- calendrier et detail journalier lisibles sur mobile sans chevauchement
+- tests des libelles et du cas trois formulaires / six creneaux, sans modification du calcul
+
 ## Prochain cycle
 
 ### v1.10

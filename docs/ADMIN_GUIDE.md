@@ -144,6 +144,8 @@ Permissions critiques:
 - Choisir `1 fois par jour` ou `Matin et soir` dans la frequence attendue.
 - Un engin exclu ne figure pas sur le formulaire mobile et ne compte pas dans les objectifs journaliers.
 - En mode `Matin et soir`, chaque poste compte pour deux couvertures quotidiennes. Une saisie en garde 24 h couvre les deux.
+- Dans la vue mensuelle, `Verifications enregistrees` compte les formulaires et `Creneaux attendus / jour` l objectif de couverture. Trois postes verifies en garde 24 h donnent 3 formulaires et 6 creneaux couverts sur 6.
+- Le `Taux de couverture` est distinct de la conformite du materiel: une verification non conforme couvre tout de meme son creneau.
 - Reordonner les zones d un meme niveau avec la poignee de glisser-deposer.
 
 ## 9. Securite operationnelle
