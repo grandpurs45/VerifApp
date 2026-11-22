@@ -38,6 +38,7 @@ Le meme bouton est accessible depuis les actions de la liste des vehicules et de
 Le vehicule conserve son identifiant, ses zones, ses materiels, ses QR codes, ses destinataires et son historique. Les reglages de verification ne changent pas.
 Si le type change, les materiels sont rattaches aux postes equivalents du type cible (par exemple Conducteur VSAV vers Conducteur VSSUAP). Les postes manquants sont crees dans ce type avec le bon suffixe, sans modifier les anciens postes ni les verifications passees.
 Pour un vehicule deja converti dont les postes copies automatiquement portent encore l ancien suffixe, reenregistrer le meme type et le meme indicatif depuis sa fiche apres installation du correctif. Le rattachement du materiel est repare pour ce vehicule uniquement; les postes historiques ne sont pas renommes.
+La couverture mensuelle rattache les anciens postes aux postes actuels a partir du materiel conserve dans les lignes de verification. Les creneaux sont fusionnes sans doublon, avec prise en compte des gardes de 24 h. Si le materiel d une ancienne verification est reparti entre plusieurs postes actuels, aucune equivalence n est inventee.
 Le nom doit rester unique pour ce type dans la caserne. En cas de refus, les champs saisis sont conserves.
 
 ### Mesures avec curseur

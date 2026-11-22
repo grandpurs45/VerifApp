@@ -2,7 +2,7 @@
 
 Application web de verification materielle en caserne, orientee smartphone terrain et backoffice gestionnaire.
 
-Version courante: `v1.9.1` (voir fichier `VERSION`).
+Version courante: `v1.9.2` (voir fichier `VERSION`).
 
 ## Sommaire
 - Objectif
@@ -234,7 +234,7 @@ Comportement:
 - Reset admin dev:
   - `php scripts/reset-admin-dev.php`
 - Release PowerShell:
-  - `./scripts/release.ps1 -Version 1.9.1`
+  - `./scripts/release.ps1 -Version 1.9.2`
 - Packaging release:
   - `./scripts/package-release.ps1`
 
@@ -283,6 +283,14 @@ Comportement:
 - Tous les vehicules existants restent en mode `1 fois par jour` apres migration.
 - Depuis la fiche de chaque vehicule concerne, choisir `Matin et soir` pour exiger deux couvertures par poste.
 - Dans `Administration > Parametres notifications`, regler le seuil de rappel des anomalies connues.
+
+### Mise a niveau vers v1.9.2
+- Aucune nouvelle migration par rapport a v1.9.1.
+- La couverture mensuelle reconnait les anciens postes apres changement de type ou reparation des postes, via les identifiants du materiel conserve.
+- Les anciennes et nouvelles references sont regroupees sans doublonner les creneaux. Les gardes de 12 h / 24 h et les totaux de verifications restent pris en compte.
+- Apres deploiement, recharger le tableau mensuel du vehicule concerne: aucun reenregistrement des verifications ni reparation manuelle des statistiques n est necessaire.
+- Si le materiel d une verification est reparti entre plusieurs postes actuels, aucune equivalence ambigue n est inventee.
+- Test de regression sans donnees reelles: `php tests/monthly_coverage_type_change.php` (SQLite en memoire).
 
 ### Mise a niveau vers v1.9.1
 - Aucune nouvelle migration par rapport a v1.9.0.

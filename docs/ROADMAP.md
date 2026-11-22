@@ -74,6 +74,11 @@ Cette roadmap donne une direction produit. Les versions futures et leur contenu 
 - reparation des anciens rattachements automatiques en reenregistrant l identite du vehicule
 - conservation des postes historiques et partages; reparation idempotente et limitee au vehicule concerne
 
+### v1.9.2
+- couverture mensuelle conservee apres changement de type et reparation des postes
+- regroupement des anciens et nouveaux postes via le materiel conserve, sans reecriture de l historique
+- tests des gardes 12 h / 24 h, des doublons, des conversions successives et de l isolation des casernes
+
 ## Prochain cycle
 
 ### v1.10

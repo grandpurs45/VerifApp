@@ -9,6 +9,11 @@ Le format suit Keep a Changelog et Semantic Versioning.
 ### Added
 - Rien pour le moment.
 
+## [1.9.2] - 2026-11-22
+
+### Fixed
+- Couverture mensuelle: les verifications historiques restent reconnues apres changement de type ou reparation des postes, grace aux identifiants de materiel conserves. Fusion des anciennes et nouvelles references sans doublonner les creneaux, sans reecrire l historique ni modifier les totaux de verifications.
+
 ## [1.9.1] - 2026-11-22
 
 ### Fixed

@@ -687,28 +687,45 @@ final class VerificationRepository
         }
 
         $guardDurationSql = $this->hasGuardDurationColumn() ? 'v.garde_duree_heures' : '12';
+        // Control IDs survive vehicle type changes; resolve only an unambiguous current poste.
         $sql = '
             SELECT
-                DATE(v.date_heure) AS jour,
-                v.vehicule_id,
-                v.poste_id,
+                DATE(coverage.date_heure) AS jour,
+                coverage.vehicule_id,
+                coverage.poste_id,
                 COUNT(*) AS total_verifs,
-                SUM(CASE WHEN v.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
-                SUM(CASE WHEN v.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes,
+                SUM(CASE WHEN coverage.statut_global = \'conforme\' THEN 1 ELSE 0 END) AS conformes,
+                SUM(CASE WHEN coverage.statut_global = \'non_conforme\' THEN 1 ELSE 0 END) AS non_conformes,
                 MAX(CASE
-                    WHEN ' . $guardDurationSql . ' = 24
-                      OR HOUR(v.date_heure) < :evening_start_hour_morning
+                    WHEN coverage.garde_duree_heures = 24
+                      OR HOUR(coverage.date_heure) < :evening_start_hour_morning
                     THEN 1 ELSE 0
                 END) AS morning_covered,
                 MAX(CASE
-                    WHEN ' . $guardDurationSql . ' = 24
-                      OR HOUR(v.date_heure) >= :evening_start_hour_evening
+                    WHEN coverage.garde_duree_heures = 24
+                      OR HOUR(coverage.date_heure) >= :evening_start_hour_evening
                     THEN 1 ELSE 0
                 END) AS evening_covered
-            FROM verifications v
-            WHERE ' . implode(' AND ', $where) . '
-            GROUP BY DATE(v.date_heure), v.vehicule_id, v.poste_id
-            ORDER BY DATE(v.date_heure) ASC, v.vehicule_id ASC, v.poste_id ASC
+            FROM (
+                SELECT v.date_heure, v.vehicule_id, v.statut_global,
+                    ' . $guardDurationSql . ' AS garde_duree_heures,
+                    COALESCE((
+                        SELECT CASE WHEN COUNT(DISTINCT current_poste.id) = 1 THEN MIN(current_poste.id) ELSE NULL END
+                        FROM verification_lignes vl
+                        INNER JOIN controles c ON c.id = vl.controle_id
+                        INNER JOIN vehicules current_vehicle ON current_vehicle.id = c.vehicule_id
+                            AND current_vehicle.caserne_id = c.caserne_id
+                        INNER JOIN postes current_poste ON current_poste.id = c.poste_id
+                            AND current_poste.caserne_id = c.caserne_id
+                            AND current_poste.type_vehicule_id = current_vehicle.type_vehicule_id
+                        WHERE vl.verification_id = v.id
+                            AND c.vehicule_id = v.vehicule_id AND c.caserne_id = v.caserne_id
+                    ), v.poste_id) AS poste_id
+                FROM verifications v
+                WHERE ' . implode(' AND ', $where) . '
+            ) coverage
+            GROUP BY DATE(coverage.date_heure), coverage.vehicule_id, coverage.poste_id
+            ORDER BY DATE(coverage.date_heure) ASC, coverage.vehicule_id ASC, coverage.poste_id ASC
         ';
 
         $statement = $connection->prepare($sql);
